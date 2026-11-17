@@ -1,0 +1,2 @@
+# Keep SDD artifacts in LF on every platform so phase hashes (sdd stale check) stay stable.
+* text eol=lf
