@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Review configuration (C001-IF-004)",
+  "description": "File .sdd-review/config.json of the repository (README.md section 2), read from the base commit of each snapshot (C001-REQ-426); a base commit without it gives the default configuration. Before validation the loader removes and reports with notice ERR-CFG-002 every setting that weakens a built-in guarded area: any value of clearing.builtinGuardedAreas and any entry of clearing.guardedAreas whose name is a built-in area ID (C001-REQ-425, builtin-policy.md section 2). A file that then does not validate makes the configuration unreadable: no hunk is cleared (C001-REQ-427, ERR-CFG-001). Defaults: builtin-policy.md section 9. Keys are never written in this file (C001-REQ-809).",
+  "type": "object",
+  "required": ["formatVersion"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "formatVersion": { "const": 1 },
+    "clearing": { "$ref": "#/$defs/Clearing" },
+    "tests": { "$ref": "#/$defs/Tests" },
+    "evidence": { "$ref": "#/$defs/Evidence" },
+    "design": { "$ref": "#/$defs/Design" },
+    "model": { "$ref": "#/$defs/Model" }
+  },
+  "$defs": {
+    "PathPattern": {
+      "description": "Glob pattern relative to the repository root, syntax of builtin-policy.md section 1.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\]"
+    },
+    "PathPatterns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PathPattern" },
+      "uniqueItems": true
+    },
+    "Clearing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "description": "false disables a clearing rule (C001-REQ-424). No rule can be added (C001-REQ-412).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pureMove": { "type": "boolean", "default": true },
+            "pureRename": { "type": "boolean", "default": true },
+            "formatting": { "type": "boolean", "default": true },
+            "generatedFile": { "type": "boolean", "default": true },
+            "passingTests": { "type": "boolean", "default": true }
+          }
+        },
+        "generatedFiles": {
+          "description": "Generated-file patterns (C001-REQ-409).",
+          "$ref": "#/$defs/PathPatterns"
+        },
+        "guardedAreas": {
+          "description": "Additional guarded areas (C001-REQ-423).",
+          "type": "array",
+          "items": { "$ref": "#/$defs/GuardedArea" }
+        },
+        "builtinGuardedAreas": {
+          "description": "Reserved. Built-in guarded areas cannot be removed or narrowed (C001-REQ-425). Every member is removed before validation and reported with ERR-CFG-002 naming its JSON pointer, whatever its value; for example {\"security-auth\": false} (remove an area), {\"data-migration\": {\"exclude\": [\"db/migrations/legacy/**\"]}} (exclude paths), {\"security-auth\": {\"removeTerms\": [\"auth\"]}} (shorten a built-in list).",
+          "type": "object"
+        }
+      }
+    },
+    "GuardedArea": {
+      "type": "object",
+      "required": ["name", "paths"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Area name shown on matching hunks; the built-in area IDs are reserved.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        },
+        "paths": {
+          "allOf": [ { "$ref": "#/$defs/PathPatterns" }, { "minItems": 1 } ]
+        },
+        "description": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "Tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "description": "Test command run on the snapshot when the developer gives none (C001-REQ-505); run as in evidence-runs.md section 1.",
+          "type": "string",
+          "minLength": 1
+        },
+        "pathPatterns": {
+          "description": "Test path patterns (C001-REQ-501).",
+          "$ref": "#/$defs/PathPatterns"
+        },
+        "coverageReports": {
+          "description": "LCOV or Cobertura XML reports written by the test command (C001-REQ-507).",
+          "$ref": "#/$defs/PathPatterns"
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scenarioCommand": {
+          "description": "Command proposed for each acceptance scenario of an intent; {id} is replaced by the scenario ID (C001-REQ-510). Without it no command is proposed from scenarios.",
+          "type": "string",
+          "pattern": "\\{id\\}"
+        }
+      }
+    },
+    "Design": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minCloneLength": {
+          "description": "Minimum clone length in normalised lines (C001-REQ-215).",
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 1000,
+          "default": 6
+        }
+      }
+    },
+    "Model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "$ref": "#/$defs/Provider" },
+        "cloudOptIn": {
+          "description": "Cloud opt-in setting (C001-REQ-806). Required for a non-local endpoint: any endpoint other than a local socket, an IP literal in 127.0.0.0/8 or [::1], or the host name localhost (model-provider.md section 6). Without it a non-local provider is not used (ERR-MODEL-001).",
+          "type": "boolean",
+          "default": false
+        },
+        "timeoutSeconds": {
+          "description": "Provider timeout per request (C001-REQ-816).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 120
+        },
+        "excludedPaths": {
+          "description": "Model-excluded path patterns (C001-REQ-814).",
+          "$ref": "#/$defs/PathPatterns"
+        },
+        "maxRequestBytes": {
+          "description": "Largest request body; larger inputs are split into batches (model-provider.md section 3).",
+          "type": "integer",
+          "minimum": 4096,
+          "maximum": 10000000,
+          "default": 60000
+        }
+      }
+    },
+    "Provider": {
+      "type": "object",
+      "required": ["name", "api", "endpoint", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "api": {
+          "description": "Provider API (C001-REQ-805). Any other value fails validation: the configuration cannot be read, so the review runs in model-free mode and clears no hunk (C001-REQ-819, C001-REQ-427, ERR-CFG-001).",
+          "enum": ["openai-chat", "anthropic-messages"]
+        },
+        "endpoint": {
+          "description": "Base URL, or a local socket as unix:/path or npipe:name (C001-REQ-806). Classified from the text alone, without name resolution (model-provider.md section 6): local sockets, IP literals in 127.0.0.0/8 or [::1], and the host name localhost (connected through 127.0.0.1 or ::1) are local; every other host name is non-local and needs cloudOptIn, whatever it resolves to. Examples: http://localhost:11434/v1 and http://127.0.0.1:11434/v1 are local; http://gpu-box.lan:11434/v1 and https://api.anthropic.com are non-local.",
+          "type": "string",
+          "pattern": "^(https?://[^\\s]+|unix:/[^\\s]+|npipe:[^\\s]+)$"
+        },
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "keyEnv": {
+          "description": "Name of the environment variable that holds the key (C001-REQ-809). When set, the provider requires a key: none found gives ERR-MODEL-006 (model-provider.md section 7).",
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "keyCredential": {
+          "description": "Entry of the operating system's credential store that holds the key (C001-REQ-809); default service sdd-review, account = provider name (README.md section 2). When set, the provider requires a key: none found gives ERR-MODEL-006. Lookup order and when a key is required: model-provider.md section 7.",
+          "type": "object",
+          "required": ["service", "account"],
+          "additionalProperties": false,
+          "properties": {
+            "service": { "type": "string", "minLength": 1 },
+            "account": { "type": "string", "minLength": 1 }
+          }
+        },
+        "responseFormat": {
+          "description": "Structured-output mode of the openai-chat adapter (model-provider.md section 4).",
+          "enum": ["json-schema", "json-object", "none"],
+          "default": "json-schema"
+        },
+        "maxOutputTokens": {
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 200000,
+          "default": 4096
+        }
+      }
+    }
+  }
+}

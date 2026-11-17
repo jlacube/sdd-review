@@ -1,0 +1,1117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Analysis results (C001-IF-008)",
+  "description": "Neutral intermediate form of a snapshot's analysis results: intake, architecture delta, intent map, triage and evidence. Written by the headless analysis (C001-REQ-912), served through C001-IF-002 and stored per snapshot (C001-REQ-919). Entities and identifiers: 40-domain/domain-model.md. Shared rules: README.md section 3.",
+  "oneOf": [
+    { "$ref": "#/$defs/IntakeDocument" },
+    { "$ref": "#/$defs/ArchitectureDeltaDocument" },
+    { "$ref": "#/$defs/IntentMapDocument" },
+    { "$ref": "#/$defs/TriageDocument" },
+    { "$ref": "#/$defs/EvidenceDocument" }
+  ],
+  "$defs": {
+    "Sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "CommitHash": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" },
+    "SnapshotId": { "type": "string", "pattern": "^s-[0-9a-f]{64}$" },
+    "HunkId": { "type": "string", "pattern": "^h-[0-9a-f]{16}$" },
+    "IntentId": { "type": "string", "pattern": "^i-[0-9a-f]{16}$" },
+    "ComponentId": { "type": "string", "pattern": "^(doc:.+|dir:.*|undocumented)$" },
+    "Timestamp": { "type": "string", "format": "date-time" },
+    "RepoPath": { "type": "string", "minLength": 1 },
+    "Share": { "type": "number", "minimum": 0, "maximum": 1 },
+    "Location": {
+      "type": "object",
+      "required": ["path", "line"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "Notice": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "pattern": "^ERR-[A-Z]+-[0-9]{3}$" },
+        "message": { "type": "string" },
+        "subject": { "type": "string" },
+        "count": { "type": "integer", "minimum": 0 },
+        "at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "ModelOutputMarker": {
+      "description": "C001-REQ-810, C001-REQ-811.",
+      "type": "object",
+      "required": ["provider", "model", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "confidence": { "const": "low" }
+      }
+    },
+    "Labels": {
+      "description": "C001-REQ-804, C001-REQ-911.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reduced": {
+          "description": "Each entry names a feature or signal that is missing from the result.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "modelOutput": { "$ref": "#/$defs/ModelOutputMarker" }
+      }
+    },
+    "Shares": {
+      "description": "C001-REQ-602, C001-REQ-605; read + cleared + open = 1 when changedLines > 0.",
+      "type": "object",
+      "required": ["changedLines", "read", "cleared", "open"],
+      "additionalProperties": false,
+      "properties": {
+        "changedLines": { "type": "integer", "minimum": 0 },
+        "read": { "$ref": "#/$defs/Share" },
+        "cleared": { "$ref": "#/$defs/Share" },
+        "open": { "$ref": "#/$defs/Share" }
+      }
+    },
+    "ClearingRule": { "enum": ["pure-move", "pure-rename", "formatting", "generated-file", "passing-tests"] },
+    "Confidence": { "enum": ["high", "medium", "low", "developer"] },
+    "Ecosystem": { "enum": ["typescript-javascript", "python", "csharp-dotnet", "other"] },
+    "BaseChoice": {
+      "description": "How the base commit was chosen (C001-REQ-102 to C001-REQ-104; cases of C001-IF-012 section 4).",
+      "enum": ["named", "upstream-merge-base", "default-branch-merge-base", "head"]
+    },
+    "BaseRef": {
+      "description": "Full ref name whose merge base with HEAD is the base commit: the upstream branch (upstream-merge-base) or the entry of C001-IF-012 G-14 that was used (default-branch-merge-base); null for named and head.",
+      "type": ["string", "null"]
+    },
+    "CommitRef": {
+      "type": "object",
+      "required": ["hash", "subject"],
+      "additionalProperties": false,
+      "properties": {
+        "hash": { "$ref": "#/$defs/CommitHash" },
+        "subject": { "type": "string" }
+      }
+    },
+
+    "Snapshot": {
+      "type": "object",
+      "required": ["snapshotId", "baseCommit", "baseChoice", "headCommit", "changedFiles", "changedLines", "sizeWarning", "configurationSource", "createdAt"],
+      "additionalProperties": false,
+      "properties": {
+        "snapshotId": { "$ref": "#/$defs/SnapshotId" },
+        "baseCommit": { "$ref": "#/$defs/CommitRef" },
+        "baseChoice": { "$ref": "#/$defs/BaseChoice" },
+        "namedValue": { "type": ["string", "null"] },
+        "baseRef": { "$ref": "#/$defs/BaseRef" },
+        "headCommit": { "$ref": "#/$defs/CommitHash" },
+        "changedFiles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/ChangedFile" } },
+        "changedLines": { "type": "integer", "minimum": 0 },
+        "sizeWarning": { "type": "boolean" },
+        "configurationSource": {
+          "type": "object",
+          "required": ["default"],
+          "additionalProperties": false,
+          "properties": {
+            "default": { "type": "boolean" },
+            "commit": { "$ref": "#/$defs/CommitHash" },
+            "path": { "type": "string" },
+            "readable": { "type": "boolean" }
+          }
+        },
+        "createdAt": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "ChangedFile": {
+      "type": "object",
+      "required": ["path", "changeType", "binary", "ecosystem", "changedLines", "componentId", "hunkIds"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/RepoPath" },
+        "oldPath": { "type": ["string", "null"] },
+        "changeType": { "enum": ["added", "deleted", "modified", "renamed"] },
+        "binary": { "type": "boolean" },
+        "ecosystem": { "$ref": "#/$defs/Ecosystem" },
+        "contentHash": { "oneOf": [ { "$ref": "#/$defs/Sha256" }, { "type": "null" } ] },
+        "mode": {
+          "description": "File mode of the snapshot side (C001-IF-012 G-07); null for a deleted file. Used to fill evidence workspaces (C001-IF-013 section 2).",
+          "enum": ["regular", "executable", "symbolic-link", null]
+        },
+        "changedLines": { "type": "integer", "minimum": 0 },
+        "componentId": { "$ref": "#/$defs/ComponentId" },
+        "hunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } }
+      }
+    },
+    "HunkLine": {
+      "type": "object",
+      "required": ["kind", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["added", "deleted"] },
+        "text": { "type": "string" },
+        "oldNumber": { "type": "integer", "minimum": 1 },
+        "newNumber": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "Hunk": {
+      "type": "object",
+      "required": ["hunkId", "contentKey", "path", "oldStart", "oldLines", "newStart", "newLines", "changedLines", "lines", "commits", "uncommitted", "isTestHunk"],
+      "additionalProperties": false,
+      "properties": {
+        "hunkId": { "$ref": "#/$defs/HunkId" },
+        "contentKey": { "$ref": "#/$defs/Sha256" },
+        "path": { "$ref": "#/$defs/RepoPath" },
+        "oldStart": { "type": "integer", "minimum": 0 },
+        "oldLines": { "type": "integer", "minimum": 0 },
+        "newStart": { "type": "integer", "minimum": 0 },
+        "newLines": { "type": "integer", "minimum": 0 },
+        "changedLines": { "type": "integer", "minimum": 1 },
+        "lines": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/HunkLine" } },
+        "commits": { "type": "array", "items": { "$ref": "#/$defs/CommitHash" } },
+        "uncommitted": { "type": "boolean" },
+        "isTestHunk": { "type": "boolean" },
+        "movePartner": { "oneOf": [ { "$ref": "#/$defs/HunkId" }, { "type": "null" } ] },
+        "labels": { "$ref": "#/$defs/Labels" }
+      }
+    },
+    "ChangeCommit": {
+      "type": "object",
+      "required": ["hash", "parents", "authorName", "authorEmail", "authorTime", "subject", "message", "changedFiles"],
+      "additionalProperties": false,
+      "properties": {
+        "hash": { "$ref": "#/$defs/CommitHash" },
+        "parents": { "type": "array", "items": { "$ref": "#/$defs/CommitHash" } },
+        "authorName": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorTime": { "$ref": "#/$defs/Timestamp" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "changedFiles": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "NamedFile": {
+      "type": "object",
+      "required": ["role", "path", "size", "format", "text", "textHash"],
+      "additionalProperties": false,
+      "properties": {
+        "role": { "enum": ["pull-request-text", "agent-plan", "agent-transcript"] },
+        "path": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 },
+        "format": { "enum": ["markdown", "plain-text"] },
+        "text": { "type": "string" },
+        "textHash": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "SpecItem": {
+      "type": "object",
+      "required": ["id", "kind", "title", "text", "textHash", "links", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "enum": ["requirement", "task", "scenario", "acceptance-criterion"] },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "textHash": { "$ref": "#/$defs/Sha256" },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["to", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "to": { "type": "string" },
+              "type": { "enum": ["implements", "verifies", "refines", "relates"] }
+            }
+          }
+        },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "location": { "$ref": "#/$defs/Location" }
+      }
+    },
+    "SddChange": {
+      "type": "object",
+      "required": ["id", "title", "origin", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "origin": { "enum": ["sdd-folder", "neutral-file"] },
+        "location": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/SpecItem" } }
+      }
+    },
+    "PlanItem": {
+      "type": "object",
+      "required": ["file", "ordinal", "title", "text", "textHash", "location", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string" },
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "title": { "type": "string", "maxLength": 200 },
+        "text": { "type": "string" },
+        "textHash": { "$ref": "#/$defs/Sha256" },
+        "location": { "$ref": "#/$defs/Location" },
+        "files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "RecordedRun": {
+      "type": "object",
+      "required": ["command", "recordedOutput", "location", "intentIds"],
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "string" },
+        "recordedOutput": { "type": ["string", "null"] },
+        "location": { "$ref": "#/$defs/Location" },
+        "intentIds": { "type": "array", "items": { "$ref": "#/$defs/IntentId" } }
+      }
+    },
+    "DocumentedArchitecture": {
+      "type": "object",
+      "required": ["origin", "layers", "components"],
+      "additionalProperties": false,
+      "properties": {
+        "origin": { "enum": ["sdd-folder", "neutral-file"] },
+        "location": { "type": "string" },
+        "layers": { "type": "array", "items": { "type": "string" } },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "paths", "allowedDependencies"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "layer": { "type": ["string", "null"] },
+              "paths": { "type": "array", "items": { "type": "string" } },
+              "allowedDependencies": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "IntakeSummary": {
+      "description": "C001-REQ-114, C001-REQ-121.",
+      "type": "object",
+      "required": ["baseCommit", "baseChoice", "changedFiles", "changedLines", "intentContext", "sizeWarning"],
+      "additionalProperties": false,
+      "properties": {
+        "baseCommit": { "$ref": "#/$defs/CommitRef" },
+        "baseChoice": { "$ref": "#/$defs/BaseChoice" },
+        "baseRef": { "$ref": "#/$defs/BaseRef" },
+        "testCommand": {
+          "description": "Test command that will run on the snapshot (C001-REQ-505), or null when none is known.",
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["command", "origin"],
+              "additionalProperties": false,
+              "properties": {
+                "command": { "type": "string", "minLength": 1 },
+                "origin": { "enum": ["developer", "configuration"] }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "changedFiles": { "type": "integer", "minimum": 1 },
+        "changedLines": { "type": "integer", "minimum": 0 },
+        "intentContext": {
+          "type": "object",
+          "required": ["sddChanges", "commits", "namedFiles", "documentedArchitecture"],
+          "additionalProperties": false,
+          "properties": {
+            "sddChanges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "specItems", "selected"],
+                "additionalProperties": false,
+                "properties": {
+                  "id": { "type": "string" },
+                  "specItems": { "type": "integer", "minimum": 0 },
+                  "selected": { "type": "boolean" }
+                }
+              }
+            },
+            "commits": { "type": "integer", "minimum": 0 },
+            "namedFiles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["role", "path"],
+                "additionalProperties": false,
+                "properties": {
+                  "role": { "enum": ["pull-request-text", "agent-plan", "agent-transcript"] },
+                  "path": { "type": "string" }
+                }
+              }
+            },
+            "documentedArchitecture": { "enum": ["sdd-folder", "neutral-file", "none"] }
+          }
+        },
+        "sizeWarning": { "oneOf": [ { "$ref": "#/$defs/Notice" }, { "type": "null" } ] }
+      }
+    },
+    "IntakeDocument": {
+      "type": "object",
+      "required": ["document", "formatVersion", "snapshot", "hunks", "intakeSummary", "intentContext", "notices"],
+      "additionalProperties": false,
+      "properties": {
+        "document": { "const": "intake" },
+        "formatVersion": { "const": 1 },
+        "snapshot": { "$ref": "#/$defs/Snapshot" },
+        "hunks": { "type": "array", "items": { "$ref": "#/$defs/Hunk" } },
+        "intakeSummary": { "$ref": "#/$defs/IntakeSummary" },
+        "intentContext": {
+          "type": "object",
+          "required": ["sddChanges", "documentedArchitecture", "commits", "namedFiles", "planItems", "recordedRuns"],
+          "additionalProperties": false,
+          "properties": {
+            "sddChanges": { "type": "array", "items": { "$ref": "#/$defs/SddChange" } },
+            "documentedArchitecture": { "oneOf": [ { "$ref": "#/$defs/DocumentedArchitecture" }, { "type": "null" } ] },
+            "commits": { "type": "array", "items": { "$ref": "#/$defs/ChangeCommit" } },
+            "namedFiles": { "type": "array", "items": { "$ref": "#/$defs/NamedFile" } },
+            "planItems": { "type": "array", "items": { "$ref": "#/$defs/PlanItem" } },
+            "recordedRuns": { "type": "array", "items": { "$ref": "#/$defs/RecordedRun" } }
+          }
+        },
+        "notices": { "type": "array", "items": { "$ref": "#/$defs/Notice" } }
+      }
+    },
+
+    "Component": {
+      "type": "object",
+      "required": ["componentId", "name", "origin", "changedFiles", "changedLines", "hunks"],
+      "additionalProperties": false,
+      "properties": {
+        "componentId": { "$ref": "#/$defs/ComponentId" },
+        "name": { "type": "string" },
+        "origin": { "enum": ["documented", "derived", "undocumented"] },
+        "layer": { "type": ["string", "null"] },
+        "paths": { "type": "array", "items": { "type": "string" } },
+        "changedFiles": { "type": "integer", "minimum": 0 },
+        "changedLines": { "type": "integer", "minimum": 0 },
+        "hunks": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Dependency": {
+      "type": "object",
+      "required": ["from", "to", "change", "newCoupling", "drift", "analysed", "hunkIds"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "$ref": "#/$defs/ComponentId" },
+        "to": {
+          "oneOf": [
+            { "type": "object", "required": ["componentId"], "additionalProperties": false, "properties": { "componentId": { "$ref": "#/$defs/ComponentId" } } },
+            { "type": "object", "required": ["package"], "additionalProperties": false, "properties": { "package": { "type": "string" } } }
+          ]
+        },
+        "change": { "enum": ["added", "removed"] },
+        "newCoupling": { "type": "boolean" },
+        "drift": { "type": "boolean" },
+        "analysed": { "type": "boolean" },
+        "hunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } }
+      }
+    },
+    "PackageChange": {
+      "type": "object",
+      "required": ["manifest", "ecosystem", "package", "change", "hunkId"],
+      "additionalProperties": false,
+      "properties": {
+        "manifest": { "$ref": "#/$defs/RepoPath" },
+        "ecosystem": { "$ref": "#/$defs/Ecosystem" },
+        "package": { "type": "string" },
+        "fromVersion": { "type": ["string", "null"] },
+        "toVersion": { "type": ["string", "null"] },
+        "change": { "enum": ["added", "removed", "re-versioned"] },
+        "hunkId": { "$ref": "#/$defs/HunkId" }
+      }
+    },
+    "DesignFinding": {
+      "type": "object",
+      "required": ["findingId", "kind", "componentIds", "hunkIds", "statement"],
+      "additionalProperties": false,
+      "properties": {
+        "findingId": { "type": "string" },
+        "kind": { "enum": ["dependency-cycle", "layer-bypass", "duplicated-logic", "design-critique"] },
+        "componentIds": { "type": "array", "items": { "$ref": "#/$defs/ComponentId" } },
+        "hunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } },
+        "statement": { "type": "string" },
+        "labels": { "$ref": "#/$defs/Labels" }
+      }
+    },
+    "DriftFinding": {
+      "description": "C001-REQ-208, C001-REQ-209, C001-REQ-222. For kind architecture-edit, componentId is the component of the file that holds the documented architecture, hunkIds holds the one hunk flagged, and edit states which lines it touches (C001-IF-007 section 4).",
+      "type": "object",
+      "required": ["kind", "componentId", "hunkIds", "statement"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["disallowed-dependency", "outside-documented-components", "architecture-edit"] },
+        "componentId": { "$ref": "#/$defs/ComponentId" },
+        "hunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } },
+        "statement": { "type": "string" },
+        "edit": {
+          "type": "object",
+          "required": ["file", "addsSnapshotLines", "deletesBaseLines"],
+          "additionalProperties": false,
+          "properties": {
+            "file": { "$ref": "#/$defs/RepoPath" },
+            "addsSnapshotLines": { "description": "The hunk adds a line from which the snapshot's documented architecture is read.", "type": "boolean" },
+            "deletesBaseLines": { "description": "The hunk deletes a line from which the base commit's documented architecture is read.", "type": "boolean" }
+          }
+        }
+      },
+      "if": { "properties": { "kind": { "const": "architecture-edit" } } },
+      "then": { "required": ["edit"] },
+      "else": { "not": { "required": ["edit"] } }
+    },
+    "UnanalysedManifest": {
+      "description": "A package manifest of C001-REQ-205 that the change edits and that cannot be parsed on one side; its package changes are not analysed (C001-REQ-224, notice ERR-ARCH-001).",
+      "type": "object",
+      "required": ["manifest", "side", "parseError"],
+      "additionalProperties": false,
+      "properties": {
+        "manifest": { "$ref": "#/$defs/RepoPath" },
+        "side": { "enum": ["base", "snapshot"] },
+        "parseError": { "type": "string" }
+      }
+    },
+    "ArchitectureDeltaDocument": {
+      "type": "object",
+      "required": ["document", "formatVersion", "snapshotId", "documented", "driftChecked", "components", "dependencies", "packageChanges", "unanalysedManifests", "designFindings", "driftFindings", "labels", "notices"],
+      "additionalProperties": false,
+      "properties": {
+        "document": { "const": "architecture-delta" },
+        "formatVersion": { "const": 1 },
+        "snapshotId": { "$ref": "#/$defs/SnapshotId" },
+        "documented": { "type": "boolean" },
+        "driftChecked": { "description": "False without a documented architecture in the snapshot (C001-REQ-211); architecture-edit drift of C001-REQ-222 is reported even then.", "type": "boolean" },
+        "components": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Component" } },
+        "dependencies": { "type": "array", "items": { "$ref": "#/$defs/Dependency" } },
+        "packageChanges": { "type": "array", "items": { "$ref": "#/$defs/PackageChange" } },
+        "unanalysedManifests": { "type": "array", "items": { "$ref": "#/$defs/UnanalysedManifest" } },
+        "designFindings": { "type": "array", "items": { "$ref": "#/$defs/DesignFinding" } },
+        "driftFindings": { "type": "array", "items": { "$ref": "#/$defs/DriftFinding" } },
+        "labels": { "$ref": "#/$defs/Labels" },
+        "notices": { "type": "array", "items": { "$ref": "#/$defs/Notice" } }
+      }
+    },
+
+    "IntentSource": {
+      "type": "object",
+      "required": ["type", "reference", "text", "textHash"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["spec-item", "commit", "plan-item", "transcript-passage", "pull-request-text", "developer"] },
+        "reference": { "type": "string" },
+        "location": { "oneOf": [ { "$ref": "#/$defs/Location" }, { "type": "null" } ] },
+        "text": { "type": "string" },
+        "textHash": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "DeterministicAccount": {
+      "description": "C001-REQ-324.",
+      "type": "object",
+      "required": ["files", "symbols"],
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "change"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "change": { "enum": ["added", "changed", "removed"] }
+            }
+          }
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "name", "change"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "name": { "type": "string" },
+              "change": { "enum": ["added", "changed", "removed"] }
+            }
+          }
+        },
+        "labels": { "$ref": "#/$defs/Labels" }
+      }
+    },
+    "ModelAccount": {
+      "description": "C001-REQ-325.",
+      "type": "object",
+      "required": ["text", "labels"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string" },
+        "labels": { "$ref": "#/$defs/Labels" }
+      }
+    },
+    "Intent": {
+      "type": "object",
+      "required": ["intentId", "intentKey", "title", "kind", "source", "sourceOrder", "unmet"],
+      "additionalProperties": false,
+      "properties": {
+        "intentId": { "$ref": "#/$defs/IntentId" },
+        "intentKey": { "type": "string" },
+        "title": { "type": "string" },
+        "kind": { "enum": ["spec-requirement", "extracted-commit", "extracted-plan-item", "extracted-model", "developer-named"] },
+        "source": { "$ref": "#/$defs/IntentSource" },
+        "sourceOrder": { "type": "integer", "minimum": 0 },
+        "unmet": { "type": "boolean" },
+        "deterministicAccount": { "$ref": "#/$defs/DeterministicAccount" },
+        "modelAccount": { "oneOf": [ { "$ref": "#/$defs/ModelAccount" }, { "type": "null" } ] },
+        "labels": { "$ref": "#/$defs/Labels" }
+      }
+    },
+    "Link": {
+      "type": "object",
+      "required": ["hunkId", "target", "signal", "confidence", "reason", "alternatives"],
+      "additionalProperties": false,
+      "properties": {
+        "hunkId": { "$ref": "#/$defs/HunkId" },
+        "target": { "oneOf": [ { "$ref": "#/$defs/IntentId" }, { "const": "orphan" } ] },
+        "signal": { "enum": ["id-in-commit-message", "id-in-code", "task-names-file", "commit-of-origin", "plan-item-names-file", "model-judgement", "developer-move", "none"] },
+        "confidence": { "oneOf": [ { "$ref": "#/$defs/Confidence" }, { "type": "null" } ] },
+        "reason": { "type": "string" },
+        "alternatives": { "type": "array", "items": { "$ref": "#/$defs/IntentId" } },
+        "labels": { "$ref": "#/$defs/Labels" }
+      }
+    },
+    "SpecEditFlag": {
+      "description": "C001-REQ-328: a hunk that adds a line from which a spec item of the selected SDD change is read in the snapshot, or deletes a line from which such an item is read at the base commit (C001-IF-007 section 3). One flag per spec item and hunk. change: added when the item's ID is read in the snapshot only, deleted when it is read at the base commit only, modified when it is read on both sides.",
+      "type": "object",
+      "required": ["specItemId", "kind", "hunkId", "change"],
+      "additionalProperties": false,
+      "properties": {
+        "specItemId": { "type": "string" },
+        "kind": { "enum": ["requirement", "task", "scenario", "acceptance-criterion"] },
+        "hunkId": { "$ref": "#/$defs/HunkId" },
+        "change": { "enum": ["added", "modified", "deleted"] },
+        "intentId": { "description": "The intent taken from the spec item, or the intent its linked requirement gives; null for a deleted requirement, which is neither an intent nor an unmet intent.", "oneOf": [ { "$ref": "#/$defs/IntentId" }, { "type": "null" } ] }
+      }
+    },
+    "IntentMapDocument": {
+      "type": "object",
+      "required": ["document", "formatVersion", "snapshotId", "mode", "sddChangeId", "intents", "links", "orphanHunkIds", "unmetIntentIds", "specEdits", "displayOrder", "labels", "notices"],
+      "additionalProperties": false,
+      "properties": {
+        "document": { "const": "intent-map" },
+        "formatVersion": { "const": 1 },
+        "snapshotId": { "$ref": "#/$defs/SnapshotId" },
+        "mode": { "enum": ["sdd-change", "intent-fallback"] },
+        "sddChangeId": { "type": ["string", "null"] },
+        "intents": { "type": "array", "items": { "$ref": "#/$defs/Intent" } },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/Link" } },
+        "specEdits": { "description": "C001-REQ-328; empty in intent fallback.", "type": "array", "items": { "$ref": "#/$defs/SpecEditFlag" } },
+        "orphanHunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } },
+        "unmetIntentIds": { "type": "array", "items": { "$ref": "#/$defs/IntentId" } },
+        "displayOrder": {
+          "description": "Orphan code first, then unmet intents, then the other intents in source order (C001-REQ-310, C001-REQ-312).",
+          "type": "array",
+          "items": { "oneOf": [ { "$ref": "#/$defs/IntentId" }, { "const": "orphan" } ] }
+        },
+        "labels": { "$ref": "#/$defs/Labels" },
+        "notices": { "type": "array", "items": { "$ref": "#/$defs/Notice" } }
+      }
+    },
+
+    "GuardedAreaMatch": {
+      "type": "object",
+      "required": ["area", "criterion"],
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": "string" },
+        "builtIn": { "type": "boolean" },
+        "criterion": { "type": "string" }
+      }
+    },
+    "RiskAssessment": {
+      "type": "object",
+      "required": ["hunkId", "signals", "score", "guardedAreas"],
+      "additionalProperties": false,
+      "properties": {
+        "hunkId": { "$ref": "#/$defs/HunkId" },
+        "signals": {
+          "type": "object",
+          "required": ["guardedArea", "size", "novelty", "testCoverage", "dependencyChange"],
+          "additionalProperties": false,
+          "properties": {
+            "guardedArea": { "type": "boolean" },
+            "size": { "type": "integer", "minimum": 1 },
+            "novelty": { "type": "boolean" },
+            "testCoverage": {
+              "type": "object",
+              "required": ["share", "unknown"],
+              "additionalProperties": false,
+              "properties": {
+                "share": { "$ref": "#/$defs/Share" },
+                "unknown": { "type": "boolean" }
+              }
+            },
+            "dependencyChange": { "type": "boolean" }
+          }
+        },
+        "score": { "type": "number", "minimum": 0 },
+        "guardedAreas": { "type": "array", "items": { "$ref": "#/$defs/GuardedAreaMatch" } }
+      }
+    },
+    "EvidenceRecord": {
+      "type": "object",
+      "required": ["evidenceRecordId", "hunkId", "rules", "itemIds", "clearedAt", "withdrawn"],
+      "additionalProperties": false,
+      "properties": {
+        "evidenceRecordId": { "type": "string", "pattern": "^er-[0-9a-f]{32}$" },
+        "hunkId": { "$ref": "#/$defs/HunkId" },
+        "rules": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/ClearingRule" } },
+        "itemIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "clearedAt": { "$ref": "#/$defs/Timestamp" },
+        "withdrawn": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["at", "cause"],
+              "additionalProperties": false,
+              "properties": {
+                "at": { "$ref": "#/$defs/Timestamp" },
+                "cause": { "enum": ["evidence-lost", "developer", "escalation"] },
+                "condition": { "type": "string" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "HunkReviewState": {
+      "type": "object",
+      "required": ["hunkId", "state", "reopenCause", "inSample"],
+      "additionalProperties": false,
+      "properties": {
+        "hunkId": { "$ref": "#/$defs/HunkId" },
+        "state": { "enum": ["open", "cleared", "read", "reopened"] },
+        "reopenCause": { "enum": ["developer", "evidence-lost", "escalation", null] },
+        "defectReportSeq": { "type": ["integer", "null"] },
+        "inSample": { "type": "boolean" }
+      }
+    },
+    "RuleStatus": {
+      "description": "C001-REQ-604, C001-REQ-616; sample rule C001-INV-16. population holds the hunks whose clearing by the rule is not withdrawn, read or not; sample is a subset of the population that holds ceil(n / 10) of its n hunks, more only while read sampled hunks cannot leave it, fewer only when status is escalated (an escalated rule takes no new hunk into its sample), listed in the order they entered.",
+      "type": "object",
+      "required": ["rule", "status", "cleared", "population", "sample"],
+      "additionalProperties": false,
+      "properties": {
+        "rule": { "$ref": "#/$defs/ClearingRule" },
+        "status": { "enum": ["active", "disabled", "suspended", "escalated"] },
+        "cleared": { "type": "integer", "minimum": 0 },
+        "population": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/HunkId" } },
+        "sample": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/HunkId" } }
+      }
+    },
+    "IntentOrder": {
+      "description": "Intent order (C001-REQ-403, C001-REQ-502).",
+      "type": "object",
+      "required": ["scope", "testHunkIds", "otherHunkIds", "reducedOrder"],
+      "additionalProperties": false,
+      "properties": {
+        "scope": { "oneOf": [ { "$ref": "#/$defs/IntentId" }, { "const": "orphan" } ] },
+        "testHunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } },
+        "otherHunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } },
+        "reducedOrder": { "description": "True when a hunk was ordered without the definition-before-use key (C001-REQ-323).", "type": "boolean" }
+      }
+    },
+    "ScopeShares": {
+      "type": "object",
+      "required": ["change", "orphan", "intents", "components"],
+      "additionalProperties": false,
+      "properties": {
+        "change": { "$ref": "#/$defs/Shares" },
+        "orphan": { "$ref": "#/$defs/Shares" },
+        "intents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["intentId", "shares"],
+            "additionalProperties": false,
+            "properties": { "intentId": { "$ref": "#/$defs/IntentId" }, "shares": { "$ref": "#/$defs/Shares" } }
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["componentId", "shares"],
+            "additionalProperties": false,
+            "properties": { "componentId": { "$ref": "#/$defs/ComponentId" }, "shares": { "$ref": "#/$defs/Shares" } }
+          }
+        }
+      }
+    },
+    "TriageDocument": {
+      "type": "object",
+      "required": ["document", "formatVersion", "snapshotId", "configuration", "risk", "hunkStates", "evidenceRecords", "rules", "intentOrder", "shares", "notices"],
+      "additionalProperties": false,
+      "properties": {
+        "document": { "const": "triage" },
+        "formatVersion": { "const": 1 },
+        "snapshotId": { "$ref": "#/$defs/SnapshotId" },
+        "configuration": {
+          "type": "object",
+          "required": ["readable", "ignoredSettings"],
+          "additionalProperties": false,
+          "properties": {
+            "readable": { "type": "boolean" },
+            "ignoredSettings": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "risk": { "type": "array", "items": { "$ref": "#/$defs/RiskAssessment" } },
+        "hunkStates": { "type": "array", "items": { "$ref": "#/$defs/HunkReviewState" } },
+        "evidenceRecords": { "type": "array", "items": { "$ref": "#/$defs/EvidenceRecord" } },
+        "rules": { "type": "array", "items": { "$ref": "#/$defs/RuleStatus" } },
+        "intentOrder": { "type": "array", "items": { "$ref": "#/$defs/IntentOrder" } },
+        "shares": { "$ref": "#/$defs/ScopeShares" },
+        "notices": { "type": "array", "items": { "$ref": "#/$defs/Notice" } }
+      }
+    },
+
+    "EvidenceItem": {
+      "type": "object",
+      "required": ["evidenceItemId", "subject", "kind", "strength", "resultDigest"],
+      "additionalProperties": false,
+      "properties": {
+        "evidenceItemId": { "type": "string", "pattern": "^ei-[0-9a-f]{32}$" },
+        "subject": {
+          "oneOf": [
+            { "type": "object", "required": ["hunkId"], "additionalProperties": false, "properties": { "hunkId": { "$ref": "#/$defs/HunkId" } } },
+            { "type": "object", "required": ["intentId"], "additionalProperties": false, "properties": { "intentId": { "$ref": "#/$defs/IntentId" } } }
+          ]
+        },
+        "kind": { "enum": ["deterministic-proof", "test-result", "mutation-result", "property-counter-example", "bundle-run", "agent-reported"] },
+        "strength": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "runId": { "type": ["string", "null"] },
+        "resultDigest": { "$ref": "#/$defs/Sha256" },
+        "detail": { "type": "object" }
+      }
+    },
+    "TestResult": {
+      "type": "object",
+      "required": ["testId", "name", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "testId": { "type": "string" },
+        "name": { "type": "string" },
+        "outcome": { "enum": ["passed", "failed", "skipped"] },
+        "qualifying": { "type": "boolean" },
+        "counterExample": { "type": ["string", "null"] }
+      }
+    },
+    "LineCoverage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["path", "line", "passingTests", "failingTests"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "passingTests": { "type": "array", "items": { "type": "string" } },
+            "failingTests": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["path", "line", "executed"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" },
+            "line": { "type": "integer", "minimum": 1 },
+            "executed": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "TestRun": {
+      "type": "object",
+      "required": ["testRunId", "command", "origin", "status", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "testRunId": { "type": "string", "pattern": "^run-[0-9a-f]{32}$" },
+        "command": { "type": ["string", "null"] },
+        "origin": { "enum": ["developer", "configuration", "none"] },
+        "status": { "enum": ["pending", "running", "completed", "unavailable", "discarded"] },
+        "reason": { "type": ["string", "null"] },
+        "startedAt": { "$ref": "#/$defs/Timestamp" },
+        "endedAt": { "$ref": "#/$defs/Timestamp" },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/TestResult" } },
+        "coverage": { "type": "array", "items": { "$ref": "#/$defs/LineCoverage" } }
+      }
+    },
+    "MutationResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["hunkId", "line", "mutation", "outcome"],
+          "additionalProperties": false,
+          "properties": {
+            "hunkId": { "$ref": "#/$defs/HunkId" },
+            "line": { "type": "integer", "minimum": 1 },
+            "mutation": { "type": "string" },
+            "outcome": { "enum": ["killed", "survived", "no-coverage", "timeout", "error"] }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["hunkId", "unavailable"],
+          "additionalProperties": false,
+          "properties": {
+            "hunkId": { "$ref": "#/$defs/HunkId" },
+            "unavailable": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "PropertyCounterExample": {
+      "type": "object",
+      "required": ["testId", "input", "hunkIds"],
+      "additionalProperties": false,
+      "properties": {
+        "testId": { "type": "string" },
+        "input": { "type": "string" },
+        "hunkIds": { "type": "array", "items": { "$ref": "#/$defs/HunkId" } }
+      }
+    },
+    "BundleCommand": {
+      "type": "object",
+      "required": ["commandId", "command", "origin", "confirmed"],
+      "additionalProperties": false,
+      "properties": {
+        "commandId": { "type": "string" },
+        "command": { "type": "string", "minLength": 1 },
+        "origin": { "enum": ["developer", "agent-run", "scenario"] },
+        "confirmed": { "type": "boolean" },
+        "sourceLocation": { "oneOf": [ { "$ref": "#/$defs/Location" }, { "type": "null" } ] },
+        "recordedOutput": { "type": ["string", "null"] }
+      }
+    },
+    "BundleRun": {
+      "type": "object",
+      "required": ["runId", "commandId", "exitStatus", "stdout", "stderr", "startedAt", "endedAt", "snapshotMatch", "reference"],
+      "additionalProperties": false,
+      "properties": {
+        "runId": { "type": "string", "pattern": "^run-[0-9a-f]{32}$" },
+        "commandId": { "type": "string" },
+        "exitStatus": { "type": ["integer", "null"] },
+        "stdout": { "type": "string" },
+        "stderr": { "type": "string" },
+        "stdoutTruncated": { "type": "boolean" },
+        "stderrTruncated": { "type": "boolean" },
+        "startedAt": { "$ref": "#/$defs/Timestamp" },
+        "endedAt": { "$ref": "#/$defs/Timestamp" },
+        "snapshotMatch": { "type": "boolean" },
+        "reference": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "object", "required": ["runId"], "additionalProperties": false, "properties": { "runId": { "type": "string" } } },
+            { "type": "object", "required": ["agentRecorded"], "additionalProperties": false, "properties": { "agentRecorded": { "const": true } } }
+          ]
+        },
+        "differences": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["exitStatusChanged", "stdoutDiff", "stderrDiff"],
+              "additionalProperties": false,
+              "properties": {
+                "exitStatusChanged": { "type": "boolean" },
+                "stdoutDiff": { "type": "string" },
+                "stderrDiff": { "type": "string" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "EvidenceBundle": {
+      "type": "object",
+      "required": ["intentId", "commands", "runs"],
+      "additionalProperties": false,
+      "properties": {
+        "intentId": { "$ref": "#/$defs/IntentId" },
+        "commands": { "type": "array", "items": { "$ref": "#/$defs/BundleCommand" } },
+        "runs": { "type": "array", "items": { "$ref": "#/$defs/BundleRun" } }
+      }
+    },
+    "TestJudgement": {
+      "type": "object",
+      "required": ["intentId", "value", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "intentId": { "$ref": "#/$defs/IntentId" },
+        "value": { "enum": ["expresses", "does-not-express"] },
+        "at": { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+    "EvidenceDocument": {
+      "type": "object",
+      "required": ["document", "formatVersion", "snapshotId", "testRuns", "evidenceItems", "mutationResults", "propertyCounterExamples", "evidenceBundles", "testJudgements", "notices"],
+      "additionalProperties": false,
+      "properties": {
+        "document": { "const": "evidence" },
+        "formatVersion": { "const": 1 },
+        "snapshotId": { "$ref": "#/$defs/SnapshotId" },
+        "testRuns": { "type": "array", "items": { "$ref": "#/$defs/TestRun" } },
+        "evidenceItems": { "type": "array", "items": { "$ref": "#/$defs/EvidenceItem" } },
+        "mutationResults": { "type": "array", "items": { "$ref": "#/$defs/MutationResult" } },
+        "propertyCounterExamples": { "type": "array", "items": { "$ref": "#/$defs/PropertyCounterExample" } },
+        "evidenceBundles": { "type": "array", "items": { "$ref": "#/$defs/EvidenceBundle" } },
+        "testJudgements": { "type": "array", "items": { "$ref": "#/$defs/TestJudgement" } },
+        "notices": { "type": "array", "items": { "$ref": "#/$defs/Notice" } }
+      }
+    },
+
+    "CoverageStatement": {
+      "description": "C001-REQ-613, C001-REQ-614.",
+      "type": "object",
+      "required": ["at", "totalRisk", "groups", "perRule"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "$ref": "#/$defs/Timestamp" },
+        "totalRisk": { "type": "number", "minimum": 0 },
+        "groups": {
+          "type": "object",
+          "required": ["read", "clearedVerified", "clearedOther", "open"],
+          "additionalProperties": false,
+          "properties": {
+            "read": { "$ref": "#/$defs/RiskGroup" },
+            "clearedVerified": { "$ref": "#/$defs/RiskGroup" },
+            "clearedOther": { "$ref": "#/$defs/RiskGroup" },
+            "open": { "$ref": "#/$defs/RiskGroup" }
+          }
+        },
+        "perRule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rule", "cleared", "sampled", "sampledRead", "defects"],
+            "additionalProperties": false,
+            "properties": {
+              "rule": { "$ref": "#/$defs/ClearingRule" },
+              "cleared": { "type": "integer", "minimum": 0 },
+              "sampled": { "type": "integer", "minimum": 0 },
+              "sampledRead": { "type": "integer", "minimum": 0 },
+              "defects": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "RiskGroup": {
+      "type": "object",
+      "required": ["riskSum", "share"],
+      "additionalProperties": false,
+      "properties": {
+        "riskSum": { "type": "number", "minimum": 0 },
+        "share": { "$ref": "#/$defs/Share" }
+      }
+    },
+    "ReadingQueue": {
+      "description": "C001-REQ-610 to C001-REQ-612.",
+      "type": "object",
+      "required": ["budgetMinutes", "readingRate", "entries", "remainder"],
+      "additionalProperties": false,
+      "properties": {
+        "budgetMinutes": { "type": ["number", "null"], "minimum": 0 },
+        "readingRate": { "type": "number", "exclusiveMinimum": 0 },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["hunkId", "riskScore", "readingMinutes", "riskPerMinute", "withinBudget", "sampled"],
+            "additionalProperties": false,
+            "properties": {
+              "hunkId": { "$ref": "#/$defs/HunkId" },
+              "riskScore": { "type": "number", "minimum": 0 },
+              "readingMinutes": { "type": "number", "exclusiveMinimum": 0 },
+              "riskPerMinute": { "type": "number", "minimum": 0 },
+              "withinBudget": { "type": "boolean" },
+              "sampled": { "type": "boolean" }
+            }
+          }
+        },
+        "remainder": {
+          "type": "object",
+          "required": ["changedLines", "riskSum"],
+          "additionalProperties": false,
+          "properties": {
+            "changedLines": { "type": "integer", "minimum": 0 },
+            "riskSum": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "VerdictStatus": {
+      "description": "Current verdict of an intent (C001-REQ-708, C001-REQ-718).",
+      "type": "object",
+      "required": ["intentId", "status", "staleCauses", "verdictRef"],
+      "additionalProperties": false,
+      "properties": {
+        "intentId": { "$ref": "#/$defs/IntentId" },
+        "status": { "enum": ["signed", "rejected", "deferred", "stale", "none"] },
+        "staleOf": { "enum": ["sign", "reject", "defer", null] },
+        "staleCauses": { "type": "array", "uniqueItems": true, "items": { "enum": ["hunks", "evidence", "source"] } },
+        "verdictRef": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["snapshotId", "seq"],
+              "additionalProperties": false,
+              "properties": {
+                "snapshotId": { "$ref": "#/$defs/SnapshotId" },
+                "seq": { "type": "integer", "minimum": 1 }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "DecisionStatus": {
+      "description": "C001-REQ-711.",
+      "type": "object",
+      "required": ["signed", "rejected", "deferred", "stale", "withoutVerdict", "orphanUndecided", "intents"],
+      "additionalProperties": false,
+      "properties": {
+        "signed": { "type": "integer", "minimum": 0 },
+        "rejected": { "type": "integer", "minimum": 0 },
+        "deferred": { "type": "integer", "minimum": 0 },
+        "stale": { "type": "integer", "minimum": 0 },
+        "withoutVerdict": { "type": "integer", "minimum": 0 },
+        "orphanUndecided": { "type": "integer", "minimum": 0 },
+        "intents": { "type": "array", "items": { "$ref": "#/$defs/VerdictStatus" } }
+      }
+    },
+    "MovedOnNotice": {
+      "description": "C001-REQ-117.",
+      "type": "object",
+      "required": ["filesDiffering", "headMoved", "notice"],
+      "additionalProperties": false,
+      "properties": {
+        "filesDiffering": { "type": "array", "items": { "type": "string" } },
+        "headMoved": { "type": "boolean" },
+        "currentHead": { "$ref": "#/$defs/CommitHash" },
+        "notice": { "$ref": "#/$defs/Notice" }
+      }
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Neutral intent-and-architecture file (C001-IF-006)",
+  "description": "File .sdd-review/workspace.json (README.md section 2), read from the snapshot (C001-REQ-111, C001-REQ-207). Any SDD tool can write it to feed a review. Reading rules: intent-sources.md section 5. A file that does not validate stops intake with ERR-SDD-003.",
+  "type": "object",
+  "required": ["formatVersion", "changes"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "formatVersion": { "const": 1 },
+    "producer": {
+      "description": "Name and version of the tool that wrote the file; shown in the intake summary.",
+      "type": "string",
+      "maxLength": 200
+    },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SddChange" }
+    },
+    "architecture": { "$ref": "#/$defs/Architecture" }
+  },
+  "$defs": {
+    "ItemId": {
+      "description": "Identifier of a spec item, unique within the file; matched in commit messages and code as a whole token (intent-sources.md section 10).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{1,99}$"
+    },
+    "PathPattern": {
+      "description": "Glob relative to the repository root (builtin-policy.md section 1).",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\]"
+    },
+    "SddChange": {
+      "type": "object",
+      "required": ["id", "title", "status", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ItemId" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "status": {
+          "description": "An archived change is not an open SDD change (glossary).",
+          "enum": ["open", "archived"]
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SpecItem" }
+        }
+      }
+    },
+    "SpecItem": {
+      "type": "object",
+      "required": ["id", "kind", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ItemId" },
+        "kind": {
+          "description": "One intent is created per requirement of the SDD change (C001-REQ-305); tasks and scenarios feed link signals and test-first reading.",
+          "enum": ["requirement", "task", "scenario"]
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "text": { "type": "string", "maxLength": 100000 },
+        "links": {
+          "description": "Links to other items: a task implements a requirement, a scenario verifies a requirement.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["to", "type"],
+            "additionalProperties": false,
+            "properties": {
+              "to": { "$ref": "#/$defs/ItemId" },
+              "type": { "enum": ["implements", "verifies", "refines", "relates"] }
+            }
+          }
+        },
+        "files": {
+          "description": "Files a task names (link signal 'task names the file').",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "Architecture": {
+      "type": "object",
+      "required": ["components"],
+      "additionalProperties": false,
+      "properties": {
+        "layers": {
+          "description": "Layer names, top layer first (C001-REQ-214).",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "uniqueItems": true
+        },
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/ArchComponent" }
+        }
+      }
+    },
+    "ArchComponent": {
+      "type": "object",
+      "required": ["id", "name", "paths"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/ItemId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "layer": {
+          "description": "One of architecture.layers.",
+          "type": "string"
+        },
+        "paths": {
+          "description": "Files of the component; a file matching several components belongs to the one with the longest matching pattern.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/PathPattern" }
+        },
+        "dependsOn": {
+          "description": "Allowed dependencies (C001-REQ-208); IDs of other components.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/ItemId" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

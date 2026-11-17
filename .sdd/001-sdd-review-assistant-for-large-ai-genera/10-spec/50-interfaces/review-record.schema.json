@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Review record line (C001-IF-009)",
+  "description": "A review record is a JSON Lines file (UTF-8, one JSON object per line, LF after every line) kept per snapshot by C001-COMP-014 (C001-REQ-714). Line 1 is the header; every further line is one entry, valid against this schema. Entries are only appended: an entry once written is never changed or removed (C001-REQ-713). seq increases by one per entry in the order entries were received (C001-REQ-917). prevHash is the SHA-256 of the bytes of the previous line without its LF; a mismatch, or an unparsable line other than an unfinished last line, is ERR-STORE-002. An unfinished last line (no LF at its end) belongs to an action that was never confirmed: it is ignored, and the store removes it under the record lock before it appends the next entry; it is not an entry. Entries are written only by the ten recorded actions of C001-IF-003 section 4 (C001-REQ-721); an escalation entry follows the defect report that caused it. Save, restore and crash safety: 60-architecture/architecture.md section 4.2.",
+  "oneOf": [
+    { "$ref": "#/$defs/Header" },
+    { "$ref": "#/$defs/Entry" }
+  ],
+  "$defs": {
+    "Sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "NonBlankText": {
+      "description": "Text with at least one character that is not whitespace (C001-REQ-706).",
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "Header": {
+      "type": "object",
+      "required": ["kind", "formatVersion", "snapshotId", "repositoryRoot", "baseCommit", "headCommit", "createdAt"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "header" },
+        "formatVersion": { "const": 1 },
+        "snapshotId": { "$ref": "analysis-results.schema.json#/$defs/SnapshotId" },
+        "repositoryRoot": { "type": "string" },
+        "baseCommit": { "$ref": "analysis-results.schema.json#/$defs/CommitHash" },
+        "headCommit": { "$ref": "analysis-results.schema.json#/$defs/CommitHash" },
+        "createdAt": { "$ref": "analysis-results.schema.json#/$defs/Timestamp" }
+      }
+    },
+    "EntryBase": {
+      "type": "object",
+      "required": ["kind", "seq", "time", "snapshotId", "surface", "user", "prevHash"],
+      "properties": {
+        "kind": { "type": "string" },
+        "seq": { "type": "integer", "minimum": 1 },
+        "time": { "$ref": "analysis-results.schema.json#/$defs/Timestamp" },
+        "snapshotId": { "$ref": "analysis-results.schema.json#/$defs/SnapshotId" },
+        "surface": { "enum": ["cli", "ui"] },
+        "user": {
+          "description": "user.name and user.email of the repository's effective git configuration (C001-IF-012 G-10), both present and not blank in every entry kind: an action that writes an entry is refused with ERR-ACT-006 until both are set, so no entry is written without them (C001-REQ-712, C001-REQ-721, Q-identity-01, Q-identity-02).",
+          "type": "object",
+          "required": ["name", "email"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "$ref": "#/$defs/NonBlankText" },
+            "email": { "$ref": "#/$defs/NonBlankText" }
+          }
+        },
+        "prevHash": { "$ref": "#/$defs/Sha256" }
+      }
+    },
+    "Grouping": {
+      "oneOf": [
+        { "type": "object", "required": ["intentId"], "additionalProperties": false, "properties": { "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" } } },
+        { "type": "object", "required": ["orphan"], "additionalProperties": false, "properties": { "orphan": { "const": true } } }
+      ]
+    },
+    "Entry": {
+      "oneOf": [
+        { "$ref": "#/$defs/ReadMarkEntry" },
+        { "$ref": "#/$defs/HunkReopenEntry" },
+        { "$ref": "#/$defs/HunkMoveEntry" },
+        { "$ref": "#/$defs/IntentCreatedEntry" },
+        { "$ref": "#/$defs/OrphanRejectionEntry" },
+        { "$ref": "#/$defs/TestJudgementEntry" },
+        { "$ref": "#/$defs/DefectReportEntry" },
+        { "$ref": "#/$defs/EscalationEntry" },
+        { "$ref": "#/$defs/AttentionBudgetEntry" },
+        { "$ref": "#/$defs/BundleCommandAddedEntry" },
+        { "$ref": "#/$defs/BundleCommandConfirmedEntry" },
+        { "$ref": "#/$defs/VerdictEntry" }
+      ]
+    },
+    "ReadMarkEntry": {
+      "description": "C001-REQ-601.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["hunkIds"],
+      "properties": {
+        "kind": { "const": "read-mark" },
+        "hunkIds": { "type": "array", "minItems": 1, "items": { "$ref": "analysis-results.schema.json#/$defs/HunkId" } },
+        "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" }
+      },
+      "unevaluatedProperties": false
+    },
+    "HunkReopenEntry": {
+      "description": "C001-REQ-422.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["hunkId"],
+      "properties": {
+        "kind": { "const": "hunk-reopen" },
+        "hunkId": { "$ref": "analysis-results.schema.json#/$defs/HunkId" }
+      },
+      "unevaluatedProperties": false
+    },
+    "HunkMoveEntry": {
+      "description": "C001-REQ-320, C001-REQ-321.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["hunkId", "from", "to"],
+      "properties": {
+        "kind": { "const": "hunk-move" },
+        "hunkId": { "$ref": "analysis-results.schema.json#/$defs/HunkId" },
+        "from": { "$ref": "#/$defs/Grouping" },
+        "to": { "$ref": "#/$defs/Grouping" }
+      },
+      "unevaluatedProperties": false
+    },
+    "IntentCreatedEntry": {
+      "description": "C001-REQ-709. Written only when every hunk is in orphan code (C001-REQ-720) and the normalised name (whitespace collapsing, then Unicode case folding; 40-domain/domain-model.md section 3) is that of no other developer-named intent of the review (C001-REQ-719). name keeps the text as the developer typed it.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["intentId", "intentKey", "name", "hunkIds"],
+      "properties": {
+        "kind": { "const": "intent-created" },
+        "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" },
+        "intentKey": { "type": "string", "pattern": "^dev:" },
+        "name": { "$ref": "#/$defs/NonBlankText" },
+        "hunkIds": { "type": "array", "minItems": 1, "items": { "$ref": "analysis-results.schema.json#/$defs/HunkId" } }
+      },
+      "unevaluatedProperties": false
+    },
+    "OrphanRejectionEntry": {
+      "description": "C001-REQ-710. Written only for a hunk in orphan code (C001-REQ-720).",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["hunkId", "reason"],
+      "properties": {
+        "kind": { "const": "orphan-rejection" },
+        "hunkId": { "$ref": "analysis-results.schema.json#/$defs/HunkId" },
+        "reason": { "$ref": "#/$defs/NonBlankText" }
+      },
+      "unevaluatedProperties": false
+    },
+    "TestJudgementEntry": {
+      "description": "C001-REQ-503. Written only for an intent with at least one test hunk (C001-REQ-520).",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["intentId", "value"],
+      "properties": {
+        "kind": { "const": "test-judgement" },
+        "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" },
+        "value": { "enum": ["expresses", "does-not-express"] }
+      },
+      "unevaluatedProperties": false
+    },
+    "DefectReportEntry": {
+      "description": "C001-REQ-606, C001-REQ-617. rules names each clearing rule that had cleared the hunk in the snapshot; it is empty when none had, and such a report is followed by no escalation entry.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["hunkId", "text", "rules"],
+      "properties": {
+        "kind": { "const": "defect-report" },
+        "hunkId": { "$ref": "analysis-results.schema.json#/$defs/HunkId" },
+        "text": { "$ref": "#/$defs/NonBlankText" },
+        "rules": { "type": "array", "uniqueItems": true, "items": { "$ref": "analysis-results.schema.json#/$defs/ClearingRule" } }
+      },
+      "unevaluatedProperties": false
+    },
+    "EscalationEntry": {
+      "description": "C001-REQ-607. Written right after the defect-report entry it names, in the same save, when that report names at least one rule; if a crash left the report without it, the store appends it when the review is next opened (60-architecture/architecture.md section 4.2).",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["defectReportSeq", "rules", "reopenedHunkIds"],
+      "properties": {
+        "kind": { "const": "escalation" },
+        "defectReportSeq": { "type": "integer", "minimum": 1 },
+        "rules": { "type": "array", "minItems": 1, "items": { "$ref": "analysis-results.schema.json#/$defs/ClearingRule" } },
+        "reopenedHunkIds": { "type": "array", "items": { "$ref": "analysis-results.schema.json#/$defs/HunkId" } }
+      },
+      "unevaluatedProperties": false
+    },
+    "AttentionBudgetEntry": {
+      "description": "C001-REQ-610, C001-REQ-611. Both values are greater than zero; a refused value writes no entry (C001-REQ-615).",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["minutes", "readingRate"],
+      "properties": {
+        "kind": { "const": "attention-budget" },
+        "minutes": { "type": "number", "exclusiveMinimum": 0 },
+        "readingRate": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "unevaluatedProperties": false
+    },
+    "BundleCommandAddedEntry": {
+      "description": "C001-REQ-510.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["intentId", "commandId", "command"],
+      "properties": {
+        "kind": { "const": "bundle-command-added" },
+        "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" },
+        "commandId": { "type": "string" },
+        "command": { "$ref": "#/$defs/NonBlankText" }
+      },
+      "unevaluatedProperties": false
+    },
+    "BundleCommandConfirmedEntry": {
+      "description": "C001-REQ-511.",
+      "allOf": [ { "$ref": "#/$defs/EntryBase" } ],
+      "required": ["intentId", "commandId"],
+      "properties": {
+        "kind": { "const": "bundle-command-confirmed" },
+        "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" },
+        "commandId": { "type": "string" }
+      },
+      "unevaluatedProperties": false
+    },
+    "VerdictEntry": {
+      "description": "C001-REQ-701 to C001-REQ-705, C001-REQ-712.",
+      "allOf": [
+        { "$ref": "#/$defs/EntryBase" },
+        {
+          "if": { "properties": { "verdict": { "const": "reject" } } },
+          "then": { "required": ["reason"] }
+        },
+        {
+          "if": { "properties": { "verdict": { "const": "defer" } } },
+          "then": { "required": ["note"] }
+        }
+      ],
+      "required": ["intent", "verdict", "basis", "shares", "coverageStatement"],
+      "properties": {
+        "kind": { "const": "verdict" },
+        "intent": {
+          "type": "object",
+          "required": ["intentId", "intentKey", "title", "source"],
+          "additionalProperties": false,
+          "properties": {
+            "intentId": { "$ref": "analysis-results.schema.json#/$defs/IntentId" },
+            "intentKey": { "type": "string" },
+            "title": { "type": "string" },
+            "source": {
+              "type": "object",
+              "required": ["type", "reference", "textHash"],
+              "additionalProperties": false,
+              "properties": {
+                "type": { "enum": ["spec-item", "commit", "plan-item", "transcript-passage", "pull-request-text", "developer"] },
+                "reference": { "type": "string" },
+                "textHash": { "$ref": "#/$defs/Sha256" }
+              }
+            }
+          }
+        },
+        "verdict": { "enum": ["sign", "reject", "defer"] },
+        "reason": { "$ref": "#/$defs/NonBlankText" },
+        "note": { "$ref": "#/$defs/NonBlankText" },
+        "openHunksConfirmed": {
+          "description": "Present when a sign verdict was confirmed with open hunks (C001-REQ-703).",
+          "type": "object",
+          "required": ["hunks", "changedLines"],
+          "additionalProperties": false,
+          "properties": {
+            "hunks": { "type": "integer", "minimum": 1 },
+            "changedLines": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "basis": {
+          "description": "What the verdict relied on; compared on every read to derive staleness (C001-REQ-715 to C001-REQ-717).",
+          "type": "object",
+          "required": ["hunks", "evidenceRecordIds", "evidenceItems", "bundleRunIds", "clearings"],
+          "additionalProperties": false,
+          "properties": {
+            "hunks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["hunkId", "contentKey"],
+                "additionalProperties": false,
+                "properties": {
+                  "hunkId": { "$ref": "analysis-results.schema.json#/$defs/HunkId" },
+                  "contentKey": { "$ref": "#/$defs/Sha256" }
+                }
+              }
+            },
+            "evidenceRecordIds": { "type": "array", "items": { "type": "string" } },
+            "evidenceItems": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["evidenceItemId", "resultDigest"],
+                "additionalProperties": false,
+                "properties": {
+                  "evidenceItemId": { "type": "string" },
+                  "resultDigest": { "$ref": "#/$defs/Sha256" }
+                }
+              }
+            },
+            "bundleRunIds": { "type": "array", "items": { "type": "string" } },
+            "clearings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["hunkId", "evidenceRecordId", "rules"],
+                "additionalProperties": false,
+                "properties": {
+                  "hunkId": { "$ref": "analysis-results.schema.json#/$defs/HunkId" },
+                  "evidenceRecordId": { "type": "string" },
+                  "rules": { "type": "array", "items": { "$ref": "analysis-results.schema.json#/$defs/ClearingRule" } }
+                }
+              }
+            }
+          }
+        },
+        "shares": { "$ref": "analysis-results.schema.json#/$defs/Shares" },
+        "coverageStatement": { "$ref": "analysis-results.schema.json#/$defs/CoverageStatement" }
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

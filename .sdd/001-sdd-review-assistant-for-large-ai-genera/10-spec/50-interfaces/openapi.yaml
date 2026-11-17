@@ -1,0 +1,1271 @@
+openapi: 3.1.0
+info:
+  title: Local review HTTP API (C001-IF-002)
+  version: 1.0.0
+  description: |
+    API between the local review UI web client (C001-COMP-019) and the UI server
+    (C001-COMP-018), which calls the core API (C001-IF-003); each operationId is the core
+    operation it calls. One server serves one review (one snapshot).
+
+    Security (C001-REQ-905 to C001-REQ-908, C001-NFR-009, C001-NFR-010):
+    - The server listens on 127.0.0.1 only.
+    - Every request whose Host header is not 127.0.0.1, [::1] or localhost with the server's
+      port is refused with 403 ERR-UI-001 before any review state is read.
+    - Every /api request must carry the header X-Review-Token with the random token generated at
+      server start. The CLI hands the token to the browser only in the URL fragment of the address
+      it opens or prints (http://127.0.0.1:<port>/#token=<token>); fragments are never sent to the
+      server, the page keeps the token in the storage of its own origin and removes it from the
+      address bar, and no response ever contains it. A request without the token, with an Origin
+      header other than the server's own origin, or with Sec-Fetch-Site cross-site is refused
+      with 403 ERR-UI-002. No CORS header is ever sent, so pages of other origins, including the
+      UI of another review on another port, can neither read responses nor send the token.
+    - Pages are served with Content-Security-Policy default-src 'self'; img-src 'self' data:;
+      frame-ancestors 'none'; base-uri 'none'; form-action 'self', and every script, style sheet,
+      font and image is served by the same server.
+    Errors use application/problem+json (RFC 9457) with the code of 50-interfaces/errors.md in
+    the code member. Write operations return only after the record entry is saved
+    (C001-REQ-920). Path parameters are URL-encoded (component IDs contain ':' and '/').
+
+    Git identity (C001-REQ-721): every operation of the ten recorded actions of core-api.md
+    section 4, which are the operations tagged actions or evidence except runEvidenceBundle,
+    returns 409 ERR-ACT-006 with the missing
+    settings (IdentityProblem) while git user.name or user.email of the repository is not set,
+    after the checks of its input and before any confirmation; nothing is recorded. Check order:
+    core-api.md section 4.
+servers:
+  - url: http://127.0.0.1:{port}/api/v1
+    variables:
+      port:
+        default: "49152"
+        description: Port chosen when the review is served (C001-IF-001, option --port).
+security:
+  - reviewToken: []
+tags:
+  - name: session
+  - name: views
+  - name: actions
+  - name: evidence
+paths:
+  /session:
+    get:
+      tags: [session]
+      operationId: getSession
+      summary: Session info, provider status, notices, revision and jobs (C001-REQ-807, C001-REQ-817)
+      responses:
+        "200":
+          description: Session info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionInfo"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /checks/moved-on:
+    post:
+      tags: [session]
+      operationId: checkMovedOn
+      summary: Compare the working tree and HEAD with the snapshot (C001-REQ-117)
+      responses:
+        "200":
+          description: The moved-on notice, or null when nothing moved.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "analysis-results.schema.json#/$defs/MovedOnNotice"
+                  - type: "null"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /jobs:
+    get:
+      tags: [session]
+      operationId: listJobs
+      summary: Background jobs of the review (test run, mutation testing, model tasks, bundle runs)
+      responses:
+        "200":
+          description: Jobs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /jobs/{jobId}/cancel:
+    post:
+      tags: [session]
+      operationId: cancelJob
+      summary: Cancel a running job; a cancelled test run makes test evidence unavailable (C001-REQ-508)
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job state after cancellation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /intake-summary:
+    get:
+      tags: [views]
+      operationId: getIntakeSummary
+      summary: Intake summary with the size warning (C001-REQ-114, C001-REQ-121)
+      responses:
+        "200":
+          description: Intake summary.
+          content:
+            application/json:
+              schema:
+                $ref: "analysis-results.schema.json#/$defs/IntakeSummary"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /architecture-delta:
+    get:
+      tags: [views]
+      operationId: getArchitectureDelta
+      summary: First view of the review (C001-REQ-201 to C001-REQ-221)
+      responses:
+        "200":
+          description: Architecture delta with component shares and the entry for intents with no code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchitectureDeltaView"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /components/{componentId}:
+    get:
+      tags: [views]
+      operationId: getComponent
+      summary: Intents with a hunk in the component and its open hunks (C001-REQ-220)
+      parameters:
+        - $ref: "#/components/parameters/ComponentId"
+      responses:
+        "200":
+          description: Component view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComponentView"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /intent-map:
+    get:
+      tags: [views]
+      operationId: getIntentMap
+      summary: Orphan code, unmet intents, then intents in source order (C001-REQ-310, C001-REQ-312)
+      responses:
+        "200":
+          description: Intent map view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntentMapView"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /intents:
+    post:
+      tags: [actions]
+      operationId: createIntent
+      summary: Name a new intent for hunks of orphan code (C001-REQ-709, C001-REQ-719, C001-REQ-720)
+      description: |
+        An empty or whitespace-only name returns 400 ERR-ACT-001. A hunk grouped under an intent
+        returns 409 ERR-ACT-005 naming that intent; a name already used by another
+        developer-named intent of the review, compared after whitespace collapsing and Unicode
+        case folding (40-domain/domain-model.md section 3), returns 409 ERR-ACT-009.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateIntentRequest"
+      responses:
+        "201":
+          description: Intent created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /intents/{intentId}:
+    get:
+      tags: [views]
+      operationId: getIntent
+      summary: An intent with its hunks in intent order and their evidence (C001-REQ-318)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      responses:
+        "200":
+          description: Intent view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntentView"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /intents/{intentId}/walkthrough:
+    get:
+      tags: [views]
+      operationId: getWalkthrough
+      summary: Accounts of the intent, then its hunks in intent order (C001-REQ-322 to C001-REQ-325)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      responses:
+        "200":
+          description: Walkthrough.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Walkthrough"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /intents/{intentId}/read-open-hunks:
+    post:
+      tags: [actions]
+      operationId: markIntentRead
+      summary: Mark every open hunk of the intent as read (C001-REQ-601)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /intents/{intentId}/test-judgement:
+    put:
+      tags: [actions]
+      operationId: setTestJudgement
+      summary: Record whether the intent's test hunks express it (C001-REQ-503, C001-REQ-520)
+      description: An intent under which no test hunk is grouped returns 409 ERR-ACT-007 and nothing is recorded.
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestJudgementRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /intents/{intentId}/verdicts:
+    post:
+      tags: [actions]
+      operationId: giveVerdict
+      summary: Sign, reject or defer one intent (C001-REQ-701 to C001-REQ-708)
+      description: |
+        A sign on an intent with open hunks returns 409 ERR-ACT-002 with the number of open hunks
+        and their changed lines unless confirmOpenHunks carries exactly those numbers; the client
+        shows them as the confirmation prompt and repeats the request only on confirmation
+        (C001-REQ-703). An empty or whitespace-only reason or note returns 400 ERR-ACT-001.
+        When git user.name or user.email of the repository is not set, any verdict returns 409
+        ERR-ACT-006 naming the missing settings, before the open-hunk check, and nothing is
+        recorded (C001-REQ-721); the client shows the message and offers no confirmation.
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerdictRequest"
+      responses:
+        "201":
+          description: Verdict recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerdictResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Confirmation required (ERR-ACT-002), or git identity not set (ERR-ACT-006).
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ConfirmationProblem"
+                  - $ref: "#/components/schemas/IdentityProblem"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /intents/{intentId}/evidence-bundle:
+    get:
+      tags: [evidence]
+      operationId: getEvidenceBundle
+      summary: Commands and runs of the intent's evidence bundle (C001-REQ-510, C001-REQ-513)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      responses:
+        "200":
+          description: Evidence bundle.
+          content:
+            application/json:
+              schema:
+                $ref: "analysis-results.schema.json#/$defs/EvidenceBundle"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /intents/{intentId}/evidence-bundle/commands:
+    post:
+      tags: [evidence]
+      operationId: addBundleCommand
+      summary: Add a command entered by the developer (C001-REQ-510)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandRequest"
+      responses:
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /intents/{intentId}/evidence-bundle/commands/{commandId}/confirmation:
+    post:
+      tags: [evidence]
+      operationId: confirmBundleCommand
+      summary: Confirm a proposed command (C001-REQ-511)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+        - name: commandId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /intents/{intentId}/evidence-bundle/runs:
+    post:
+      tags: [evidence]
+      operationId: runEvidenceBundle
+      summary: Run every confirmed command of the bundle on the snapshot (C001-REQ-512)
+      parameters:
+        - $ref: "#/components/parameters/IntentId"
+      responses:
+        "202":
+          description: Run started as a job.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /hunks/read:
+    post:
+      tags: [actions]
+      operationId: markRead
+      summary: Mark hunks as read (C001-REQ-601)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkReadRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /hunks/{hunkId}:
+    get:
+      tags: [views]
+      operationId: getHunk
+      summary: A hunk with file context, intent, component, risk signals and evidence (C001-REQ-909 to C001-REQ-911)
+      parameters:
+        - $ref: "#/components/parameters/HunkId"
+      responses:
+        "200":
+          description: Hunk view.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HunkView"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /hunks/{hunkId}/reopen:
+    post:
+      tags: [actions]
+      operationId: reopenHunk
+      summary: Reopen a cleared hunk for reading (C001-REQ-422)
+      parameters:
+        - $ref: "#/components/parameters/HunkId"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /hunks/{hunkId}/move:
+    post:
+      tags: [actions]
+      operationId: moveHunk
+      summary: Group the hunk under another intent or under orphan code (C001-REQ-320, C001-REQ-321)
+      parameters:
+        - $ref: "#/components/parameters/HunkId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /hunks/{hunkId}/defect-reports:
+    post:
+      tags: [actions]
+      operationId: reportDefect
+      summary: Report a defect in any hunk; escalates the rules that had cleared it (C001-REQ-606, C001-REQ-607, C001-REQ-617)
+      description: |
+        The defect-report entry names the clearing rules that had cleared the hunk, possibly none;
+        when it names at least one, the escalation entry is saved in the same write. With no rule,
+        escalatedRules and reopenedHunkIds are empty.
+      parameters:
+        - $ref: "#/components/parameters/HunkId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TextRequest"
+      responses:
+        "201":
+          description: Saved; the result lists the escalated rules and the reopened hunks, both possibly empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscalationResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /hunks/{hunkId}/rejection:
+    post:
+      tags: [actions]
+      operationId: rejectOrphanHunk
+      summary: Reject a hunk of orphan code with a reason (C001-REQ-710, C001-REQ-720)
+      description: A hunk grouped under an intent returns 409 ERR-ACT-005 naming that intent; nothing is recorded.
+      parameters:
+        - $ref: "#/components/parameters/HunkId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "201":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /files/{side}:
+    get:
+      tags: [views]
+      operationId: getFileContent
+      summary: Whole file from the snapshot or the base commit (C001-REQ-116, C001-REQ-909)
+      parameters:
+        - name: side
+          in: path
+          required: true
+          schema:
+            enum: [base, snapshot]
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileContent"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /reading-queue:
+    get:
+      tags: [views]
+      operationId: getReadingQueue
+      summary: Reading queue ordered by risk per reading minute, with budget fit (C001-REQ-610 to C001-REQ-612)
+      responses:
+        "200":
+          description: Reading queue.
+          content:
+            application/json:
+              schema:
+                $ref: "analysis-results.schema.json#/$defs/ReadingQueue"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /attention-budget:
+    put:
+      tags: [actions]
+      operationId: setAttentionBudget
+      summary: State the time budget and reading rate (C001-REQ-610, C001-REQ-611, C001-REQ-615)
+      description: |
+        A minutes or readingRate value that is not a number greater than zero returns 400
+        ERR-ACT-008 naming the value; the time budget and the reading rate in effect stay
+        unchanged and nothing is recorded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetRequest"
+      responses:
+        "200":
+          description: Saved; the reading queue under the new budget.
+          content:
+            application/json:
+              schema:
+                $ref: "analysis-results.schema.json#/$defs/ReadingQueue"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/StoreError"
+  /coverage-statement:
+    get:
+      tags: [views]
+      operationId: getCoverageStatement
+      summary: Covered and uncovered risk with per-rule sample results (C001-REQ-613, C001-REQ-614)
+      responses:
+        "200":
+          description: Coverage statement.
+          content:
+            application/json:
+              schema:
+                $ref: "analysis-results.schema.json#/$defs/CoverageStatement"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /decision-status:
+    get:
+      tags: [views]
+      operationId: getDecisionStatus
+      summary: Counts of signed, rejected, deferred, stale and undecided intents and undecided orphan hunks (C001-REQ-711)
+      responses:
+        "200":
+          description: Decision status.
+          content:
+            application/json:
+              schema:
+                $ref: "analysis-results.schema.json#/$defs/DecisionStatus"
+        "403":
+          $ref: "#/components/responses/Refused"
+  /record:
+    get:
+      tags: [views]
+      operationId: getRecord
+      summary: Entries of the review record (C001-REQ-714)
+      responses:
+        "200":
+          description: Header and entries in sequence order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "review-record.schema.json"
+        "403":
+          $ref: "#/components/responses/Refused"
+        "500":
+          $ref: "#/components/responses/ServerError"
+components:
+  securitySchemes:
+    reviewToken:
+      type: apiKey
+      in: header
+      name: X-Review-Token
+      description: Random 256-bit token generated per server start, passed to the browser in the URL fragment only.
+  parameters:
+    IntentId:
+      name: intentId
+      in: path
+      required: true
+      description: Intent ID (i- followed by 16 hex digits).
+      schema:
+        $ref: "analysis-results.schema.json#/$defs/IntentId"
+    HunkId:
+      name: hunkId
+      in: path
+      required: true
+      schema:
+        $ref: "analysis-results.schema.json#/$defs/HunkId"
+    ComponentId:
+      name: componentId
+      in: path
+      required: true
+      description: Component ID, URL-encoded.
+      schema:
+        $ref: "analysis-results.schema.json#/$defs/ComponentId"
+  responses:
+    Refused:
+      description: Refused by the host, origin or token check (ERR-UI-001, ERR-UI-002); no review content.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    BadRequest:
+      description: Invalid input (ERR-ACT-001, ERR-ACT-003, ERR-ACT-008).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Unknown ID (ERR-ACT-004).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: Action not allowed in the current state (ERR-ACT-005, ERR-ACT-007, ERR-ACT-009, ERR-EVID-007), or git identity not set (ERR-ACT-006, with the missing settings).
+      content:
+        application/problem+json:
+          schema:
+            anyOf:
+              - $ref: "#/components/schemas/IdentityProblem"
+              - $ref: "#/components/schemas/Problem"
+    StoreError:
+      description: Not saved (ERR-STORE-001, ERR-STORE-003); nothing recorded.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ServerError:
+      description: Damaged record or internal error (ERR-STORE-002, ERR-CLI-003).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Problem:
+      type: object
+      required: [title, status, code]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
+          pattern: "^ERR-[A-Z]+-[0-9]{3}$"
+    IdentityProblem:
+      description: Action that writes a review record entry refused because the git identity is not set (ERR-ACT-006, C001-REQ-721).
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          required: [code, missing]
+          properties:
+            code:
+              const: ERR-ACT-006
+            missing:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                enum: [user.name, user.email]
+    ConfirmationProblem:
+      allOf:
+        - $ref: "#/components/schemas/Problem"
+        - type: object
+          required: [code, openHunks, changedLines]
+          properties:
+            code:
+              const: ERR-ACT-002
+            openHunks:
+              type: integer
+              minimum: 1
+            changedLines:
+              type: integer
+              minimum: 1
+    ProviderStatus:
+      type: object
+      required: [mode, providerName, contentSentOffMachine]
+      properties:
+        mode:
+          enum: [model-free, local-provider, cloud-provider]
+        providerName:
+          type: [string, "null"]
+        contentSentOffMachine:
+          description: True while repository content is sent to a cloud provider; the UI then shows the provider and the notice on every view (C001-REQ-807).
+          type: boolean
+        endpointHost:
+          type: [string, "null"]
+    Job:
+      type: object
+      required: [jobId, kind, status]
+      properties:
+        jobId:
+          type: string
+        kind:
+          enum: [test-run, mutation, model-tasks, evidence-bundle]
+        status:
+          enum: [pending, running, completed, unavailable, discarded, cancelled]
+        done:
+          type: integer
+          minimum: 0
+        total:
+          type: integer
+          minimum: 0
+        reason:
+          type: [string, "null"]
+    SessionInfo:
+      type: object
+      required: [snapshotId, revision, staticAnalysisComplete, providerStatus, movedOn, sizeWarning, notices, jobs]
+      properties:
+        snapshotId:
+          $ref: "analysis-results.schema.json#/$defs/SnapshotId"
+        revision:
+          type: integer
+          minimum: 0
+        staticAnalysisComplete:
+          type: boolean
+        providerStatus:
+          $ref: "#/components/schemas/ProviderStatus"
+        movedOn:
+          oneOf:
+            - $ref: "analysis-results.schema.json#/$defs/MovedOnNotice"
+            - type: "null"
+        sizeWarning:
+          oneOf:
+            - $ref: "analysis-results.schema.json#/$defs/Notice"
+            - type: "null"
+        notices:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/Notice"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+    HunkSummary:
+      type: object
+      required: [hunkId, path, changedLines, state, riskScore, isTestHunk, clearingRules, strongestEvidence, guardedAreas]
+      properties:
+        hunkId:
+          $ref: "analysis-results.schema.json#/$defs/HunkId"
+        path:
+          type: string
+        newStart:
+          type: integer
+        oldStart:
+          type: integer
+        changedLines:
+          type: integer
+        state:
+          $ref: "analysis-results.schema.json#/$defs/HunkReviewState"
+        riskScore:
+          type: number
+        isTestHunk:
+          type: boolean
+        clearingRules:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/ClearingRule"
+        strongestEvidence:
+          description: Evidence strength of the strongest evidence item, shown on collapsed entries (C001-REQ-420).
+          type: [integer, "null"]
+          minimum: 1
+          maximum: 5
+        guardedAreas:
+          type: array
+          items:
+            type: string
+        link:
+          $ref: "analysis-results.schema.json#/$defs/Link"
+        labels:
+          $ref: "analysis-results.schema.json#/$defs/Labels"
+    IntentSummary:
+      type: object
+      required: [intentId, title, kind, source, unmet, shares, verdict]
+      properties:
+        intentId:
+          $ref: "analysis-results.schema.json#/$defs/IntentId"
+        title:
+          type: string
+        kind:
+          type: string
+        source:
+          $ref: "analysis-results.schema.json#/$defs/IntentSource"
+        unmet:
+          type: boolean
+        shares:
+          $ref: "analysis-results.schema.json#/$defs/Shares"
+        verdict:
+          $ref: "analysis-results.schema.json#/$defs/VerdictStatus"
+        labels:
+          $ref: "analysis-results.schema.json#/$defs/Labels"
+    ArchitectureDeltaView:
+      type: object
+      required: [delta, componentShares, intentsWithNoCode]
+      properties:
+        delta:
+          $ref: "analysis-results.schema.json#/$defs/ArchitectureDeltaDocument"
+        componentShares:
+          type: array
+          items:
+            type: object
+            required: [componentId, shares]
+            properties:
+              componentId:
+                $ref: "analysis-results.schema.json#/$defs/ComponentId"
+              shares:
+                $ref: "analysis-results.schema.json#/$defs/Shares"
+        intentsWithNoCode:
+          description: Unmet intents (C001-REQ-221).
+          type: array
+          items:
+            $ref: "#/components/schemas/IntentSummary"
+    ComponentView:
+      type: object
+      required: [component, shares, intents, openHunks]
+      properties:
+        component:
+          $ref: "analysis-results.schema.json#/$defs/Component"
+        shares:
+          $ref: "analysis-results.schema.json#/$defs/Shares"
+        intents:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntentSummary"
+        openHunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/HunkSummary"
+    IntentMapView:
+      type: object
+      required: [mode, sddChangeId, orphan, unmetIntents, intents, specEdits, labels, notices]
+      properties:
+        mode:
+          enum: [sdd-change, intent-fallback]
+        sddChangeId:
+          type: [string, "null"]
+        specEdits:
+          description: Spec-edit flags of the SDD change the intents come from (C001-REQ-328); empty in intent fallback.
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/SpecEditFlag"
+        orphan:
+          type: object
+          required: [shares, hunks]
+          properties:
+            shares:
+              $ref: "analysis-results.schema.json#/$defs/Shares"
+            hunks:
+              type: array
+              items:
+                $ref: "#/components/schemas/HunkSummary"
+        unmetIntents:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntentSummary"
+        intents:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntentSummary"
+        labels:
+          $ref: "analysis-results.schema.json#/$defs/Labels"
+        notices:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/Notice"
+    IntentView:
+      type: object
+      required: [intent, shares, verdict, hunks, openHunks, testJudgement, evidenceBundle, reducedOrder]
+      properties:
+        intent:
+          $ref: "analysis-results.schema.json#/$defs/Intent"
+        shares:
+          $ref: "analysis-results.schema.json#/$defs/Shares"
+        verdict:
+          $ref: "analysis-results.schema.json#/$defs/VerdictStatus"
+        hunks:
+          description: In intent order, test hunks first (C001-REQ-318, C001-REQ-403, C001-REQ-502).
+          type: array
+          items:
+            $ref: "#/components/schemas/HunkSummary"
+        openHunks:
+          type: object
+          required: [count, changedLines]
+          properties:
+            count:
+              type: integer
+            changedLines:
+              type: integer
+        testJudgement:
+          oneOf:
+            - $ref: "analysis-results.schema.json#/$defs/TestJudgement"
+            - type: "null"
+        evidenceBundle:
+          $ref: "analysis-results.schema.json#/$defs/EvidenceBundle"
+        reducedOrder:
+          type: boolean
+    Walkthrough:
+      type: object
+      required: [intentId, deterministicAccount, modelAccount, hunks, reducedOrder]
+      properties:
+        intentId:
+          $ref: "analysis-results.schema.json#/$defs/IntentId"
+        deterministicAccount:
+          $ref: "analysis-results.schema.json#/$defs/DeterministicAccount"
+        modelAccount:
+          oneOf:
+            - $ref: "analysis-results.schema.json#/$defs/ModelAccount"
+            - type: "null"
+        hunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/HunkView"
+        reducedOrder:
+          description: A hunk was ordered without the definition-before-use key (C001-REQ-323).
+          type: boolean
+    ContextLine:
+      type: object
+      required: [number, text]
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        text:
+          type: string
+    HunkView:
+      type: object
+      required: [hunk, state, link, componentId, risk, evidenceRecords, evidenceItems, mutationResults, contextBefore, contextAfter, designFindings, driftFindings]
+      properties:
+        hunk:
+          $ref: "analysis-results.schema.json#/$defs/Hunk"
+        state:
+          $ref: "analysis-results.schema.json#/$defs/HunkReviewState"
+        link:
+          $ref: "analysis-results.schema.json#/$defs/Link"
+        intent:
+          oneOf:
+            - $ref: "#/components/schemas/IntentSummary"
+            - type: "null"
+        componentId:
+          $ref: "analysis-results.schema.json#/$defs/ComponentId"
+        risk:
+          $ref: "analysis-results.schema.json#/$defs/RiskAssessment"
+        evidenceRecords:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/EvidenceRecord"
+        evidenceItems:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/EvidenceItem"
+        mutationResults:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/MutationResult"
+        movePartner:
+          description: The other half of a move, shown as one move (C001-REQ-910).
+          oneOf:
+            - $ref: "analysis-results.schema.json#/$defs/Hunk"
+            - type: "null"
+        contextBefore:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContextLine"
+        contextAfter:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContextLine"
+        designFindings:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/DesignFinding"
+        driftFindings:
+          type: array
+          items:
+            $ref: "analysis-results.schema.json#/$defs/DriftFinding"
+        escalation:
+          description: Defect report that reopened the hunk (C001-REQ-608).
+          oneOf:
+            - type: object
+              required: [defectReportSeq, text]
+              properties:
+                defectReportSeq:
+                  type: integer
+                text:
+                  type: string
+            - type: "null"
+    FileContent:
+      type: object
+      required: [path, side, binary, text]
+      properties:
+        path:
+          type: string
+        side:
+          enum: [base, snapshot]
+        binary:
+          type: boolean
+        text:
+          type: [string, "null"]
+    ActionResult:
+      type: object
+      required: [seq, revision, movedOn]
+      properties:
+        seq:
+          description: Sequence number of the saved record entry.
+          type: integer
+          minimum: 1
+        revision:
+          type: integer
+        movedOn:
+          oneOf:
+            - $ref: "analysis-results.schema.json#/$defs/MovedOnNotice"
+            - type: "null"
+    EscalationResult:
+      allOf:
+        - $ref: "#/components/schemas/ActionResult"
+        - type: object
+          required: [escalatedRules, reopenedHunkIds]
+          properties:
+            escalatedRules:
+              type: array
+              items:
+                $ref: "analysis-results.schema.json#/$defs/ClearingRule"
+            reopenedHunkIds:
+              type: array
+              items:
+                $ref: "analysis-results.schema.json#/$defs/HunkId"
+    VerdictResult:
+      allOf:
+        - $ref: "#/components/schemas/ActionResult"
+        - type: object
+          required: [verdict]
+          properties:
+            verdict:
+              $ref: "analysis-results.schema.json#/$defs/VerdictStatus"
+    VerdictRequest:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          enum: [sign, reject, defer]
+        text:
+          description: Reason (reject) or note (defer); validated by the core (ERR-ACT-001).
+          type: string
+        confirmOpenHunks:
+          type: object
+          required: [openHunks, changedLines]
+          properties:
+            openHunks:
+              type: integer
+            changedLines:
+              type: integer
+    MarkReadRequest:
+      type: object
+      required: [hunkIds]
+      properties:
+        hunkIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: "analysis-results.schema.json#/$defs/HunkId"
+    MoveRequest:
+      type: object
+      required: [target]
+      properties:
+        target:
+          oneOf:
+            - type: object
+              required: [intentId]
+              properties:
+                intentId:
+                  $ref: "analysis-results.schema.json#/$defs/IntentId"
+            - type: object
+              required: [orphan]
+              properties:
+                orphan:
+                  const: true
+    TextRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+    CreateIntentRequest:
+      type: object
+      required: [name, hunkIds]
+      properties:
+        name:
+          description: Validated by the core (ERR-ACT-001 when blank, ERR-ACT-009 when taken).
+          type: string
+        hunkIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: "analysis-results.schema.json#/$defs/HunkId"
+    TestJudgementRequest:
+      type: object
+      required: [value]
+      properties:
+        value:
+          enum: [expresses, does-not-express]
+    BudgetRequest:
+      description: |
+        The values are passed to the core as given and validated there, so that a value that is
+        not a number greater than zero (0, a negative number, a string, null) is refused with
+        ERR-ACT-008 naming it rather than with a generic schema error (C001-REQ-615).
+      type: object
+      required: [minutes]
+      properties:
+        minutes:
+          description: Time budget in minutes; must be a number greater than zero.
+        readingRate:
+          description: Changed lines per hour, a number greater than zero; 300 when absent (C001-REQ-611).
+    CommandRequest:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string

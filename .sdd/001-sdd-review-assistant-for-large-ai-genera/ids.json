@@ -1,6 +1,15 @@
 {
   "change": "CHG-001",
-  "allocated": { "R": 3, "OA": 2, "DEC": 7 },
+  "allocated": { "R": 3, "OA": 2, "DEC": 7, "CAP": 9, "US": 4, "GOAL": 8, "SC": 8, "NG": 5, "AS": 8, "CON": 22, "NFR": 18, "DOD": 32, "COMP": 19, "IF": 13, "ERR": 1, "INV": 16, "REQ": 924 },
   "blocks": [],
-  "tombstones": []
+  "tombstones": [
+    { "id": "C001-US-001", "reason": "Allocated in error: id next US ignored --block; never used (stories use capability blocks US-1nn...US-9nn)", "date": "2026-11-17" },
+    { "id": "C001-US-002", "reason": "Allocated in error: id next US ignored --block; never used (stories use capability blocks US-1nn...US-9nn)", "date": "2026-11-17" },
+    { "id": "C001-US-003", "reason": "Allocated in error: id next US ignored --block; never used (stories use capability blocks US-1nn...US-9nn)", "date": "2026-11-17" },
+    { "id": "C001-US-004", "reason": "Allocated in error: id next US ignored --block; never used (stories use capability blocks US-1nn...US-9nn)", "date": "2026-11-17" },
+    { "id": "C001-REQ-903", "reason": "Duplicate of C001-REQ-201 (the review opens on the architecture delta); merged into C001-REQ-201 during spec step 3 consolidation", "date": "2026-11-17" },
+    { "id": "C001-REQ-813", "reason": "Fully covered by C001-REQ-412 (a hunk clears only by the five deterministic or tool-run clearing rules, none of which uses model output); spec step 3 consolidation", "date": "2026-11-17" },
+    { "id": "C001-REQ-923", "reason": "allocated by id next ignoring --block; unused", "date": "2026-11-17" },
+    { "id": "C001-REQ-924", "reason": "allocated by id next ignoring --block; unused", "date": "2026-11-17" }
+  ]
 }

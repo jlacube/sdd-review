@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Model task output (C001-IF-011)",
+  "description": "The JSON object a model provider must return for each task of model-provider.md section 2. The gateway (C001-COMP-015) validates every answer against the definition of its task and also checks that every hunk, intent and component ID was part of the request; an answer that fails either check is unusable output and the request falls back to model-free mode (C001-REQ-816, ERR-MODEL-005).",
+  "oneOf": [
+    { "$ref": "#/$defs/IntentExtraction" },
+    { "$ref": "#/$defs/HunkLinking" },
+    { "$ref": "#/$defs/WalkthroughAccount" },
+    { "$ref": "#/$defs/DesignCritique" }
+  ],
+  "$defs": {
+    "HunkId": { "type": "string", "pattern": "^h-[0-9a-f]{16}$" },
+    "IntentId": { "type": "string", "pattern": "^i-[0-9a-f]{16}$" },
+    "IntentExtraction": {
+      "description": "C001-REQ-315.",
+      "type": "object",
+      "required": ["task", "intents"],
+      "additionalProperties": false,
+      "properties": {
+        "task": { "const": "intent-extraction" },
+        "intents": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "required": ["title", "sources"],
+            "additionalProperties": false,
+            "properties": {
+              "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "summary": { "type": "string", "maxLength": 1000 },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "reference"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": { "enum": ["commit", "pull-request-text", "agent-plan", "agent-transcript"] },
+                    "reference": {
+                      "description": "Commit hash, or the path of the named file as sent.",
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "startLine": { "type": "integer", "minimum": 1 },
+                    "endLine": { "type": "integer", "minimum": 1 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "HunkLinking": {
+      "description": "C001-REQ-308.",
+      "type": "object",
+      "required": ["task", "links"],
+      "additionalProperties": false,
+      "properties": {
+        "task": { "const": "hunk-linking" },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["hunkId", "intentId", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "hunkId": { "$ref": "#/$defs/HunkId" },
+              "intentId": {
+                "description": "null when the model names no intent; the hunk stays in orphan code. An ID that is not an intent of the snapshot's intent map gives that hunk no model link and a reduced grouping, while the other links of the answer are kept (C001-REQ-327, ERR-MODEL-011).",
+                "oneOf": [ { "$ref": "#/$defs/IntentId" }, { "type": "null" } ]
+              },
+              "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          }
+        }
+      }
+    },
+    "WalkthroughAccount": {
+      "description": "C001-REQ-325.",
+      "type": "object",
+      "required": ["task", "intentId", "account"],
+      "additionalProperties": false,
+      "properties": {
+        "task": { "const": "walkthrough-account" },
+        "intentId": { "$ref": "#/$defs/IntentId" },
+        "account": { "type": "string", "minLength": 1, "maxLength": 4000 }
+      }
+    },
+    "DesignCritique": {
+      "description": "C001-REQ-216.",
+      "type": "object",
+      "required": ["task", "findings"],
+      "additionalProperties": false,
+      "properties": {
+        "task": { "const": "design-critique" },
+        "findings": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": ["hunkIds", "title", "explanation"],
+            "additionalProperties": false,
+            "properties": {
+              "hunkIds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/HunkId" } },
+              "componentId": { "type": "string" },
+              "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "explanation": { "type": "string", "minLength": 1, "maxLength": 2000 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
