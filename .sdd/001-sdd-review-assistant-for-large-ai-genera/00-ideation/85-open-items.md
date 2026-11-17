@@ -13,11 +13,11 @@ Total: 8
 
 | Type | File | Line | Reference |
 |---|---|---|---|
-| ASSUMPTION | `00-ideation/ideation.md` | 78 | G-2 target of 30 %, to confirm in 10-spec |
-| ASSUMPTION | `00-ideation/ideation.md` | 94 | G-8 targets, to confirm in 10-spec |
-| ASSUMPTION | `00-ideation/ideation.md` | 180 | Q-scale-01 |
-| ASSUMPTION | `00-ideation/ideation.md` | 181 | G-2 target of 30 % |
-| ASSUMPTION | `00-ideation/ideation.md` | 182 | G-8 targets |
-| ASSUMPTION | `00-ideation/ideation.md` | 183 | the developer can run the project's tests locally to produce evidence |
-| ASSUMPTION | `00-ideation/ideation.md` | 184 | a git repository is the unit of review |
-| ASSUMPTION | `00-ideation/ideation.md` | 185 | Q-spec-anchor-01 |
+| ASSUMPTION | `00-ideation/ideation.md` | 79 | G-2 target of 30 %, to confirm in 10-spec |
+| ASSUMPTION | `00-ideation/ideation.md` | 95 | G-8 targets, to confirm in 10-spec |
+| ASSUMPTION | `00-ideation/ideation.md` | 182 | Q-scale-01 |
+| ASSUMPTION | `00-ideation/ideation.md` | 183 | G-2 target of 30 % |
+| ASSUMPTION | `00-ideation/ideation.md` | 184 | G-8 targets |
+| ASSUMPTION | `00-ideation/ideation.md` | 185 | the developer can run the project's tests locally to produce evidence |
+| ASSUMPTION | `00-ideation/ideation.md` | 186 | a git repository is the unit of review |
+| ASSUMPTION | `00-ideation/ideation.md` | 187 | Q-spec-anchor-01 |

@@ -4,7 +4,7 @@ artifact: ideation
 change: "CHG-001"
 phase: 00-ideation
 status: draft
-version: 0.2.0
+version: 0.3.0
 created: "2026-11-17"
 ---
 # SDD review assistant for large AI-generated changes — ideation
@@ -14,6 +14,7 @@ created: "2026-11-17"
 |---|---|---|---|
 | 0.1.0 | 2026-11-17 | Conductor (with sdd-researcher, sdd-options-analyst) | First draft |
 | 0.2.0 | 2026-11-17 | Conductor | Fixes for critic findings CR-1 to CR-9 (`critic-report.md`) |
+| 0.3.0 | 2026-11-17 | Conductor | After G1: research note C001-R-003 added to §6 and §12 (no decision changed); CR-13, CR-16 fixed |
 
 - **Change:** CHG-001 · profile full · kind greenfield
 - **Status:** draft · **Approver:** P-01 (gate G1)
@@ -121,6 +122,7 @@ Targets marked `[ASSUMPTION]` are proposals; P-01 sets the final thresholds in 1
 |---|---|---|
 | C001-R-001 (`research/R-001-ai-review-tools-landscape.md`) | Which existing tools help review large AI-generated changes, and what gaps remain? Conclusion: grouped review exists only as hosted PR services; local review has no grouping, ranking or spec links (8 gaps listed). | medium |
 | C001-R-002 (`research/R-002-sdd-and-review-paradigms.md`) | How do SDD tools verify code against specs, and what evidence and paradigms exist for reviewing large changes? Conclusion: partitioning, ordering and evidence-based acceptance are research-backed levers; 20 candidate paradigms. | medium (low for 2026 AI-review claims) |
+| C001-R-003 (`research/R-003-cline-aider-windsurf-review.md`) | How do Cline, Aider and Windsurf present agent changes for review and acceptance? Conclusion: inside the agent surface, review is per edit or per turn, with checkpoints or commits for undo; none groups hunks by intent or maps them to requirements, and none documents handling for large changes (grouping exists only in Devin Review, for pull requests; added after G1). | medium |
 
 ## 7. Options and decisions index
 | OA / DEC | Decision | Outcome |
@@ -202,5 +204,5 @@ listed in C001-R-002 §B:
 - Baum et al. — https://www.zora.uzh.ch/entities/publication/245eb643-3ebd-476c-a613-8097ff6d9582 (retrieved 2026-11-17)
 - Faros — https://www.faros.ai/blog/ai-productivity-paradox-report-2025 (retrieved 2026-11-17)
 
-All other sources: C001-R-001 §Findings, C001-R-002 §Findings, and the source lists of
-C001-OA-001 and C001-OA-002.
+All other sources: C001-R-001 §Findings, C001-R-002 §Findings, C001-R-003 §Findings, and the
+source lists of C001-OA-001 and C001-OA-002.

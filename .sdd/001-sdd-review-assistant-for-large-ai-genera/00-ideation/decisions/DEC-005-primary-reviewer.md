@@ -21,7 +21,9 @@ Three candidates in Q-reviewer-01 (inline, unscored): developer reviewing agent 
 (recommended), PR reviewer / tech lead, spec owner.
 
 ## Consequences
-- Review happens on the local working tree before commit; this drives C001-DEC-002 (local UI).
+- Review happens locally before commit or pull request — on the working tree, or on agent-made
+  commits not yet pushed (some agents commit their own work, C001-R-003); this drives
+  C001-DEC-002 (local UI).
 - Team review on hosting platforms is out of scope for this change.
 
 ## Decided

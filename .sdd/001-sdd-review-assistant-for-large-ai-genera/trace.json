@@ -1,6 +1,6 @@
 {
   "change": "CHG-001",
-  "generated_at": "2026-11-17T07:29:50.842Z",
+  "generated_at": "2026-11-17T08:25:42.190Z",
   "nodes": [
     {
       "id": "C001-DEC-001",
@@ -44,7 +44,7 @@
       "file": "00-ideation/decisions/DEC-005-primary-reviewer.md",
       "line": 1,
       "title": "",
-      "content_hash": "sha256:a3d94ce5663b25d57cc1a68c5e3e262282c4ae297864e18c8e283d88c868beb4",
+      "content_hash": "sha256:0552f85f71e6e8f9464fdc80ae90065c49fdf907d5949744c757c3bdd2f487e3",
       "status": "draft"
     },
     {
@@ -100,6 +100,15 @@
       "title": "",
       "content_hash": "sha256:c02c5bf473bd9ba462385890143573b55dd27ddd5a17e937af6f566a89dcc0f3",
       "status": "draft"
+    },
+    {
+      "id": "C001-R-003",
+      "type": "R",
+      "file": "00-ideation/research/R-003-cline-aider-windsurf-review.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:4dcf23f8ab7ef937f11bb6c9b91a148f4d63f473ab6a1561e286e96394c5b209",
+      "status": "draft"
     }
   ],
   "edges": [
@@ -149,6 +158,11 @@
       "relation": "references"
     },
     {
+      "from": "C001-DEC-005",
+      "to": "C001-R-003",
+      "relation": "references"
+    },
+    {
       "from": "C001-DEC-006",
       "to": "C001-R-002",
       "relation": "references"
@@ -191,6 +205,11 @@
     {
       "from": "C001-OA-002",
       "to": "C001-R-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-R-003",
+      "to": "C001-R-001",
       "relation": "references"
     }
   ]
