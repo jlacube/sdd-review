@@ -1,0 +1,197 @@
+{
+  "change": "CHG-001",
+  "generated_at": "2026-11-17T07:29:50.842Z",
+  "nodes": [
+    {
+      "id": "C001-DEC-001",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-001-review-paradigm.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:f3a83e150da9747c84687dfa40ba99f6b8d5fab7220a3ff8fab022e26511b227",
+      "status": "draft"
+    },
+    {
+      "id": "C001-DEC-002",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-002-form-factor.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:790351fdab0b7117d273a8d246c3ff65676d95951aab490bbdca62f90a584672",
+      "status": "draft"
+    },
+    {
+      "id": "C001-DEC-003",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-003-clearing-autonomy.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:de15e96cdc507b88675a644772257fc7cfc2409f326abf11a4f25ac14b679346",
+      "status": "draft"
+    },
+    {
+      "id": "C001-DEC-004",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-004-llm-provider.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:77617a60517ca062ea3de4fc03edb7bb57ae8875f02c7e33039ebe7f5a296dcf",
+      "status": "draft"
+    },
+    {
+      "id": "C001-DEC-005",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-005-primary-reviewer.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:a3d94ce5663b25d57cc1a68c5e3e262282c4ae297864e18c8e283d88c868beb4",
+      "status": "draft"
+    },
+    {
+      "id": "C001-DEC-006",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-006-spec-anchoring.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:e44e936975cbf51211b0531c612fbf8c2662ce2742f029ccebb5d22a77974522",
+      "status": "draft"
+    },
+    {
+      "id": "C001-DEC-007",
+      "type": "DEC",
+      "file": "00-ideation/decisions/DEC-007-scale-target.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:f6ba3d9508145bc12c0cf116ed78666e8ce56127a9c8587fdc7749753822090b",
+      "status": "draft"
+    },
+    {
+      "id": "C001-OA-001",
+      "type": "OA",
+      "file": "00-ideation/options/OA-001-review-paradigm.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:95ec22e4bcc427abd247575f80059011b5cb86d2a73933d3d9e88af5d94a5f1b",
+      "status": "draft"
+    },
+    {
+      "id": "C001-OA-002",
+      "type": "OA",
+      "file": "00-ideation/options/OA-002-form-factor.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:fee5ab8bee1850be0af9757d28fb7d08af948d703e3e1e782b532442cd9f027f",
+      "status": "draft"
+    },
+    {
+      "id": "C001-R-001",
+      "type": "R",
+      "file": "00-ideation/research/R-001-ai-review-tools-landscape.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:c6ac3adf9f66e03662a08c2e467da7b5827efe43fd99ae5c48ae925ec32f4506",
+      "status": "draft"
+    },
+    {
+      "id": "C001-R-002",
+      "type": "R",
+      "file": "00-ideation/research/R-002-sdd-and-review-paradigms.md",
+      "line": 1,
+      "title": "",
+      "content_hash": "sha256:c02c5bf473bd9ba462385890143573b55dd27ddd5a17e937af6f566a89dcc0f3",
+      "status": "draft"
+    }
+  ],
+  "edges": [
+    {
+      "from": "C001-DEC-001",
+      "to": "C001-DEC-003",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-001",
+      "to": "C001-OA-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-001",
+      "to": "C001-R-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-002",
+      "to": "C001-OA-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-002",
+      "to": "C001-R-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-003",
+      "to": "C001-DEC-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-003",
+      "to": "C001-R-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-004",
+      "to": "C001-DEC-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-005",
+      "to": "C001-DEC-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-DEC-006",
+      "to": "C001-R-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-001",
+      "to": "C001-DEC-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-001",
+      "to": "C001-DEC-003",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-001",
+      "to": "C001-OA-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-001",
+      "to": "C001-R-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-001",
+      "to": "C001-R-002",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-002",
+      "to": "C001-OA-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-002",
+      "to": "C001-R-001",
+      "relation": "references"
+    },
+    {
+      "from": "C001-OA-002",
+      "to": "C001-R-002",
+      "relation": "references"
+    }
+  ]
+}

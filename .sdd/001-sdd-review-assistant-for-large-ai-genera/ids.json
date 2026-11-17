@@ -1,6 +1,6 @@
 {
   "change": "CHG-001",
-  "allocated": {},
+  "allocated": { "R": 2, "OA": 2, "DEC": 7 },
   "blocks": [],
   "tombstones": []
 }
