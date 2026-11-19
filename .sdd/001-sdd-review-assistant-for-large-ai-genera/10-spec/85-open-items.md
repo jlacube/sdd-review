@@ -22,8 +22,8 @@ Total: 14
 | ASSUMPTION | `10-spec/20-capabilities/CAP-04-risk-triage/requirements.md` | 156 | C001-AS-07 |
 | ASSUMPTION | `10-spec/20-capabilities/CAP-04-risk-triage/stories.md` | 50 | C001-AS-02 |
 | ASSUMPTION | `10-spec/20-capabilities/CAP-05-review-evidence/stories.md` | 38 | C001-AS-02 |
-| ASSUMPTION | `10-spec/20-capabilities/CAP-05-review-evidence/stories.md` | 69 | C001-AS-06 |
+| ASSUMPTION | `10-spec/20-capabilities/CAP-05-review-evidence/stories.md` | 75 | C001-AS-06 |
 | ASSUMPTION | `10-spec/30-nfr/nfr.md` | 112 | C001-AS-08 |
 | ASSUMPTION | `10-spec/30-nfr/nfr.md` | 127 | C001-AS-02 |
 | ASSUMPTION | `10-spec/30-nfr/nfr.md` | 128 | C001-AS-07 |
-| ASSUMPTION | `10-spec/50-interfaces/evidence-runs.md` | 68 | Q-copy-window-01 |
+| ASSUMPTION | `10-spec/50-interfaces/evidence-runs.md` | 168 | Q-copy-window-01 |

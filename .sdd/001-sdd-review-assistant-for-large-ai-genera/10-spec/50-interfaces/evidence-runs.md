@@ -16,7 +16,8 @@ and what it only detects, is stated in §9.
 
 ## §1 Running a command
 1. A command (test command, mutation tool, bundle command) runs with the root of an evidence
-   workspace (§2) as its working directory and with the developer's environment, unchanged,
+   workspace (§2) as its working directory and with the developer's environment, without the git
+   repository-locating variables of item 7 and otherwise unchanged,
    through `/bin/sh -c` on macOS and Linux and `cmd.exe /d /s /c` on Windows (C001-NFR-016).
 2. Standard output and standard error are captured up to 1 MiB each; beyond that the stream is
    truncated and flagged.
@@ -37,6 +38,38 @@ and what it only detects, is stated in §9.
    acts there as the developer's own command; the analysis core runs it as given, records it like
    any other run (C001-REQ-512) and reports what changed in the working tree during the run (§9
    item 3).
+7. **Git repository-locating variables** (C001-REQ-525). Before a command starts, the evidence
+   runner removes the variables below from the environment the command inherits; on Windows,
+   names match whatever their letter case. A review started from a git hook, or from a shell that
+   sets them, would otherwise hand them on, and a git command of the project's code would then use
+   the developer's git directory, index or object store instead of finding no repository in the
+   workspace, which holds no git metadata (§2 item 4).
+   - **Removed:** the variables that git itself lists as local to one repository
+     (`git rev-parse --local-env-vars`, as printed by git 2.45.1), except its command-line
+     configuration variables: `GIT_DIR`, `GIT_WORK_TREE`, `GIT_IMPLICIT_WORK_TREE`,
+     `GIT_COMMON_DIR`, `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`,
+     `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_GRAFT_FILE`, `GIT_SHALLOW_FILE`, `GIT_CONFIG`,
+     `GIT_REPLACE_REF_BASE`, `GIT_NO_REPLACE_OBJECTS` and `GIT_PREFIX`. Each names a part of one
+     repository (its git directory, working tree, index, object store, or a file that git reads
+     or writes in place of the repository's own), selects a view of that repository's history, or
+     gives the place of the developer's git command inside its working tree. Also removed:
+     `GIT_NAMESPACE`, which selects a part of the refs of that repository, and
+     `GIT_QUARANTINE_PATH`, which names a directory of its object store during a `pre-receive`
+     hook.
+   - **Replaced:** `GIT_CEILING_DIRECTORIES` holds only the value that the evidence runner sets,
+     the parent of the workspace root (C001-ADR-006); the developer's value is not kept. For a
+     git command in the workspace, discovery already stops at that parent, so the developer's
+     value adds nothing there, and kept, it could put a working-tree path into a variable that the
+     analysis core sets (§9 item 1).
+   - **Kept:** every other variable of the developer's environment, other `GIT_*` variables
+     included, for example `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` with its
+     `GIT_CONFIG_KEY_<n>` and `GIT_CONFIG_VALUE_<n>` pairs, `GIT_CONFIG_GLOBAL`,
+     `GIT_CONFIG_SYSTEM`, `GIT_EXEC_PATH`, `GIT_AUTHOR_*`, `GIT_COMMITTER_*` and
+     `GIT_SSH_COMMAND`. They carry settings, identities and programs, not the location of a
+     repository, and project tests may need them, for example a `safe.directory` value or an
+     identity for the repositories that the tests create.
+   - A command whose text sets a removed variable again (for example `GIT_DIR=… npm test`) is the
+     developer's own command (item 6).
 
 ## §2 Evidence workspace
 1. **Content.** An evidence workspace holds the files of the snapshot: the tree of the base commit
@@ -44,13 +77,80 @@ and what it only detects, is stated in §9.
    every added, modified and renamed file (`40-domain/domain-model.md` §2.2), each with the file
    mode of its snapshot side (regular, executable or symbolic link) and with the line endings that
    git's built-in end-of-line conversion gives a checkout of the repository (C001-IF-012 §2
-   item 2).
+   item 2). No filter runs; files under a clean filter follow the rule below.
+   **Files under a clean filter** (C001-REQ-527 to C001-REQ-529; P-01's answers to
+   Q-filterworkspace-01, `questions-log.md` Round 14, and Q-cleanfilter-02, Round 15). The rule
+   covers each regular or executable file of the snapshot that is under a clean filter
+   (C001-IF-012 §7) and whose snapshot side is a blob that git stores: a file that the change
+   leaves unchanged (its blob in the base commit's tree, C001-IF-012 G-13), a file that
+   C001-IF-012 §7 item 2 or item 7 makes changed (the blob that git's index recorded for it at
+   intake), for example a Git LFS file whose new content the agent staged with `git add`, or a path
+   outside a sparse checkout that C001-IF-012 §8 item 2 makes changed (the blob of its index
+   entry). A Git LFS file is covered only when that blob is a Git LFS pointer file (C001-IF-012
+   §7 item 7); any other blob is the file's content, and the file holds it as this item writes any
+   file. The
+   **stored form** of a covered file is the content of that blob, written as this item writes any
+   file and with no smudge filter run: for Git LFS the pointer file, for git-crypt the encrypted
+   content. When the evidence runner fills the workspace, and whenever item 3 writes the file
+   again, it gives the file one of the contents below. The **copy** is the file's working-tree
+   bytes, copied into the workspace byte for byte, without end-of-line conversion, with the file
+   mode of its snapshot side, through the copier of C001-ADR-006 (a copy-on-write clone where the
+   file system supports it, else a byte copy, never a hard link), which reads the working-tree
+   file and writes only in the workspace.
+   - **Working-tree copy of a Git LFS file** (C001-REQ-529). The evidence runner makes the copy,
+     then reads the copy in the workspace and computes its SHA-256 hash and its size, which must
+     equal the `oid` and the `size` of the Git LFS pointer file of its snapshot side. The file
+     then holds the content that the pointer file stands for, whatever git's index and the
+     working-tree file's stat data record: the hash is taken over the copy, so an edit of the
+     working-tree file before or during the copy cannot reach the workspace (CR-37). The index is
+     not read.
+   - **Working-tree copy of a file under another filter** (C001-REQ-527). The evidence runner
+     reads the file's index entry through the git access port (C001-IF-012 G-15). When the file
+     is up to date in the index under the test of C001-IF-012 §7 item 1 and its index entry
+     records the blob of its snapshot side, it makes the copy. After the copy, it reads the
+     index entry through G-15 again: the file must still be up to date in the index with the
+     same blob, and its stat data must equal those read before the copy. The file then holds the
+     content whose stored form, by git's own record, is the blob of its snapshot side, for
+     git-crypt its decrypted content. This rests on git's index record, with the limit that
+     C001-IF-012 §7 item 8 states and P-01 accepted with Q-nonlfs-01: on every operating system,
+     an index entry written or refreshed after an edit of the working-tree file (for example by
+     `git -c filter.<driver>.clean=… update-index --refresh`, or by writing the index file
+     directly) can record the edited file as up to date with the blob of its snapshot side, and on
+     Windows an edit that keeps the file's size and sets its modification time back leaves it up
+     to date. The checks then pass, and the workspace receives and runs the edited bytes, which
+     the snapshot does not show.
+   - **Stored form** (C001-REQ-528). Otherwise the file holds its stored form, and a copy already
+     made is replaced by it. For a Git LFS file: the copy's hash or size differs from its pointer
+     file (for example the file was edited after the snapshot was taken, or its content was never
+     downloaded, so that the working tree holds the pointer file itself), or the file cannot be
+     read. For a file under another filter: the file is not up to date in the index (for example
+     edited or touched since git last recorded its stat data, or its entry racy), its index
+     entry records another blob (for example a new `git add`, or a move of HEAD), its stat data
+     changed during the copy, or it cannot be read. For either kind, the working tree may also
+     hold no file at its path, for example a path outside a sparse checkout (C001-IF-012 §8
+     item 2); that cause is named apart from a file that cannot be read. Each test run, mutation
+     run and bundle command whose workspace holds such a file in its stored form raises notice
+     ERR-EVID-013, which names
+     the run, the number of such files and up to 10 of them, each with its filter driver and the
+     cause; like ERR-EVID-009, the notice changes no result.
+
+   No copy of the working-tree bytes is kept outside the evidence workspaces, so workspaces of
+   one snapshot can differ: a workspace filled or written again after such a file was edited
+   holds its stored form while an earlier workspace holds its working-tree copy. The check of §3
+   compares each workspace with the content that this item gave it. A file under a clean filter
+   that intake compared by its working-tree bytes and listed as changed (C001-IF-012 §7 item 3)
+   holds that snapshot content, like every changed file, and is not covered by this rule.
 2. **Location.** A directory on the local machine outside the working-tree root and outside the
    git directory, and below neither (C001-CON-22). The exact place is set by ADR in 20-plan.
 3. **Preparation and reuse.** The evidence runner prepares a workspace when a run of the snapshot
    needs one and none of the snapshot's workspaces is free. Before every run it resets the
-   workspace it takes: every path of the snapshot whose content or mode differs from the snapshot
-   is written again, and every other path that the snapshot's ignore rules do not exclude is
+   workspace it takes: every path of the snapshot whose content or mode differs from what item 1
+   gave it in that workspace is written again by item 1, every file under a clean filter that
+   holds its stored form (item 1) is written again by item 1, so that it gets its working-tree
+   copy once the checks of item 1 pass again (for a Git LFS file, once its working-tree bytes
+   match its pointer file; for another filter, once git's index records it again as up to date
+   with the blob of its snapshot side), and
+   every other path that the snapshot's ignore rules do not exclude is
    removed; ignored paths, such as build outputs of an earlier run, are kept. Workspaces stay with
    the process that runs the snapshot's jobs and are removed when that process ends.
    **Mutation workspace.** Mutation testing takes a workspace of its own, so that no test run or
@@ -95,25 +195,43 @@ and what it only detects, is stated in §9.
    snapshot (C001-IF-012 G-07), but a command may need some of them: installed dependencies (for
    example `node_modules/` or a virtual environment), restored packages, local settings. Which
    ignored paths of the working tree are made available in a workspace and how (for example
-   copied, or produced in the workspace by a preparation command), whether the workspace offers
-   git metadata (some builds read their version from the git history) and how submodule working
-   trees are provided are set by ADR in 20-plan within C001-CON-22. The ADR also states how a Node
-   or .NET package link to the working tree is handled so that the run loads the workspace's
-   files; for Python, item 7 sets the outcome. Whatever the mechanism, no path that the analysis
-   core makes available in the workspace, git metadata included, leads into the working tree or
-   into the git directory, so no run can change a file of the working tree, ignored files
-   included, or the index, a ref or an object of the repository through the workspace (§9 item 1).
+   copied, or produced in the workspace by a preparation command) are set by ADR in 20-plan
+   within C001-CON-22. A workspace holds no git metadata: no `.git` directory or file
+   (C001-ADR-006, accepted), so a git command run in it finds no repository (§1 item 7), and a
+   build that reads its version from the git history runs without it. Submodule paths are filled
+   by item 8. The ADR also states how a Node or .NET package link to the working tree is handled
+   so that the run loads the workspace's files; for Python, item 7 sets the outcome. Whatever the
+   mechanism, no path that the analysis core makes available in the workspace leads into the
+   working tree or into the git directory, so no run can change a file of the working tree,
+   ignored files included, or the index, a ref or an object of the repository through the
+   workspace (§9 item 1).
    No compiled or transformed form of the project's own files is taken from the working tree
    (compiler outputs, bytecode, incremental-build state, transform caches): it was built from the
    working tree's current files, which can differ from the snapshot (C001-REQ-117), and the check
    of §3 does not see ignored paths, so a run could execute code that is not the snapshot's
    without being refused (C001-REQ-509). Installed third-party dependencies and restored packages
-   are not such forms.
+   are not such forms. Nor is the working-tree copy of a file under a clean filter (item 1): it is
+   the snapshot's own file, kept for a Git LFS file only when the copy's SHA-256 hash and size
+   equal its pointer file (C001-REQ-529), and for a file under another filter copied only while
+   git's index records it, before and after the copy, as up to date with the blob of its
+   snapshot side (C001-REQ-527, Q-filterworkspace-01), with the limit that item 1 states for it
+   (C001-IF-012 §7 item 8).
 5. **Edits of the working tree.** Edits of the working tree by the developer or the agent, and
-   moves of HEAD, do not reach a workspace. A run in progress continues and its results are
+   moves of HEAD, do not reach a workspace. A file under a clean filter gets its working-tree copy
+   only under the checks of item 1; after an edit, or for a filter other than Git LFS a move of
+   HEAD that changes its index entry, it gets its stored form instead (ERR-EVID-013). The one
+   exception is the limit of C001-IF-012 §7 item 8 (Q-nonlfs-01), for files under a clean filter
+   other than Git LFS only: an edit of such a file reaches every workspace filled or reset after
+   it when, on any operating system, an index entry written or refreshed after the edit records
+   the edited file as up to date with the blob of its snapshot side, or when, on Windows, the edit
+   keeps the file's size and sets its modification time back; the snapshot does not show that
+   edit. A run in progress continues and its results are
    evidence of the snapshot (C001-REQ-522); results already recorded stay; the moved-on notice
-   reports the edits (C001-REQ-117). A review of the new state is a new snapshot with runs of its
-   own (C001-REQ-118).
+   reports the edits (C001-REQ-117) within the limits of C001-IF-012 §7 item 8 and §8 item 3
+   (Q-nonlfs-01, Q-movedon-01): it does not name an edit that §7 item 8 keeps out of the change,
+   nor, on Windows, an edit made after the file was last hashed that keeps its size and sets its
+   modification time back. A review of the new state is a new snapshot with runs of its own
+   (C001-REQ-118).
 6. **End of the process.** When the analysis core's process ends during a run (cancellation,
    crash or kill), the run gets no result, the analysis core has changed nothing in the working
    tree (§9 item 1), and the next process of the review state store removes the workspace it left.
@@ -134,11 +252,24 @@ and what it only detects, is stated in §9.
    working tree and the git directory (§9 item 1), and it downloads nothing (C001-CON-11). A
    Python process that ignores those variables and files (for example one started with `python
    -I` or `-E`) is outside this rule; §4 item 2 applies to what it executes.
+8. **Submodules** (C001-REQ-526). A submodule path of the snapshot (a gitlink entry,
+   C001-IF-012 G-13) is filled from the commit that the snapshot records for it, read from the
+   submodule's local repository through the git access port (C001-IF-012 G-16, under its safety
+   rules), at every depth of nesting (C001-ADR-006). When G-16 gives the submodule as absent (the
+   submodule has no local repository, its repository does not hold the commit, or git refuses to
+   open its repository), the run is not refused: the path is an empty directory, as in a checkout
+   whose submodule is not initialised, and the submodules nested in it are not read. Nothing is
+   fetched (C001-IF-012 §2 item 3). The check of §3 compares a submodule path with the content
+   this item gives it. Each test run, mutation run and bundle command whose workspace holds such
+   an empty path raises notice ERR-EVID-012, which names the run, the number of such submodule
+   paths and up to 10 of them, each with its recorded commit and the cause that G-16 gave; like
+   ERR-EVID-009, the notice changes no result.
 
 ## §3 Workspace check
 1. Before a test run or a bundle command starts and after it ends, the evidence runner compares
    its workspace with the snapshot: every path of the snapshot must hold the content and mode that
-   §2 item 1 gives it, and no other path may exist unless the snapshot's ignore rules exclude it or it matches
+   §2 item 1 gave it in that workspace (for a file under a clean filter, its working-tree copy or
+   its stored form), and no other path may exist unless the snapshot's ignore rules exclude it or it matches
    `tests.coverageReports` of the configuration (C001-IF-004). When runs follow one another in
    one workspace with nothing in between, the check after one run is the check before the next.
 2. If the check fails, no result of the run is recorded as evidence, notice ERR-EVID-005 names the
@@ -298,9 +429,11 @@ there; this section only places the workspace steps of §2 and §3 inside or out
    - every command starts with the workspace root as working directory (§1 item 1); no argument
      that the core adds and no environment variable that the core sets (for example those of the
      coverage adapters, §4 item 1) names a path under the working-tree root or in the git
-     directory; and no path that the core makes available in the workspace (§2 item 4), git
-     metadata included, leads into the working tree or into the git directory, so a git command
-     run in the workspace finds no index, ref or object store of the developer's repository.
+     directory; no path that the core makes available in the workspace (§2 item 4) leads into
+     the working tree or into the git directory; and the git
+     repository-locating variables of §1 item 7 are removed from every command's environment, so
+     a git command run in the workspace finds no index, ref or object store of the developer's
+     repository.
 2. **Limit.** The analysis core runs the project's own code with the developer's environment and
    no operating-system sandbox, so it cannot stop that code from addressing the working tree on its
    own: through the command text (§1 item 6), a package link that points at the working tree (for

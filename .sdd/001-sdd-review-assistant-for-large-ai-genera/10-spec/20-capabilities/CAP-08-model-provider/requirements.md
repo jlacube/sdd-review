@@ -75,7 +75,7 @@ capability: "Model provider and model-free mode"
 ### C001-REQ-809 — Keep provider keys out of the repository
 - **Pattern:** ubiquitous
 - **Statement:** THE analysis core SHALL read model-provider keys only from environment variables or from a credential store outside the repository.
-- **Rationale:** C001-CON-07; constitution NFR-D-01 and forbidden technologies (no secrets in the repository). A key that cannot be found: C001-REQ-816.
+- **Rationale:** C001-CON-07; constitution NFR-D-01 and forbidden technologies (no secrets in the repository). A key that cannot be found: C001-REQ-816. Credential-store entries the review configuration may name: C001-REQ-820.
 - **Stories:** C001-US-803
 - **Priority:** Must
 - **Acceptance:** C001-AC-809.1
@@ -148,7 +148,15 @@ capability: "Model provider and model-free mode"
 ### C001-REQ-819 — Use no model when the configuration cannot be read
 - **Pattern:** unwanted-behaviour
 - **Statement:** IF the review configuration cannot be read, including a configuration that names a provider API other than the OpenAI-compatible chat API and the Anthropic Messages API, THEN THE analysis core SHALL run the review in model-free mode.
-- **Rationale:** without a readable configuration, neither the cloud opt-in setting nor the model-excluded path patterns are known, so no content may be sent (C001-CON-01, C001-SC-07). A configuration that names another provider API does not conform to its format (C001-IF-004), so it cannot be read: clearing stops as well and the configuration notice is reported (C001-REQ-427, ERR-CFG-001 in `50-interfaces/errors.md`).
+- **Rationale:** without a readable configuration, neither the cloud opt-in setting nor the model-excluded path patterns are known, so no content may be sent (C001-CON-01, C001-SC-07). A configuration that names another provider API does not conform to its format (C001-IF-004), so it cannot be read: clearing stops as well and the configuration notice is reported (C001-REQ-427, ERR-CFG-001 in `50-interfaces/errors.md`). A configuration that names a credential-store entry outside the accepted service names: C001-REQ-820.
 - **Stories:** C001-US-801, C001-US-803
 - **Priority:** Must
 - **Acceptance:** C001-AC-819.1
+
+### C001-REQ-820 — Accept credential-store entries only under the sdd-review service name
+- **Pattern:** unwanted-behaviour
+- **Statement:** IF the review configuration names a credential-store entry whose service name is neither `sdd-review` nor a name that begins with `sdd-review/`, THEN THE analysis core SHALL treat the review configuration as a review configuration that cannot be read (C001-REQ-427, C001-REQ-819).
+- **Rationale:** the review configuration comes from the base commit (C001-REQ-426), so a mistaken or hostile configuration could name the credential-store entry of another application and, with the cloud opt-in setting, send that secret to an endpoint of its choice; accepting only the service name `sdd-review` and the names below `sdd-review/` keeps the credential-store entries the analysis core reads to entries made for it (C001-ADR-008). This requirement limits credential-store entries only and sets no limit on the environment variable that the configuration names for the key (C001-REQ-809, C001-IF-004). It is defence in depth, not the trust boundary: the same configuration sets the test command that every analysis runs (C001-REQ-505), so whoever writes the base commit's configuration already runs code on the developer's machine. A configuration that cannot be read gives model-free mode (C001-REQ-819), so no credential-store entry is read, and clears no hunk (C001-REQ-427), as a configuration that holds a key value does (C001-IF-010 §7). Default entry: `50-interfaces/README.md` §2. Configuration format: C001-IF-004. Term: credential-store entry (glossary). Notice ERR-CFG-004 (`50-interfaces/errors.md`).
+- **Stories:** C001-US-803
+- **Priority:** Must
+- **Acceptance:** C001-AC-820.1

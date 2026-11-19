@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 10-spec
 status: draft
 ---
-# Triage and clearing with evidence (realizes C001-TS-419, C001-TS-435, C001-TS-442, C001-TS-445, C001-TS-459, C001-TS-460, C001-TS-462, C001-TS-512, C001-TS-516, C001-TS-523, C001-TS-539, C001-TS-543, C001-TS-570)
+# Triage and clearing with evidence (realizes C001-TS-419, C001-TS-435, C001-TS-442, C001-TS-445, C001-TS-459, C001-TS-460, C001-TS-462, C001-TS-512, C001-TS-516, C001-TS-523, C001-TS-539, C001-TS-543, C001-TS-570, C001-TS-591, C001-TS-593)
 
 Flow of `architecture.md` §3. Hunk states: `40-domain/state-machines.md` §1; test run and mutation
 states: §4 and §5; run conventions and evidence workspaces: `50-interfaces/evidence-runs.md`;
@@ -27,7 +27,7 @@ sequenceDiagram
   participant C001_COMP_012 as Review coverage tracker
   participant C001_COMP_014 as Review state store
   participant C001_COMP_019 as Local review UI web client
-  Note over Dev,C001_COMP_019: Realizes C001-TS-419, C001-TS-435, C001-TS-442, C001-TS-445, C001-TS-459, C001-TS-460, C001-TS-462, C001-TS-512, C001-TS-516, C001-TS-523, C001-TS-539, C001-TS-543, C001-TS-570
+  Note over Dev,C001_COMP_019: Realizes C001-TS-419, C001-TS-435, C001-TS-442, C001-TS-445, C001-TS-459, C001-TS-460, C001-TS-462, C001-TS-512, C001-TS-516, C001-TS-523, C001-TS-539, C001-TS-543, C001-TS-570, C001-TS-591, C001-TS-593
   C001_COMP_002->>C001_COMP_010: triage the snapshot with the effective configuration
   C001_COMP_010->>C001_COMP_007: syntax trees, name resolution, public API of base and snapshot
   C001_COMP_007-->>C001_COMP_010: symbols, moves, renames, formatting-only hunks
@@ -38,6 +38,10 @@ sequenceDiagram
   C001_COMP_002->>C001_COMP_014: save revision (triage document with samples), then show it
   C001_COMP_002->>C001_COMP_011: start test run job
   C001_COMP_011->>C001_COMP_003: treeEntries(base) and readBlob (G-13, G-08)
+  loop each submodule path of the snapshot, nested ones included
+    C001_COMP_011->>C001_COMP_003: submoduleTree(parent, path, recorded commit) (G-16)
+    C001_COMP_003-->>C001_COMP_011: tree entries and content, or absent with the cause (path left empty, ERR-EVID-012 on each run)
+  end
   C001_COMP_011->>C001_COMP_014: snapshot content of the changed files
   C001_COMP_011->>C001_COMP_011: fill an evidence workspace outside the working tree, check it against the snapshot
   alt no workspace can be prepared

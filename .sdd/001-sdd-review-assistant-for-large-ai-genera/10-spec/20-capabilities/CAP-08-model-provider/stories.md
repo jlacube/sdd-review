@@ -49,7 +49,7 @@ that works without any model (C001-DEC-004). Which features a model improves is 
 - **Priority:** Must · **Size hint:** S · **Capability:** C001-CAP-08
 - **Context & notes:** C001-DEC-004 Consequences; provider keys are never stored in the
   repository (C001-CON-07).
-- **Requirements:** C001-REQ-805, C001-REQ-806, C001-REQ-807, C001-REQ-808, C001-REQ-809, C001-REQ-817, C001-REQ-819
+- **Requirements:** C001-REQ-805, C001-REQ-806, C001-REQ-807, C001-REQ-808, C001-REQ-809, C001-REQ-817, C001-REQ-819, C001-REQ-820
 - **Traces to:** C001-GOAL-07, C001-DEC-004
 
 ### C001-US-804 — See which outputs came from a model and how certain they are

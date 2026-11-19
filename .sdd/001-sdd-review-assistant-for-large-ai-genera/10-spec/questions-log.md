@@ -370,3 +370,86 @@
 - **Sources:** CR-32 (sdd-critic), sdd-architect
 - **Answer:** (fatigue guard — recommended option applied)
 - **Extracted instructions:** none
+
+## Round 13 — 2026-11-18 (revision for D-001 … D-007)
+
+### Q-cleanfilter-01 — Files under a clean filter (Git LFS) are compared by raw working-tree bytes, so every checked-out LFS file shows as changed in every review. How should filtered files be compared?
+- **Blocking:** no · **Material:** yes · **Candidates considered:** 5 (sdd-architect)
+- **Why it matters:** Every checked-out LFS file would show as changed, can pass the 300-file limit (ERR-INTAKE-006) and hide the agent's real edits; touches C001-REQ-126 and C001-IF-012 §7; still runs no filter.
+- **Options:**
+  1. Index blob if up to date (Recommended) — For a filtered file git's index records as unchanged (stat data), use the index blob; only filtered files edited since checkout or `git add` show as changed; costs an in-process copy of git's stat and racy-entry rules.
+  2. Raw bytes always (as written) — Simplest, already specified; every checked-out LFS file shows as changed, notice each time.
+- **Rejected:** Compute Git LFS pointers in process — LFS only, reimplements a third-party format; Leave filtered files out — hides real edits, against C001-REQ-101; Run the clean filter — against C001-IF-012 §2 item 2 and C001-CON-13.
+- **Sources:** C001-ADR-004, C001-REQ-126, C001-IF-012, D-007 (sdd-architect)
+- **Answer:** Index blob if up to date (Recommended)
+- **Extracted instructions:** none
+
+## Round 14 — 2026-11-18 (revision for D-001 … D-007)
+
+### Q-filterworkspace-01 — Under C001-REQ-127 a checked-out Git LFS file is unchanged, so evidence workspaces would hold its pointer instead of its content. How should a filtered file that is up to date in the index get its content into an evidence workspace, without running any filter?
+- **Blocking:** yes · **Material:** yes · **Candidates considered:** 5 (sdd-architect)
+- **Why it matters:** Tests reading LFS or git-crypt files would see pointers or ciphertext; staged LFS edits have the same problem. Needs a new evidence notice and changes C001-IF-013 §2 item 1 and the fill rule of C001-ADR-006 §2.
+- **Options:**
+  1. Copy working tree, checked (Recommended) — Score 3.90: a filtered file still up to date in the index, with its index entry recording the snapshot-side blob, is copied from the working tree through the read-only copy-on-write copier (stat checked before and after); otherwise stored form plus a new notice. No lasting copy; workspaces of one snapshot can differ.
+  2. Capture once at intake — Score 3.85: copy all up-to-date filtered files into the review state store at intake; identical workspaces, but a lasting copy of LFS assets / git-crypt plaintext outside the repository and copy cost at every review.
+- **Rejected:** Stored form only, with a notice (3.50) — tests see pointers or ciphertext; Read Git LFS's object store by oid (3.55) — LFS only, private layout; Run the smudge filter — against C001-IF-012 §2 item 2, C001-CON-13, can download (C001-NFR-011, C001-CON-11).
+- **Sources:** C001-REQ-127, C001-REQ-522, C001-IF-013, C001-IF-012, C001-ADR-006, C001-CON-22, Q-cleanfilter-01 (sdd-architect); near tie disclosed
+- **Answer:** Copy working tree, checked (Recommended)
+- **Extracted instructions:** none
+
+## Round 15 — 2026-11-18 (revision for D-001 … D-007)
+
+### Q-cleanfilter-02 — An agent can keep an edit of a filtered file out of the review (same-size edit with mtime reset, untracked filter settings, forged .git/index) while evidence runs execute it (CR-37). How should intake decide that a file under a clean filter is unchanged?
+- **Blocking:** yes · **Material:** yes · **Candidates considered:** 5 (sdd-architect)
+- **Why it matters:** Decides C001-IF-012 §7, C001-REQ-127, C001-REQ-527, ERR-INTAKE-009, ERR-EVID-013 and whether Q-filterworkspace-02 stays a marked assumption; C001-REQ-101 (Must) is at stake.
+- **Options:**
+  1. LFS by hash + harden rest (Recommended) — Score 4.00: Git LFS files count as unchanged and are copied only when their bytes match the pointer's SHA-256 and size; other filters use the hardened stat rule (attributes from the base commit only, repo settings ignored, all stat fields compared); Windows timestamp gap remains for non-LFS filters only, marked at G2; costs hashing LFS content per intake and fill.
+  2. Harden the stat rule only — Score 3.90: cheapest, requirements as written; Windows same-size edit with mtime reset and a forged .git/index can still hide an edit.
+  3. LFS by hash, raw bytes for others — Score 3.80: no stat trust anywhere; every git-crypt/nbstripout file changed in every review, git-crypt plaintext stored and shown.
+- **Rejected:** Raw bytes for all filtered files (2.65) — brings back D-007, reverses Q-cleanfilter-01/Q-filterworkspace-01; Keep §7 and mark limits (3.20) — violates C001-REQ-101.
+- **Sources:** CR-37, C001-IF-012, C001-REQ-101, C001-REQ-127, C001-REQ-527, Q-cleanfilter-01, Q-filterworkspace-01, Q-filterworkspace-02, C001-ADR-004 (sdd-architect); near tie disclosed
+- **Answer:** LFS by hash + harden rest (Recommended)
+- **Extracted instructions:** none
+
+### Q-reqsplit-01 — C001-REQ-527 was narrowed to the working-tree copy; allocate one more requirement ID for the ERR-EVID-013 notice?
+- **Blocking:** yes · **Material:** no · raised by sdd-spec-writer (CR-40)
+- **Why it matters:** One SHALL with one outcome per statement (ears-requirements); the notice needed its own statement.
+- **Answer:** not asked — ID allocation is the conductor's; C001-REQ-528 allocated (2026-11-18).
+- **Extracted instructions:** none
+
+## Round 16 — 2026-11-19 (revision for D-001 … D-007)
+
+### Q-nonlfs-01 — For files under clean filters other than Git LFS, an edit can be hidden on every OS (an index entry written or refreshed by the agent, e.g. with a substitute filter), not only on Windows (CR-45). Accept this limit, or close it?
+- **Blocking:** yes · **Material:** yes · **Candidates considered:** 2 (sdd-critic CR-45; options from Q-cleanfilter-02)
+- **Why it matters:** The edit appears in no hunk yet evidence runs execute it; P-01's Q-cleanfilter-02 option text named only the Windows timestamp gap.
+- **Options:**
+  1. Accept, state it everywhere (Recommended) — Keep the hardened stat rule for non-LFS filters; the full limit (all OSes, forged or refreshed index) is stated in C001-IF-012, C001-REQ-127, C001-REQ-527 and the gate notes. No review noise; git-crypt plaintext stays out of snapshots.
+  2. Close it: raw bytes for non-LFS — Option 3 of Q-cleanfilter-02: no edit can hide, but every checked-out git-crypt/nbstripout file shows as changed in every review and git-crypt plaintext is stored and shown.
+- **Sources:** CR-45, Q-cleanfilter-02, Q-filterworkspace-02, C001-IF-012 §7 item 8 (sdd-critic, sdd-architect)
+- **Answer:** Accept, state it everywhere (Recommended)
+- **Extracted instructions:** none — supersedes the fatigue-guard resolution of Q-filterworkspace-02 for the non-LFS residual.
+
+## Round 17 — 2026-11-19 (revision for D-001 … D-007)
+
+### Q-movedon-01 — The moved-on check reuses a file's hash while its size and timestamps are unchanged, so on Windows a same-size edit after intake with the timestamp set back is missing from the moved-on notice (CR-49). Accept the gap, or close it?
+- **Blocking:** yes · **Material:** yes · **Candidates considered:** 3 (sdd-critic CR-49, sdd-architect; option 3 added by the conductor)
+- **Why it matters:** The edit never reaches a snapshot or workspace, but a developer who signs and then commits the working tree commits unreviewed code; C001-REQ-117 (Must) promises every differing file; C001-NFR-003 (1 s per verdict) is at stake.
+- **Options:**
+  1. Accept Windows gap, state it — Keep the hash reuse; add the racy-timestamp rule; state the Windows limit in C001-REQ-117, C001-IF-012 and the coverage table.
+  2. Re-hash every file on Windows — No gap; a verdict may exceed C001-NFR-003 in large working trees, needing a Windows exception or a looser threshold.
+  3. Re-hash at sign-off only — Fast reuse for ordinary verdicts, full re-hash before the final decision status; sign-off may exceed 1 s, per-verdict notices on Windows can still miss the edit.
+- **Sources:** CR-49, C001-REQ-117, C001-IF-012 G-12 and §8 item 3, C001-NFR-003, C001-US-104 (sdd-critic, sdd-architect)
+- **Answer:** Accept Windows gap, state it
+- **Extracted instructions:** none
+
+## Resolved under the fatigue guard (Q-fatigue-01) — 2026-11-18 (revision)
+
+### Q-filterworkspace-02 — On Windows, an edit of a file under a clean filter that keeps its size and sets its modification time back is not visible in git's stat data, so the evidence workspace would get bytes that are not the snapshot's. Is this accepted as git's own limit?
+- **Blocking:** no · **Material:** no
+- **Why it matters:** Decides whether C001-AC-527.1 keeps the abuse case for Linux and macOS only or whether C001-REQ-527 needs a further check on Windows.
+- **Options:**
+  1. Accept as git's own limit (Recommended) — Intake under C001-REQ-127 trusts the same stat data, so the workspace is no weaker than the snapshot itself; no extra cost.
+  2. Add a Windows-specific check — Needs a content comparison that would run the filter or hash LFS content, against C001-IF-012 §2 item 2.
+- **Sources:** C001-REQ-527, C001-REQ-127, C001-IF-012 (sdd-test-designer)
+- **Answer:** (fatigue guard — recommended option applied)
+- **Extracted instructions:** none

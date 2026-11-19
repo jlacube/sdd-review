@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Review configuration (C001-IF-004)",
-  "description": "File .sdd-review/config.json of the repository (README.md section 2), read from the base commit of each snapshot (C001-REQ-426); a base commit without it gives the default configuration. Before validation the loader removes and reports with notice ERR-CFG-002 every setting that weakens a built-in guarded area: any value of clearing.builtinGuardedAreas and any entry of clearing.guardedAreas whose name is a built-in area ID (C001-REQ-425, builtin-policy.md section 2). A file that then does not validate makes the configuration unreadable: no hunk is cleared (C001-REQ-427, ERR-CFG-001). Defaults: builtin-policy.md section 9. Keys are never written in this file (C001-REQ-809).",
+  "description": "File .sdd-review/config.json of the repository (README.md section 2), read from the base commit of each snapshot (C001-REQ-426); a base commit without it gives the default configuration. Trust boundary: the file is trusted as the project's own code, because it sets the test command that an analysis runs, with the developer's environment, whenever the developer gives none (tests.command, C001-REQ-505, evidence-runs.md section 1), and with it the provider endpoint, the cloud opt-in and the key sources (model); reviewing a change against a base commit therefore needs the trust that running that commit's tests needs. Settings that limit what the file can reach (the built-in guarded areas, C001-REQ-425; the credential-store services of keyCredential, C001-REQ-820) are defence in depth, not this boundary (model-provider.md section 7). Before validation the loader removes and reports with notice ERR-CFG-002 every setting that weakens a built-in guarded area: any value of clearing.builtinGuardedAreas and any entry of clearing.guardedAreas whose name is a built-in area ID (C001-REQ-425, builtin-policy.md section 2). A file that then does not validate makes the configuration unreadable: no hunk is cleared (C001-REQ-427, ERR-CFG-001). Defaults: builtin-policy.md section 9. Keys are never written in this file (C001-REQ-809).",
   "type": "object",
   "required": ["formatVersion"],
   "additionalProperties": false,
@@ -163,7 +163,7 @@
         },
         "model": { "type": "string", "minLength": 1, "maxLength": 200 },
         "keyEnv": {
-          "description": "Name of the environment variable that holds the key (C001-REQ-809). When set, the provider requires a key: none found gives ERR-MODEL-006 (model-provider.md section 7).",
+          "description": "Name of the environment variable that holds the key (C001-REQ-809); any variable name, by design, under the trust boundary stated at the top of this schema (model-provider.md section 7). When set, the provider requires a key: none found gives ERR-MODEL-006 (model-provider.md section 7).",
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
         },
@@ -173,7 +173,12 @@
           "required": ["service", "account"],
           "additionalProperties": false,
           "properties": {
-            "service": { "type": "string", "minLength": 1 },
+            "service": {
+              "description": "Only sdd-review or a name beginning with sdd-review/ (README.md section 2, C001-ADR-008). The loader checks this value before validating the rest of the file; any other service makes the configuration unreadable and is reported with ERR-CFG-004 in place of ERR-CFG-001 (C001-REQ-820). config validate reports it with ERR-CFG-003.",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^sdd-review(/.*)?$"
+            },
             "account": { "type": "string", "minLength": 1 }
           }
         },

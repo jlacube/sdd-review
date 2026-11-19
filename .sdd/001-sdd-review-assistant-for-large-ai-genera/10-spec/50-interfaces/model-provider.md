@@ -116,6 +116,20 @@ In this order, for every request:
   read from the repository (a configuration that holds a key value does not validate,
   ERR-CFG-001) and never written to logs, analysis results or the review record (C001-CON-21). The
   credential-store access per operating system is set by ADR in 20-plan.
+- **Trust boundary of the key settings.** `keyEnv`, `keyCredential` and the endpoint come from
+  the review configuration of the base commit, which is trusted as the project's own code
+  (C001-IF-004, trust boundary in its description): the same file sets the test command that an
+  analysis runs, with the developer's environment, whenever the developer gives none
+  (C001-REQ-505, C001-IF-013 §1 item 1).
+  - `keyEnv` may name any environment variable, by design. Every variable it can name is also in
+    the environment of the configuration's test command whenever that command runs, so a limit on
+    the name would keep no secret from a configuration that runs code, and the names that
+    providers document for their keys (for example `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) stay
+    usable without a copy under another name.
+  - `keyCredential` may name only the service `sdd-review` or a service below `sdd-review/`
+    (C001-REQ-820, `README.md` §2). This is defence in depth: credential-store entries are in the
+    environment of no command, and the limit keeps a mistaken configuration from sending the
+    secret of another application's entry to the configured provider.
 - **Key required:** always for `anthropic-messages`; for `openai-chat` only when `keyEnv` or
   `keyCredential` is configured. A required key that none of the lookups finds → ERR-MODEL-006,
   and no request is sent. An `openai-chat` provider with neither setting and no key in the default

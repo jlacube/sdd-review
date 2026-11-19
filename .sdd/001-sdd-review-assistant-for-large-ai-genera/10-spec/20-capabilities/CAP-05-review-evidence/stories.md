@@ -39,8 +39,14 @@ project's own tests and writes none (C001-NG-01).
   static signals (`ideation.md` §10). Tool-executed rather than agent-reported evidence:
   C001-R-002 §B (agentic manual testing). Language coverage: `10-context/scope.md` §1. The runs
   never touch my working tree, and my edits during a run do not void it (C001-REQ-521,
-  C001-REQ-522).
-- **Requirements:** C001-REQ-505, C001-REQ-506, C001-REQ-507, C001-REQ-508, C001-REQ-509, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524
+  C001-REQ-522). A Git LFS file gets its checked-out content only when its hash shows it to be
+  the snapshot's (C001-REQ-529). A file under another clean filter gets it when git's index
+  records it as the snapshot's (C001-REQ-527); on every system an index entry written or
+  refreshed after an edit, and on Windows a same-size edit with the modification time set back,
+  can then give my runs edited bytes that the snapshot does not show (limit accepted by P-01 with
+  Q-nonlfs-01). I am told when such a file holds its stored form (C001-REQ-528;
+  Q-cleanfilter-02).
+- **Requirements:** C001-REQ-505, C001-REQ-506, C001-REQ-507, C001-REQ-508, C001-REQ-509, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524, C001-REQ-525, C001-REQ-526, C001-REQ-527, C001-REQ-528, C001-REQ-529
 - **Traces to:** C001-GOAL-02, C001-GOAL-05, Q-clearing-01
 
 ### C001-US-503 — Attach an executable evidence bundle to an intent and re-run it
@@ -54,7 +60,7 @@ project's own tests and writes none (C001-NG-01).
 - **Context & notes:** paradigm 7; the tool runs the commands so that the agent cannot write the
   expected output (C001-R-002 §B). Commands run on the local machine only (C001-CON-01). Commands
   proposed from the agent's records run only after my confirmation (C001-REQ-511).
-- **Requirements:** C001-REQ-509, C001-REQ-510, C001-REQ-511, C001-REQ-512, C001-REQ-513, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524
+- **Requirements:** C001-REQ-509, C001-REQ-510, C001-REQ-511, C001-REQ-512, C001-REQ-513, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524, C001-REQ-525, C001-REQ-526, C001-REQ-527, C001-REQ-528, C001-REQ-529
 - **Traces to:** C001-GOAL-05, Q-extras-01
 
 ### C001-US-504 — See surviving mutants on changed lines
@@ -69,7 +75,7 @@ project's own tests and writes none (C001-NG-01).
   (mutation testing at Google). [ASSUMPTION: C001-AS-06]. Whether a surviving mutant keeps its
   hunk open (C001-US-403) is set in the requirements. Language coverage:
   `10-context/scope.md` §1.
-- **Requirements:** C001-REQ-410, C001-REQ-411, C001-REQ-514, C001-REQ-515, C001-REQ-516, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524
+- **Requirements:** C001-REQ-410, C001-REQ-411, C001-REQ-514, C001-REQ-515, C001-REQ-516, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524, C001-REQ-525, C001-REQ-526, C001-REQ-527, C001-REQ-528, C001-REQ-529
 - **Traces to:** C001-GOAL-02, C001-GOAL-05, Q-extras-01
 
 ### C001-US-505 — See property-test counter-examples next to the hunk

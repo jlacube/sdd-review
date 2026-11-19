@@ -629,6 +629,71 @@ Scenario: C001-TS-857 — A configuration broken only in the snapshot does not s
   And the review reports no notice ERR-CFG-001
 ```
 
+## C001-REQ-820
+
+#### C001-AC-820.1 — A review configuration that names a credential-store service other than `sdd-review` or a name beginning with `sdd-review/` is treated as unreadable and reported with ERR-CFG-004
+```gherkin
+Scenario Outline: C001-TS-858 — The service sdd-review and the names beginning with sdd-review/ are accepted
+  Given a review configuration that names the cloud stub as provider "team-model" with the cloud opt-in setting and the credential-store entry with service "<service>" and account "team-model"
+  And the operating system's credential store holds the key "sk-test-STORE-007" in that entry, and no environment variable holds a key
+  When the analysis of the snapshot completes
+  Then every request recorded by the cloud stub carries the key "sk-test-STORE-007"
+  And the review reports neither the notice ERR-CFG-004 nor the notice ERR-CFG-001
+
+  Examples:
+    | service      |
+    | sdd-review   |
+    | sdd-review/x |
+```
+```gherkin
+Scenario Outline: C001-TS-859 — Any other service makes the configuration unreadable, so no key is read or sent
+  Given a review configuration that names the cloud stub as provider "team-model" with the cloud opt-in setting and the credential-store entry with service "<service>" and account "team-model"
+  And the operating system's credential store holds the secret "sk-test-FOREIGN-008" in that entry
+  And the change holds 3 hunks that only change whitespace in "src/format.ts", which the default configuration clears
+  And the local stub and the cloud stub are running and network capture is running
+  When the developer starts a review of the change
+  Then neither the local stub nor the cloud stub receives a request
+  And network capture records 0 connections to non-loopback addresses
+  And the review runs in model-free mode and reports the notice ERR-CFG-004 that names the service "<service>"
+  And the review reports no notice ERR-CFG-001
+  And no hunk of the snapshot is cleared
+
+  Examples:
+    | service                |
+    | other                  |
+    | sdd-reviewer           |
+    | git:https://github.com |
+```
+```gherkin
+Scenario Outline: C001-TS-860 — A foreign service makes the configuration unreadable whatever else it holds, and ERR-CFG-004 replaces ERR-CFG-001
+  Given a review configuration that names the cloud stub as provider "team-model" with the cloud opt-in setting, the credential-store entry with service "other" and account "team-model", and <other content>
+  And <environment>
+  When the developer starts a review of the change
+  Then the cloud stub receives no request
+  And the review reports the notice ERR-CFG-004 that names the service "other"
+  And the review reports no notice ERR-CFG-001
+
+  Examples:
+    | other content                                | environment                                  |
+    | the key environment variable "TEAM_LLM_KEY"  | "TEAM_LLM_KEY" holds "sk-test-ENV-009"       |
+    | the provider API "google-gemini"             | no environment variable holds a key          |
+```
+```gherkin
+Scenario: C001-TS-861 — `config validate` reports a foreign service as an invalid file
+  Given the file ".sdd-review/config.json" of the working tree names the credential-store entry with service "sdd-reviewer" and account "team-model" and is valid in every other respect
+  When the developer runs `sdd-review config validate`
+  Then the command exits with code 10
+  And it reports ERR-CFG-003 with the JSON pointer "/model/provider/keyCredential/service"
+```
+```gherkin
+Scenario: C001-TS-862 — A foreign service added by the change under review is not applied to its own review
+  Given a base commit whose review configuration names the local stub as provider "team-model" with no credential-store entry
+  And the change under review sets in the review configuration the credential-store entry with service "other" and account "team-model"
+  When the analysis of the snapshot completes
+  Then the local stub has received the intent-extraction requests
+  And the review reports neither the notice ERR-CFG-004 nor the notice ERR-CFG-001
+```
+
 ## Coverage table
 
 | REQ | happy | alternate | boundary | error | authorization | concurrency/idempotency | abuse |
@@ -651,6 +716,7 @@ Scenario: C001-TS-857 — A configuration broken only in the snapshot does not s
 | C001-REQ-817 | TS-844 | TS-846 | TS-845, TS-854 | TS-844, TS-854 | n/a | n/a: a report per analysis; notices of one code are merged per review (TS-845) | TS-855 |
 | C001-REQ-818 | TS-847 | n/a: every failure kind is in the outline of TS-847 | n/a: no quantity bound | TS-847 | n/a | n/a: model requests write no review state | n/a: no input of its own |
 | C001-REQ-819 | n/a: unwanted-behaviour requirement, its scenarios are in the error column | TS-856 | TS-857 | TS-856 | n/a | n/a: decided once per snapshot from the base commit | TS-856 (an opt-in in a configuration that does not validate) |
+| C001-REQ-820 | n/a: unwanted-behaviour requirement, its scenarios are in the error column | TS-860, TS-862 | TS-858 (`sdd-review`, `sdd-review/x`), TS-859 (`sdd-reviewer`) | TS-859, TS-860, TS-861 | n/a | n/a: decided once per snapshot from the base commit | TS-859 (`git:https://github.com`, an entry of another application) |
 
 Authorization (every row): `n/a` — the provider is chosen per repository by P-03 through the review
 configuration of the base commit (C001-REQ-426); the first version has no roles at review time.

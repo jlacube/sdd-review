@@ -295,7 +295,7 @@ All findings CR-1 to CR-35. Open after focused re-review 4: 0 blocker, 0 major, 
 - **Evidence:** the interface: "From the end of that check to the end of the copy, the test run's workspace is" / "taken by the copy: no run uses it and it is not free." — `10-spec/50-interfaces/evidence-runs.md:64-65`; "The copy is removed when mutation testing of the snapshot ends, because" / "its ignored paths may hold build outputs of mutated code; it is never reset for another run." — `…/evidence-runs.md:62-63`; "a failed copy is" / "removed, and the mutation evidence of every hunk that mutation testing was to take is recorded" / "as unavailable with the cause" — `…/evidence-runs.md:68-70`; "No mutant of such a file counts as" / "killed or surviving: the mutation evidence of each of its hunks is recorded as unavailable with" — `…/evidence-runs.md:196-197`; against the entity: "| state | preparing, free, in use | in use by at most one run (C001-IF-013 §2 item 3) |" — `10-spec/40-domain/domain-model.md:492`, "- **Content:** the files of the snapshot, filled and reset as in C001-IF-013 §2; ignored paths as" — `…/domain-model.md:495`, "- **Lifetime:** created when a run needs one, removed when the process that runs the snapshot's" / "jobs ends" — `…/domain-model.md:497-498`, "reported, not prevented: ERR-EVID-008 for execution, ERR-EVID-009 for changes" — `…/domain-model.md:504`; the lifecycle's only routes to Unavailable: "| Waiting | test run Unavailable or Discarded, or no mutation tool for the ecosystem | — | Unavailable | reason recorded, ERR-EVID-006 (C001-REQ-516) |" — `10-spec/40-domain/state-machines.md:171`, "| Running | tool error, time-out or session end without completion | — | Unavailable | reason recorded (C001-REQ-516); test evidence has strength 3 (C001-REQ-518) |" — `…/state-machines.md:173`; and the examples of C001-TS-545: "no mutation-testing tool for C#/.NET is installed" and "the developer cancels mutation testing before it reaches the hunk" — `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:547-548`
 - **Why it matters:** the CR-29 and CR-32 fixes reached the interface, the error catalogue, C001-COMP-011, the flow and the sequence, but not the domain model or the mutation-evidence lifecycle. During the copy window the test run's workspace is in none of the three states of the entity: it is not preparing, not free, and "no run uses it", so an implementer working from the domain model has no state that makes a bundle run wait (C001-TS-582) rather than get a newly prepared workspace. The mutation copy is an evidence workspace that is never reset and is removed when mutation testing ends, against the entity's content and lifetime bullets. The lifecycle has no transition for a failed copy, nor for a hunk whose file the self-containment check finds loaded outside the copy; neither "tool error, time-out or session end without completion" nor "no mutation tool" names them, and ERR-EVID-011 occurs nowhere in `state-machines.md` or `domain-model.md`. The failed copy, which makes the mutation evidence of every hunk unavailable at once, has no scenario (A4), so C001-DOD-005 does not test it.
 - **Suggested fix:** Owner: architect (`40-domain/domain-model.md` §2.25, `40-domain/state-machines.md` §5). Give EvidenceWorkspace a state for the copy window (for example "copying": taken by the mutation copy, not free, a run that needs it waits), or state that the copy holds the workspace "in use" for the mutation run; state the mutation copy's lifetime (removed when mutation testing ends) and that it is never reset; name ERR-EVID-010 and ERR-EVID-011 in the last bullet. Add to §5 a transition to Unavailable for a failed copy (ERR-EVID-006) and one for a hunk whose file the self-containment check reports loaded outside the copy (reason "loaded outside the mutation workspace", ERR-EVID-011, C001-REQ-516). Owner: test-designer (`CAP-05-review-evidence/acceptance.md`, C001-AC-516.1): a scenario in which the copy fails (for example for lack of disk space): every hunk mutation testing was to take gets unavailable mutation evidence with ERR-EVID-006, the partial copy is removed and the test run's workspace is free afterwards.
-- **Status:** open
+- **Status:** resolved (focused re-review 8, checked outside the earlier briefs)
 
 ### CR-34 — C001-TS-582 and C001-TS-583 put the 1 s threshold of C001-NFR-018 (c) into acceptance tests that must pass on every CI runner
 - **Severity:** minor
@@ -303,7 +303,7 @@ All findings CR-1 to CR-35. Open after focused re-review 4: 0 blocker, 0 major, 
 - **Evidence:** "And the evidence-bundle overhead (c) of C001-NFR-018 for the command, taken from the end of the copy instead of from the run action, is at most 1 s" — `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:435`; "And the evidence-bundle overhead (c) of C001-NFR-018 is at most 1 s for each of the 10 commands" — `…/acceptance.md:444`; the NFR's environment: "- **Environment:** reference machine; benchmark changes (§0) with their test command, intake and environment," — `10-spec/30-nfr/nfr.md:115`, with "8 logical CPU cores, 16 GiB RAM, SSD storage, no other user workload" — `…/nfr.md:15`; the DoD items that run every scenario: "Every scenario of `20-capabilities/CAP-05-review-evidence/acceptance.md` runs as an automated acceptance test and passes in CI at the closing commit" — `10-spec/70-dod.md:36`, "The acceptance suite passes at 100 % on CI runners of Windows 11 x86-64, macOS 14 or later on x86-64 and on arm64, and Ubuntu 22.04 LTS or later on x86-64" — `…/70-dod.md:58`
 - **Why it matters:** these are the only acceptance scenarios of the specification that assert an NFR time threshold; every other threshold is checked by a benchmark-report item on the reference machine (C001-DOD-010 to C001-DOD-014). C001-NFR-018 sets 1 s for the reference machine with no other workload and for benchmark changes. CI runners are shared, often smaller, virtualised machines whose load the suite does not control, and the time the core adds holds a reset, two checks and the observation of the working tree. The two scenarios can then fail in CI although the NFR holds, or pass on the small `shop-ts` fixture while it fails on a benchmark change; either way C001-DOD-005 and C001-DOD-027 depend on the runner. This is the caution the test-designer raised. What the scenarios exist for is observable without a time bound: the run waits for the copy, then runs in the test run's workspace with no workspace prepared (C001-TS-582), and bundle runs go on in that workspace while mutation testing runs (C001-TS-583).
 - **Suggested fix:** Owner: test-designer (`CAP-05-review-evidence/acceptance.md`, `70-dod.md`). Drop the 1 s assertions from C001-TS-582 and C001-TS-583 and keep their behavioural assertions; the bound stays with C001-DOD-014, which already reports (c) in both states with no wait for the copy. If a time check in the acceptance suite is wanted, assert a bound that holds on CI and state that the 1 s threshold is checked only by C001-DOD-014; or name the reference machine in the Given and exclude the two scenarios from the CI matrix of C001-DOD-027. P-01 can waive this finding at G2 instead.
-- **Status:** open
+- **Status:** resolved (focused re-review 8, checked outside the earlier briefs)
 
 ### CR-35 — Q-copy-window-01 was applied without the assumption marker that Q-fatigue-01 promised
 - **Severity:** minor
@@ -311,7 +311,7 @@ All findings CR-1 to CR-35. Open after focused re-review 4: 0 blocker, 0 major, 
 - **Evidence:** "Use recommendations (Recommended) — Resolve remaining non-blocking questions with their recommended options; each is logged and marked as an assumption you can review at G2." — `10-spec/questions-log.md:356`; "**Answer:** (fatigue guard — recommended option applied)" — `…/questions-log.md:371`; the rule applied, with no marker and no citation of the question: "A run of the snapshot that needs a" / "workspace in this window while no other workspace of the snapshot is free waits until the copy" / "ends and then takes the test run's workspace; no workspace is prepared for it." — `10-spec/50-interfaces/evidence-runs.md:65-67`; "Not" / "included: the preparation of a workspace, and the wait of a run asked for during the copy" / "window." — `…/evidence-runs.md:244-246`; Q-copy-window-01 occurs in no file of `10-spec/` other than `questions-log.md`, and the generated list has "Total: 13" (`10-spec/85-open-items.md:12`), none of them for it
 - **Why it matters:** P-01 accepted the fatigue guard on the condition that each recommendation applied is marked as an assumption to review at G2. The copy-window rule decides that a bundle run asked for just after the test run waits for the copy, and that this wait falls under no threshold of C001-NFR-018. Without the marker at the rule, the open-items list that P-01 reviews at G2 does not show it, and a later reader of the interface cannot tell that P-01 did not choose it.
 - **Suggested fix:** Owner: architect (`50-interfaces/evidence-runs.md` §2 item 3, optionally §8 item 2): add the marker `[ASSUMPTION: Q-copy-window-01]` to the copy-window rule, outside backticks so that it counts; then the conductor runs `sdd trace 001 --write` so that `85-open-items.md` lists it. Until then, gate notes row 18 shows it to P-01.
-- **Status:** open
+- **Status:** resolved (focused re-review 5)
 
 ## Rubric
 | Rubric | Item | Result |
@@ -956,3 +956,758 @@ runs at a cost to (b), and a conflict between them comes back to P-01; two accep
 carry the 1 s threshold into CI; the copy-window rule was taken under the fatigue guard; and an
 installed copy of the project in a developer's environment clears no Python hunk by passing tests
 and raises no notice.
+
+## Focused re-review 5
+
+**Scope.** The revision of the approved specification for defects D-001 to D-007 of `change.md`,
+found while the plan-phase ADRs were written, with rounds 13 and 14 of `10-spec/questions-log.md`
+(Q-cleanfilter-01 answered "Index blob if up to date", Q-filterworkspace-01 answered "Copy working
+tree, checked") and Q-filterworkspace-02, resolved under the fatigue guard. Changed: C001-REQ-125
+to C001-REQ-127, C001-REQ-525 to C001-REQ-527 and C001-REQ-820 with their criteria, scenarios
+(C001-TS-162 to C001-TS-177, C001-TS-586 to C001-TS-599, C001-TS-858 to C001-TS-862) and coverage
+rows; cross-references in C001-REQ-101, C001-REQ-106, C001-REQ-521, C001-REQ-809 and
+C001-REQ-819; C001-US-101, C001-US-502, C001-US-503, C001-US-504 and C001-US-803; C001-IF-012 §2
+item 2, G-01, G-07, G-15, §6 and §7; C001-IF-013 §1 item 7, §2 items 1, 3, 4, 5 and 8, §3 item 1
+and §9 item 1; ERR-INTAKE-008, ERR-INTAKE-009, ERR-EVID-012, ERR-EVID-013 and ERR-CFG-004; the
+`keyCredential.service` pattern of C001-IF-004; the exit-3 row of C001-IF-001; the registry rows
+and the namespace row of `50-interfaces/README.md`; C001-CON-17, C001-CON-18 and C001-CON-22; the
+Realizes lists of C001-COMP-003, C001-COMP-004, C001-COMP-006 and C001-COMP-011; four glossary
+terms; `00-index.md`, C001-DOD-001, C001-DOD-005, C001-DOD-008 and DOD-G-02. The changed lines
+were read with `git diff` against the G2 approval (commit 57e5b42). Out of scope by the brief: the
+plan-phase ADRs that now lag the specification, and TR-06, TR-08 and LINT-OBS-001.
+`sdd lint 001 --phase 10-spec --json`: 846 errors. 828 of them are TR-06 and TR-08, the counts
+that `sdd trace 001` reports (0 / 212 requirements implemented by a task, 0 / 616 scenarios mapped
+to a test case); the other 18, as many as there are NFRs, are cut from the printed output and are
+taken to be the plan-phase LINT-OBS-001 that the brief names. `sdd lint 001 --quick --file` on each
+changed requirement, acceptance, interface, schema, NFR and constraint file: 0 findings.
+`sdd trace 001`: TR-01 55 / 55, TR-02 212 / 212, TR-03 212 / 212, TR-04 18 / 18, TR-05 212 / 212
+and 18 / 18; 22 open items (14 in `10-spec/85-open-items.md`, 8 in `00-ideation/85-open-items.md`).
+
+**Reviewed set** (changed IDs and the IDs linked to them; the frontmatter keeps `all` because this
+file holds the full review): C001-REQ-101, C001-REQ-106, C001-REQ-117, C001-REQ-120, C001-REQ-125,
+C001-AC-125.1, C001-TS-162, C001-TS-163, C001-TS-164, C001-TS-165, C001-TS-166, C001-REQ-126,
+C001-AC-126.1, C001-TS-167, C001-TS-168, C001-TS-169, C001-TS-170, C001-TS-171, C001-TS-172,
+C001-TS-173, C001-REQ-127, C001-AC-127.1, C001-TS-174, C001-TS-175, C001-TS-176, C001-TS-177,
+C001-US-101, C001-REQ-505, C001-REQ-509, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-525,
+C001-AC-525.1, C001-TS-586, C001-TS-587, C001-TS-588, C001-TS-589, C001-TS-590, C001-REQ-526,
+C001-AC-526.1, C001-TS-591, C001-TS-592, C001-TS-593, C001-TS-594, C001-TS-595, C001-TS-596,
+C001-REQ-527, C001-AC-527.1, C001-TS-597, C001-TS-598, C001-TS-599, C001-US-502, C001-US-503,
+C001-US-504, C001-REQ-809, C001-REQ-819, C001-REQ-820, C001-AC-820.1, C001-TS-858, C001-TS-859,
+C001-TS-860, C001-TS-861, C001-TS-862, C001-US-803, C001-IF-001, C001-IF-004, C001-IF-010,
+C001-IF-012, C001-IF-013, C001-CON-13, C001-CON-14, C001-CON-17, C001-CON-18, C001-CON-22,
+C001-COMP-003, C001-COMP-004, C001-COMP-006, C001-COMP-011, C001-DOD-001, C001-DOD-005,
+C001-DOD-008; and ERR-INTAKE-008, ERR-INTAKE-009, ERR-EVID-012, ERR-EVID-013 and ERR-CFG-004 of
+`errors.md`, the glossary terms git program, clean filter, git repository-locating environment
+variable, credential-store entry and snapshot, `00-index.md`, DOD-G-02, and rounds 13 and 14 and
+the fatigue-guard entry Q-filterworkspace-02 of `questions-log.md`.
+
+**Open after focused re-review 5:** 0 blocker, 2 major (CR-36, CR-37), 7 minor (CR-38 to CR-44).
+CR-35 is resolved (below); CR-33 and CR-34 lie outside the reviewed set and were not re-checked.
+
+| Findings | blocker | major | minor |
+|---|---|---|---|
+| New in this re-review (CR-36 to CR-44) | 0 | 2 | 7 |
+| All findings CR-1 to CR-44 | 2 | 12 | 30 |
+
+### Defects D-001 to D-007
+| Defect | Resolved | Evidence | Left |
+|---|---|---|---|
+| D-001 | yes | "IF the git program is not found, reports a version older than 2.34, or refuses to read the repository, THEN THE analysis core SHALL stop intake without creating a snapshot or a review" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:209`; "## §6 The git program (C001-REQ-125)" — `10-spec/50-interfaces/git-access.md:73`; ERR-INTAKE-008 — `10-spec/50-interfaces/errors.md:26`; "git unusable: ERR-INTAKE-008, for every command that reads git data (C001-IF-012 §6)" — `10-spec/50-interfaces/review-cli.md:71`; C001-TS-162 to C001-TS-166 | CR-41, CR-43 |
+| D-002 | yes | "Prerequisites that the developer installs, outside the package: Node.js 22 or later, an LTS line (C001-ADR-001), and git 2.34 or later" — `10-spec/60-architecture/constraints.md:25` | CR-41 (optional: an older Node.js) |
+| D-003 | yes | "each grammar at the version pinned for the release (C001-ADR-003), are fixed per release" — `10-spec/60-architecture/constraints.md:24` | none |
+| D-004 | yes | "THE analysis core SHALL start every command of an evidence run with no git repository-locating environment variable in the command's environment." — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:223`; "7. **Git repository-locating variables** (C001-REQ-525)." — `10-spec/50-interfaces/evidence-runs.md:41`; C001-TS-586 to C001-TS-590 | none |
+| D-005 | yes, for the credential store | "IF the review configuration names a credential-store entry whose service name is neither `sdd-review` nor a name that begins with `sdd-review/`" — `10-spec/20-capabilities/CAP-08-model-provider/requirements.md:158`; `"pattern": "^sdd-review(/.*)?$"` — `10-spec/50-interfaces/review-config.schema.json:180`; ERR-CFG-004 — `10-spec/50-interfaces/errors.md:40`; C001-TS-858 to C001-TS-862 | CR-44 |
+| D-006 | yes | "THEN THE analysis core SHALL leave the submodule's path in the evidence workspace as an empty directory and report a notice that names the submodule path and the missing commit" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:233`; "8. **Submodules** (C001-REQ-526)." — `10-spec/50-interfaces/evidence-runs.md:214`; ERR-EVID-012 — `10-spec/50-interfaces/errors.md:63`; C001-TS-591 to C001-TS-596 | CR-39, CR-42 |
+| D-007 | yes, for files that git's index records as up to date | "WHEN intake finds a file under a clean filter that is up to date in the index, THE analysis core SHALL read the file's content from the blob that git's index records for its path" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:225`; "Scenario: C001-TS-174 — A Git LFS file checked out and left alone is not part of the change" — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:860`; files not up to date are named in ERR-INTAKE-009 (C001-REQ-126); evidence workspaces get the working-tree copy (C001-REQ-527) | CR-36 to CR-40 |
+
+### Status of earlier open findings
+| Finding | Status | Evidence |
+|---|---|---|
+| CR-35 | resolved | `[ASSUMPTION: Q-copy-window-01]` follows the copy-window rule — `10-spec/50-interfaces/evidence-runs.md:140`; the generated list names it with reference Q-copy-window-01 — `10-spec/85-open-items.md:29` |
+| CR-33, CR-34 | not re-checked | outside the reviewed set of this revision |
+
+### Rounds 13 and 14, and Q-filterworkspace-02
+Round 13: "**Answer:** Index blob if up to date (Recommended)" (`10-spec/questions-log.md:384`) is
+applied in C001-REQ-127 and C001-IF-012 §7 items 1 and 2. Round 14: "**Answer:** Copy working
+tree, checked (Recommended)" (`10-spec/questions-log.md:397`) is applied in C001-REQ-527 and
+C001-IF-013 §2 item 1, including the cost the option named: "No copy of the working-tree bytes is
+kept outside the evidence workspaces, so workspaces of" / "one snapshot can differ" (`10-spec/50-interfaces/evidence-runs.md:111-112`).
+Neither answer carries extracted instructions. Q-filterworkspace-02 is applied only as the "on
+Linux or macOS" condition of one C001-TS-598 row; it is stated and marked nowhere else (CR-37).
+
+### Findings
+
+### CR-36 — Evidence workspaces now hold content that is not the snapshot's, while C001-REQ-509 and C001-REQ-522 still require runs on the snapshot's content
+- **Severity:** major
+- **Refs:** C001-REQ-527, C001-REQ-509, C001-REQ-522, C001-AC-527.1, C001-TS-597, C001-IF-013
+- **Evidence:** "IF a test run or an evidence-bundle command executes on file content that differs from the snapshot, THEN THE analysis core SHALL record none of its results as evidence and notify the developer that the files no longer match the snapshot." — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:94`; "THE analysis core SHALL perform the evidence runs of the snapshot, including those already in progress when the difference arose, on the content of the snapshot" — `…/CAP-05-review-evidence/requirements.md:215`; the snapshot holds the stored blob: "The identified, frozen state of the change taken at intake: base commit, HEAD commit and the content of every changed file" — `10-spec/40-domain/glossary-delta.md:30`, and "And its standard output gives for each of <files> the SHA-256 of the file's stored form, the Git LFS pointer file of its snapshot side" — `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1079`; against "the bytes of its working-tree file, copied without running any filter" — `…/CAP-05-review-evidence/requirements.md:241`, "followed by the SHA-256 of the working-tree file <file> and a line end" and "And no notice ERR-EVID-005 is shown" — `…/CAP-05-review-evidence/acceptance.md:1058`, `:1060`; the interface moved its check from the snapshot to the fill: "every path of the snapshot must hold the content and mode that" / "§2 item 1 gave it in that workspace (for a file under a clean filter, its working-tree copy or" / "its stored form)" — `10-spec/50-interfaces/evidence-runs.md:227-229`, where the approved text reset "every path of the snapshot whose content or mode differs from the snapshot" (`10-spec/50-interfaces/evidence-runs.md:52` at commit 57e5b42)
+- **Why it matters:** a working-tree copy of a Git LFS file holds its content while the snapshot holds its pointer file, so every run in a workspace with such a copy executes on file content that differs from the snapshot. Read as written, C001-REQ-509 discards the results of every run in a repository that uses Git LFS or git-crypt, and C001-REQ-522 forbids the copy; C001-TS-597 expects the opposite (no ERR-EVID-005). The interface settled it by comparing each workspace with what §2 item 1 gave it, but the requirements that a tester of C001-AC-509.1 and an implementer of the evidence runner read were not changed. The same reading also hides a real exception: under the stat-data limit of CR-37, a working-tree copy can hold bytes that are not the content of the snapshot's blob at all, and nothing in C001-REQ-509 says whether such a run counts as evidence.
+- **Suggested fix:** Owner: spec-writer (`CAP-05-review-evidence/requirements.md`, `40-domain/glossary-delta.md`). Define the content a run may execute on (for example a term "workspace content": the snapshot's files, where a file under a clean filter may hold its working-tree copy under C001-REQ-527) and use it in C001-REQ-509 and C001-REQ-522, or add to both statements the exception for the working-tree copy of C001-REQ-527; state in the C001-REQ-527 rationale why the copy counts as the snapshot's file for C001-REQ-509 (git's index records it as the content of that blob) and where that stops holding (CR-37). Owner: test-designer (optional): a scenario under C001-AC-509.1 in which a test rewrites the working-tree copy of `assets/logo.png` in its workspace and the run is discarded with ERR-EVID-005.
+- **Status:** resolved (focused re-review 6); the title of C001-AC-509.1 left by the fix was CR-47
+
+### CR-37 — Trusting stat data lets an agent keep an edit out of the change while evidence runs execute it; repository settings and attributes extend this to every file and system, and the Windows limit accepted under the fatigue guard is stated nowhere
+- **Severity:** major
+- **Refs:** C001-REQ-127, C001-REQ-527, C001-REQ-101, C001-IF-012, C001-AC-127.1, C001-TS-172, C001-TS-598
+- **Evidence:** "A file is **under a clean filter** when the `filter` attribute that git gives its path in the" / "working tree names a driver for which the repository's effective configuration sets" — `10-spec/50-interfaces/git-access.md:94-95`; "the file's stat data equal the entry's in every field that git compares under the" / "repository's `core.checkStat`, `core.trustctime` and `core.fileMode` settings" — `…/git-access.md:107-108`; "WHEN intake finds a file under a clean filter that is up to date in the index, THE analysis core SHALL read the file's content from the blob that git's index records for its path instead of from its working-tree bytes." — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:225`; against "WHEN the developer starts a review, THE analysis core SHALL take in as the change every difference between the base commit and the working tree" — `…/CAP-01-change-intake/requirements.md:16`; the only abuse cases of C001-REQ-127: "TS-172 (assume-unchanged flag ignored), TS-173 (no filter runs)" — `…/CAP-01-change-intake/acceptance.md:927`; the attributes that the clearing guards use, by contrast: "from the `.gitattributes` files of the commit's tree only (C001-REQ-426)" — `10-spec/50-interfaces/git-access.md:47`; Q-filterworkspace-02: "On Windows, an edit of a file under a clean filter that keeps its size and sets its modification time back is not visible in git's stat data, so the evidence workspace would get bytes that are not the snapshot's." and "Intake under C001-REQ-127 trusts the same stat data" — `10-spec/questions-log.md:402`, `:406`, "**Answer:** (fatigue guard — recommended option applied)" — `…/questions-log.md:409`; its only trace in the artifacts: "after "S1" was taken, on Linux or macOS, `assets/logo.png` was rewritten with other bytes of the same size" — `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1091`; Q-filterworkspace-02 occurs in no file of `10-spec/` other than `questions-log.md`, and the generated list shows "Total: 14" (`10-spec/85-open-items.md:12`) with no entry for it; the condition of the guard: "each is logged and marked as an assumption you can review at G2" — `10-spec/questions-log.md:356`; and the option P-01 chose was described as "only filtered files edited since checkout or `git add` show as changed" — `…/questions-log.md:380`
+- **Why it matters:** an agent with a shell can, without changing a tracked file, put any file under a clean filter (a line `* filter=x` in `.git/info/attributes` and `git config filter.x.clean cat`) and switch off the stat field that reveals an in-place write (`git config core.trustctime false`, or `core.checkStat minimal`). It can then rewrite, for example, `src/auth.ts` with the same number of bytes and set its modification time back. By §7 item 1 the entry is up to date, so intake reads the base blob and the edit is not part of the change: no hunk, no guarded-area match, nothing to sign. C001-REQ-527 then copies the edited working-tree bytes into every evidence workspace, so the tests execute code the review never shows. Before the revision every file was compared by its bytes, so this path is new; it breaks C001-REQ-101 and the description under which P-01 chose Q-cleanfilter-01, and C001-TS-172 shows that hiding an edit through git's index is an abuse case the specification means to cover. On Windows the same edit needs no setting at all (Q-filterworkspace-02). That limit was accepted under the fatigue guard, but no artifact states it, no marker shows it to P-01 at G2, and its effect at intake (an edit left out of the change), named only in the option text, is in no requirement. §7 item 1 also does not say that on Windows the compared values are those Git for Windows records rather than those the operating system reports (they differ, for example in the inode), so an implementation comparing the operating system's values would find no entry up to date and bring back the D-007 behaviour there.
+- **Suggested fix:** Owner: architect (`50-interfaces/git-access.md` §7). Take the `filter` attribute only from the `.gitattributes` files of the base commit's tree, as G-11 does, so that `.git/info/attributes`, `core.attributesFile` and the change itself put no file under a clean filter. Compare size, modification time, change time, inode, user and group whatever `core.checkStat` and `core.trustctime` say (stricter than git and conservative: a file that fails is compared by its bytes, with ERR-INTAKE-009). State for Windows which values are compared and the residual limit: a same-size edit with its modification time set back is not seen, at intake and in evidence workspaces; mark it with `[ASSUMPTION: Q-filterworkspace-02]` (outside backticks in the artifact) in §7 item 1. Owner: spec-writer (`CAP-01-change-intake/requirements.md`, `CAP-05-review-evidence/requirements.md`): state the limit with the marker in the rationales of C001-REQ-127 and C001-REQ-527. Owner: test-designer (`CAP-01-change-intake/acceptance.md`): an abuse scenario under C001-AC-127.1 on Linux and macOS with `core.trustctime` false, `.git/info/attributes` naming a filter and a same-size edit of a source file with its modification time set back, which must list the file as modified. Conductor: `sdd trace 001 --write`, so that the marker reaches the open items shown at G2 (gate notes row 25).
+- **Status:** resolved (focused re-review 6); the wider residual it left was CR-45
+
+### CR-38 — C001-REQ-126, C001-REQ-127 and ERR-INTAKE-009 cover only files not up to date; C001-IF-012 §7 and C001-TS-176 also compare by their bytes files without index entry or with an unreadable blob
+- **Severity:** minor
+- **Refs:** C001-REQ-126, C001-REQ-127, C001-AC-127.1, C001-TS-176, C001-IF-012
+- **Evidence:** "WHEN intake finds a file under a clean filter that is not up to date in the index and whose working-tree bytes, read without running the filter, differ from the content that the base commit holds at the same path" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:217`; "WHEN intake finds a file under a clean filter that is up to date in the index, THE analysis core SHALL read the file's content from the blob that git's index records for its path instead of from its working-tree bytes." — `…/CAP-01-change-intake/requirements.md:225`; against "A file with no index entry, with an entry that is not up to date, or" / "with an entry whose blob cannot be read from the object database is compared by its" / "working-tree bytes" — `10-spec/50-interfaces/git-access.md:121-123`; "Scenario: C001-TS-176 — An up-to-date entry whose blob is missing from the object database is compared by working-tree bytes" and "And intake reports the notice ERR-INTAKE-009 that names "assets/model.bin"" — `…/CAP-01-change-intake/acceptance.md:879`, `:887`; "an index blob that cannot be read falls back to this requirement (TS-176)" — `…/CAP-01-change-intake/acceptance.md:926`; the catalogue: "Intake lists as changed one or more files under a clean filter that are not up to date in the index", "because git's index does not record them as up to date" and "run `git status`, which runs the filter and refreshes git's index" — `10-spec/50-interfaces/errors.md:27`
+- **Why it matters:** C001-TS-176 sits under C001-AC-127.1 but expects the opposite of C001-REQ-127's statement for an up-to-date entry, and the fallback it tests is in no statement; the coverage row places it under C001-REQ-126, whose statement excludes up-to-date files (A5). ERR-INTAKE-009 then tells the developer that git's index does not record the file as up to date, which is false for a missing blob, and suggests `git status`, which leaves a missing object missing. A file that the index no longer holds but the base commit does (for example after `git rm --cached`) raises the notice under §7 item 4 and under no requirement.
+- **Suggested fix:** Owner: spec-writer (`CAP-01-change-intake/requirements.md`): extend C001-REQ-126 to a file under a clean filter that is not up to date in the index, has no index entry, or whose index entry names a blob that cannot be read, and limit C001-REQ-127 to entries whose blob can be read. Owner: test-designer: move C001-TS-176 under C001-AC-126.1 and correct both coverage rows. Owner: architect (`50-interfaces/errors.md`): give ERR-INTAKE-009 the cause per file, or a message and fix of their own for an unreadable blob (for example `git fsck`, or fetching the object again).
+- **Status:** resolved (focused re-review 6)
+
+### CR-39 — Three new notice requirements name every file or submodule; the interfaces and scenarios name at most 10
+- **Severity:** minor
+- **Refs:** C001-REQ-126, C001-REQ-526, C001-REQ-527, C001-TS-171, C001-TS-594, C001-TS-598
+- **Evidence:** "THE analysis core SHALL list the file as a changed file and name it in notice ERR-INTAKE-009." — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:217`; "report a notice that names the submodule path and the missing commit" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:233`; "and otherwise give the file the content that the snapshot holds for it and name it in notice ERR-EVID-013" — `…/CAP-05-review-evidence/requirements.md:241`; against "| 11 | exactly 10 of the 11 paths |" — `…/CAP-01-change-intake/acceptance.md:835` and `…/CAP-05-review-evidence/acceptance.md:1026`, and "| 11 | exactly 10 of the 11 files |" — `…/CAP-05-review-evidence/acceptance.md:1096`; the wording an approved requirement uses: "the number of changed paths and up to 10 of them" — `…/CAP-05-review-evidence/requirements.md:199`
+- **Why it matters:** with 11 such files or submodules the 11th is not named, which the three statements forbid as written; the scenarios are right by the interfaces (C001-IF-012 §7 item 4, C001-IF-013 §2 items 1 and 8) and wrong by the requirements.
+- **Suggested fix:** Owner: spec-writer: in the three statements, name "the number of such files (submodules) and up to 10 of them", as C001-REQ-523 does, with "each with its recorded commit" for C001-REQ-526 and "each with its filter driver" where the interface gives it.
+- **Status:** resolved (focused re-review 6)
+
+### CR-40 — C001-REQ-527 states two outcomes for one fill event; the rewrite at reset, mutation runs and the per-run notice are outside its statement, and C001-US-504 does not list it
+- **Severity:** minor
+- **Refs:** C001-REQ-527, C001-AC-527.1, C001-TS-597, C001-TS-598, C001-US-504, C001-IF-013
+- **Evidence:** "### C001-REQ-527 — Give files under a clean filter their working-tree bytes in evidence workspaces" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:239`; "WHEN the analysis core fills an evidence workspace, THE analysis core SHALL give each regular or executable file of the snapshot" and "and otherwise give the file the content that the snapshot holds for it and name it in notice ERR-EVID-013" — `…/CAP-05-review-evidence/requirements.md:241`; "- **Stories:** C001-US-502, C001-US-503" — `…/CAP-05-review-evidence/requirements.md:243`; against "When the evidence runner fills the workspace, and whenever" / "item 3 writes the file again, it reads the file's index entry through the git access port" — `10-spec/50-interfaces/evidence-runs.md:89-90`; "every file under a clean filter that" / "holds its stored form (item 1) is written again by item 1" — `…/evidence-runs.md:122-123`; "Each test run, mutation run and bundle command whose workspace holds such a file in its" / "stored form raises notice ERR-EVID-013" — `…/evidence-runs.md:106-107`; the reset tested under the criterion: "an earlier run of the command in the only evidence workspace of "S1", now free, raised ERR-EVID-013 for it, and the developer then ran `git status`" — `…/CAP-05-review-evidence/acceptance.md:1069`; C001-US-504 lists "C001-REQ-525, C001-REQ-526" but not C001-REQ-527 — `10-spec/20-capabilities/CAP-05-review-evidence/stories.md:72`, although ERR-EVID-013 covers "The evidence workspace of a test run, mutation run or bundle command" — `10-spec/50-interfaces/errors.md:64`
+- **Why it matters:** the working-tree copy and the stored form with its notice are two outcomes that fail independently (an implementation can copy correctly and never notify), and C001-TS-597 and C001-TS-598 test them apart (R1). The third row of C001-TS-597 tests a rewrite at reset that no statement asks for, since the trigger names only the fill. The statement reads as one notice when a workspace is filled, while the interface raises it for every run whose workspace holds a stored form, mutation runs included, whose story C001-US-504 does not list the requirement, unlike C001-REQ-525 and C001-REQ-526. The title promises working-tree bytes, while half the statement gives the stored form.
+- **Suggested fix:** Owner: spec-writer (`CAP-05-review-evidence/requirements.md`, `stories.md`): split C001-REQ-527 into an event-driven requirement for the working-tree copy ("WHEN the analysis core fills an evidence workspace or writes one of its files again, …") and an unwanted-behaviour requirement for the stored form with its notice per test run, mutation run and bundle command whose workspace holds one; retitle accordingly; list both under C001-US-504 and C001-US-504 in their Stories. Owner: test-designer: split C001-AC-527.1 to match.
+- **Status:** resolved (focused re-review 6)
+
+### CR-41 — C001-REQ-125 covers fewer causes and commands than C001-IF-012 §6, and ERR-INTAKE-008 has no message for a git program that is found but cannot start
+- **Severity:** minor
+- **Refs:** C001-REQ-125, C001-AC-125.1, C001-TS-162, C001-TS-163, C001-CON-18
+- **Evidence:** "IF the git program is not found, reports a version older than 2.34, or refuses to read the repository, THEN THE analysis core SHALL stop intake" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:209`; against "| too old | the first two numbers of the version that `git --version` prints are below 2.34 (for example 2.33.8); a text without a readable version counts as too old and is shown as printed |" — `10-spec/50-interfaces/git-access.md:83`, tested by "| git version custom-build | git version custom-build |" — `…/CAP-01-change-intake/acceptance.md:747`; "a missing or older git stops every command that reads git data with ERR-INTAKE-008" — `10-spec/60-architecture/constraints.md:25`; "The message names the cause and, when a program was" / "found, its path and the version it printed." — `10-spec/50-interfaces/git-access.md:77-78`, while the cause "not found" includes "or the program found cannot be started" (`…/git-access.md:82`), the message offers only "<the git program was not found on PATH" for it (`10-spec/50-interfaces/errors.md:26`), and C001-TS-162 expects "states that the git program was not found on PATH" for "the only `git` on `PATH` is a file that the operating system cannot start as a program" — `…/CAP-01-change-intake/acceptance.md:723`, `:730`
+- **Why it matters:** an unreadable version string, and a refusal in a command other than intake (for example a verdict command reading `user.name` through G-10), are handled by the interface but by no requirement statement, so the fourth row of C001-TS-163 tests behaviour that C001-REQ-125 does not require. A developer whose `git` exists but cannot start is told that no git was found on PATH and gets no path to check, against §6.
+- **Suggested fix:** Owner: spec-writer: word C001-REQ-125 as "is not found or cannot be started, reports a version older than 2.34 or no readable version, or refuses to read the repository, THEN THE analysis core SHALL stop the command …", or keep intake in the statement and name the other commands in the rationale. Owner: architect (`50-interfaces/errors.md`): a message for a program that cannot be started, with its path and the cause; test-designer: align the second row of C001-TS-162. Optional (C001-CON-18): state what the CLI does when started on a Node.js older than 22.
+- **Status:** resolved (focused re-review 6)
+
+### CR-42 — Submodule repositories are read outside the git access port
+- **Severity:** minor
+- **Refs:** C001-REQ-526, C001-IF-012, C001-IF-013, C001-CON-13, C001-COMP-011
+- **Evidence:** "is filled from the commit that the snapshot records for it, read from the" / "submodule's local repository, at every depth of nesting (C001-ADR-006 §5)" — `10-spec/50-interfaces/evidence-runs.md:215-216`; "read from the submodule's local repository (C001-ADR-006 §5, C001-IF-012 G-13)" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:234`; G-13 takes no repository: "| G-13 | `treeEntries(commit)` | every file of the commit's tree with its path, file mode (regular, executable, symbolic link, submodule) and blob hash | read from the object database only;" — `10-spec/50-interfaces/git-access.md:49`; the registry row of C001-IF-012 lists "C001-REQ-125 to C001-REQ-127, C001-REQ-409, C001-REQ-426, C001-REQ-521, C001-REQ-522, C001-REQ-527" and not C001-REQ-526 — `10-spec/50-interfaces/README.md:24`; "All git data is read through the git access port (C001-IF-012) under its safety rules" — `10-spec/60-architecture/constraints.md:20`
+- **Why it matters:** a submodule's local repository (for example under `.git/modules/<name>`) is another repository, with its own configuration, object database and owner. No port operation finds it or reads its trees, and nothing says that the safety rules of §2 (read-only, no repository-configured program, no network) and the refusal of §6 apply to it; the evidence runner then reads it outside C001-CON-13, or the ADR defines the operation with no contract to check it against. "No local repository" and a repository that git refuses are not told apart either.
+- **Suggested fix:** Owner: architect (`50-interfaces/git-access.md`, `50-interfaces/README.md`, `60-architecture/architecture.md`): add an operation, for example `submoduleTree(path, commit)`, that locates the submodule's local repository, applies §2 to it, returns its tree entries and content or "absent" with the cause (no repository, commit missing, refused by git), and serves nested submodules; list C001-REQ-526 in the registry row of C001-IF-012 and the operation in the Interfaces line of C001-COMP-011.
+- **Status:** resolved (focused re-review 6)
+
+### CR-43 — Two choices that the revision states as made are still listed as open
+- **Severity:** minor
+- **Refs:** C001-CON-14, C001-CON-18, C001-CON-22, C001-IF-012, C001-IF-013, C001-COMP-003, C001-REQ-125, C001-REQ-525
+- **Evidence:** "Git access is implemented either by running the git program the developer installed or with a git library, chosen by ADR in 20-plan against C001-IF-012." — `10-spec/60-architecture/constraints.md:21`; "Whether" / "it is implemented by calling the installed git program or with a git library is decided by ADR in" — `10-spec/50-interfaces/git-access.md:12-13`; "- **Depends on:** none (external: git program or library)" — `10-spec/60-architecture/architecture.md:99`; against "C001-ADR-004 implements this port with the installed git program" — `10-spec/50-interfaces/git-access.md:74`, "git 2.34 or later, run only as a separate program with the hardening profile of C001-ADR-004" — `10-spec/60-architecture/constraints.md:25`, and C001-REQ-125 (`10-spec/20-capabilities/CAP-01-change-intake/requirements.md:209`); and "whether the workspace offers" / "git metadata (some builds read their version from the git history) and how submodule working" / "trees are provided are set by ADR in 20-plan" — `10-spec/50-interfaces/evidence-runs.md:170-172` (also in the ADR scope of C001-CON-22, `10-spec/60-architecture/constraints.md:29`), against "instead of finding no repository in the" / "workspace, which holds no git metadata (C001-ADR-006 §5)." — `10-spec/50-interfaces/evidence-runs.md:45-46` and "in the evidence workspace, which holds no git metadata (C001-ADR-006 §5 and Consequences)" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:224`
+- **Why it matters:** C001-REQ-125, ERR-INTAKE-008 and C001-CON-18 hold only when git access runs the git program, and the C001-REQ-525 rationale and C001-TS-587 rely on a workspace without git metadata, yet the texts a later ADR revision is checked against still allow the other options. A reader cannot tell decisions from open choices, and a plan revision that took a git library or offered git metadata would silently void a Must requirement or its reasoning. Citations of ADR sections (C001-ADR-004 items 1 and 4, C001-ADR-006 §2, §3.1 and §5) also tie the specification to plan sections that the brief says will change.
+- **Suggested fix:** Owner: architect (`60-architecture/constraints.md` C001-CON-14 and C001-CON-22, `50-interfaces/git-access.md` §1, `50-interfaces/evidence-runs.md` §2 item 4, `60-architecture/architecture.md` C001-COMP-003): record both as decided (the git program, by C001-ADR-004; no git metadata in a workspace, by C001-ADR-006), or word C001-REQ-125 and the C001-REQ-525 rationale so that they hold under either option; cite ADRs by ID where a section number can move.
+- **Status:** resolved (focused re-review 6)
+
+### CR-44 — C001-REQ-820 closes the credential-store route of a hostile base commit, while the same configuration still names any environment variable as the key, and the trust boundary that makes this acceptable is not stated
+- **Severity:** minor
+- **Refs:** C001-REQ-820, C001-REQ-809, C001-REQ-505, C001-IF-004, C001-IF-010
+- **Evidence:** "a hostile base commit could name the credential-store entry of another application and, with the cloud opt-in setting, send that secret to an endpoint of its choice; accepting only the service name `sdd-review` and the names below `sdd-review/` keeps the analysis core to entries made for it" — `10-spec/20-capabilities/CAP-08-model-provider/requirements.md:159`; the same configuration names any environment variable: `"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"` — `10-spec/50-interfaces/review-config.schema.json:168`, which is read first: "the environment" / "variable named by `keyEnv` when it is set and not empty" — `10-spec/50-interfaces/model-provider.md:112-113`; the same configuration sets code that runs: "THE analysis core SHALL run on the snapshot the test command given by the developer for the review or, when none is given, the test command set in the review configuration" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:62`; the plan states the boundary that the specification leaves out: "The same base commit can already run" / "any code through `tests.command` (C001-REQ-505), so the trust boundary does not move." — `20-plan/20-decisions/ADR-008-credential-store-access.md:107-108`
+- **Why it matters:** a base commit that sets `keyEnv` to `GITHUB_TOKEN` or `AWS_SECRET_ACCESS_KEY`, an endpoint of its choice and the cloud opt-in sends that secret as the provider key, a route to which the reason given for C001-REQ-820 applies as much as to the credential store. P-01 reads C001-REQ-820 as closing what a hostile base commit can take, while the specification nowhere says that the base commit's configuration is trusted as code (it sets the test command that every analysis runs), which is why neither route moves the trust boundary. The namespace still has value: it limits what a mistaken configuration can reach.
+- **Suggested fix:** Owner: spec-writer (`CAP-08-model-provider/requirements.md`, or an assumption in `10-context/scope.md`): state the trust boundary (the review configuration of the base commit is trusted as code, since it sets the test command the analysis runs) and present C001-REQ-820 as defence in depth. Owner: architect: either apply a namespace to `keyEnv` too (for example names beginning with `SDD_REVIEW_`), which changes how developers pass a key and so goes to P-01 as a question, or state why environment variables stay open (gate notes row 24).
+- **Status:** resolved (focused re-review 6)
+
+### Rubric (reviewed set)
+| Rubric | Item | Result |
+|---|---|---|
+| stories | S1 Persona is a defined P-ID | pass |
+| stories | S2 Value / outcome stated | pass |
+| stories | S3 INVEST | pass |
+| stories | S4 Every story has ≥ 1 requirement | pass |
+| stories | S5 Out of scope stated where a neighbour exists | pass |
+| stories | S6 Traces to the ideation | pass |
+| requirements | R1 Singular outcome | CR-40 |
+| requirements | R2 Testable | pass |
+| requirements | R3 Unambiguous | CR-36 |
+| requirements | R4 Correct EARS pattern | pass |
+| requirements | R5 Implementation-free | pass |
+| requirements | R6 Complete | CR-38, CR-41, CR-42 |
+| requirements | R7 Consistent | CR-36, CR-37, CR-39, CR-40, CR-43, CR-44 |
+| requirements | R8 Feasible | pass |
+| requirements | R9 Necessary | pass |
+| requirements | R10 Measurable values carry units and limits | pass |
+| requirements | R11 Delta and evidence | n/a: greenfield change, no living spec (`10-context/current-state.md`) |
+| requirements | R12 Priority set and consistent with the story | pass |
+| NFRs | N1 ISO 25010 category | n/a: no NFR changed; C001-NFR-011 (cited by C001-REQ-526) and C001-NFR-018 (through C001-IF-013 §8) are unchanged |
+| NFRs | N2 Metric with unit | n/a: no NFR changed |
+| NFRs | N3 Threshold set | n/a: no NFR changed |
+| NFRs | N4 Feasible method and environment | n/a: no NFR changed; the reset of filtered files inside (c) is gate notes row 22 |
+| NFRs | N5 Covered by a DoD item | n/a: no NFR changed |
+| acceptance | A1 Every REQ has ≥ 1 AC, every AC ≥ 1 scenario | pass |
+| acceptance | A2 Scenarios observable and concrete | pass |
+| acceptance | A3 One behaviour per scenario | pass |
+| acceptance | A4 Error and abuse cases present | CR-37 |
+| acceptance | A5 `n/a` cells justified credibly | CR-38 |
+| domain, interfaces, architecture | D1 Entities with attributes, relationships, owner, invariants | pass |
+| domain, interfaces, architecture | D2 Lifecycles > 2 states have a diagram and a complete transition table | pass |
+| domain, interfaces, architecture | D3 Interfaces parse and name their errors | pass |
+| domain, interfaces, architecture | D4 Every component has an ID, responsibilities, requirements served | pass |
+| domain, interfaces, architecture | D5 Decisions with alternatives recorded | CR-43 |
+| DoD and index | O1 Every REQ and NFR covered | pass |
+| DoD and index | O2 Evidence types fit the statements | pass |
+| DoD and index | O3 Global items referenced | pass |
+| DoD and index | X1 The index is navigation only | pass |
+
+Notes on rows marked pass:
+- **S1 to S6, R9, R12:** every new requirement is listed by a story whose value it serves:
+  C001-REQ-125 to C001-REQ-127 by C001-US-101 (`CAP-01-change-intake/stories.md:26`),
+  C001-REQ-525 to C001-REQ-527 by C001-US-502 and C001-US-503, C001-REQ-525 and C001-REQ-526 also
+  by C001-US-504, and C001-REQ-820 by C001-US-803; the missing C001-US-504 link of C001-REQ-527 is
+  part of CR-40. C001-REQ-126, C001-REQ-127 and C001-REQ-527 are Should under Must stories, which
+  is consistent: without them filtered files show as changed, the safe direction.
+- **R1, R4:** C001-REQ-125, C001-REQ-126 and C001-REQ-526 pair a response with the message or
+  notice that reports it, verified together in each scenario, as the approved C001-REQ-105 and
+  C001-REQ-509 do; C001-REQ-525 is ubiquitous with one outcome; C001-REQ-820 is unwanted-behaviour
+  with one outcome (the configuration counts as unreadable), whose effects are those of
+  C001-REQ-427 and C001-REQ-819. C001-REQ-527 is the exception (CR-40).
+- **R2, A1 to A3:** C001-TS-162 to C001-TS-166 use concrete versions (2.33.8, 2.9.5, 1.34.0,
+  2.34.0, 2.34.1.windows.1) and git's own refusals; C001-TS-588 lists the 15 removed variables,
+  C001-TS-589 kept ones and the replaced ceiling, C001-TS-590 two spellings on Windows;
+  C001-TS-591 to C001-TS-596 count directory entries and check that a recording stub gets no
+  request; C001-TS-597 to C001-TS-599 check SHA-256 values, the filter stub's log and the
+  repository record; C001-TS-858 to C001-TS-862 check the key in the stub's requests, the boundary
+  `sdd-reviewer` and that ERR-CFG-004 replaces ERR-CFG-001. `sdd trace 001` reports every new
+  requirement with a criterion and every criterion with scenarios.
+- **R5:** Git LFS, git-crypt, `safe.directory`, copy-on-write clones and
+  `git rev-parse --local-env-vars` appear in rationales and interfaces; the statements name
+  outcomes at the boundary.
+- **R8, R10:** the up-to-date rule reproduces git's stat and racy-entry comparison from the index
+  file and stat data without running a filter, the cost that the option P-01 chose in
+  Q-cleanfilter-01 names; the removed variables are git's list of repository-local variables
+  without its two command-line configuration variables, plus `GIT_NAMESPACE` and
+  `GIT_QUARANTINE_PATH`; versions and the cap of 10 carry their values.
+- **D1, D2:** the revision adds no entity and no state; the kinds of content of an evidence
+  workspace (working-tree copy, stored form, empty submodule path) are defined in C001-IF-013 §2,
+  to which the content of the EvidenceWorkspace entity points.
+- **D3, D4:** the changed object of `review-config.schema.json` is well-formed and quick lint
+  reports nothing; `^sdd-review(/.*)?$` accepts `sdd-review` and `sdd-review/x` and refuses
+  `sdd-reviewer` (C001-TS-858, C001-TS-859). ERR-CFG-004 is a notice with exit 0, like the
+  ERR-CFG-001 it replaces, and `config validate` gives ERR-CFG-003 with exit 10 (C001-TS-861),
+  consistent with C001-REQ-820, C001-REQ-819 and C001-IF-010 §7 ("a configuration that holds a key
+  value does not validate," / "ERR-CFG-001", `10-spec/50-interfaces/model-provider.md:116-117`).
+  ERR-INTAKE-008 has exit 3 for every command that reads git data, as C001-CON-18 states.
+  C001-COMP-003 and C001-COMP-004 realise C001-REQ-125 to C001-REQ-127, C001-COMP-006 realises
+  C001-REQ-820, and C001-COMP-011 realises C001-REQ-525 to C001-REQ-527.
+- **Who is named in which notice:** ERR-INTAKE-009 names files compared by their bytes at intake
+  and never files read from the index (C001-TS-174, C001-TS-175); ERR-EVID-013 names stored forms
+  in a run's workspace and never a file that C001-REQ-126 listed as changed ("And the notice does
+  not name `assets/hero.png`", `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1082`);
+  ERR-EVID-012 names empty submodule paths with their commits. The cap of 10 is CR-39 and the
+  causes of ERR-INTAKE-009 are CR-38.
+- **O1 to O3, X1:** DOD-G-02 and the index count 212 active requirements and `sdd trace 001`
+  reports 212 / 212; C001-DOD-001 covers "C001-REQ-101…127", C001-DOD-005 "C001-REQ-501…527" and
+  C001-DOD-008 "C001-REQ-801…812, 814…820" (`10-spec/70-dod.md:32`, `:36`, `:39`); per capability
+  27 + 24 + 28 + 27 + 27 + 17 + 22 + 19 + 21 = 212.
+
+### Gate notes (rows 20 to 25 added; rows 1 to 19 of focused re-review 4 stand)
+| # | Choice | Where | Evidence | Note for the gate |
+|---|---|---|---|---|
+| 20 | A git index refresh after intake raises the moved-on notice for a filtered file whose content did not change | C001-IF-012 §7 item 5, C001-REQ-117, C001-TS-177 | "a file can pass from item 3 to item 2 without a change of its" / "content; G-12 then counts it among the files that differ from the snapshot (ERR-INTAKE-007)" — `10-spec/50-interfaces/git-access.md:134-135` | Editors and agents run `git status` often, so a review whose intake met a touched or racy filtered file (C001-TS-169) can show ERR-INTAKE-007 within seconds; conversely, touching a filtered file that intake read from the index makes G-12 count it as well. The notice informs only, and a new review reads the file from the index |
+| 21 | Every evidence workspace and mutation copy holds the full content of the snapshot's filtered files (Git LFS objects, git-crypt plaintext) | C001-REQ-527, C001-IF-013 §2 item 1 | "for Git" / "LFS the file's content, for git-crypt its decrypted content" — `10-spec/50-interfaces/evidence-runs.md:100-101` | Chosen by P-01 in Q-filterworkspace-01. Where the file system has no copy-on-write clone, each workspace and each mutation copy duplicates these files on disk; decrypted git-crypt content lies outside the repository while the process runs. A failed preparation or copy for lack of space is ERR-EVID-002 or ERR-EVID-006 |
+| 22 | A reset can copy filtered files within the time that C001-NFR-018 (c) bounds, and no benchmark change has a filtered file | C001-IF-013 §2 item 3, §8 item 2, C001-NFR-018 | "every file under a clean filter that" / "holds its stored form (item 1) is written again by item 1" — `10-spec/50-interfaces/evidence-runs.md:122-123` | The reset counts in (a) and (c) (§8 items 1 and 2), and `30-nfr/nfr.md` names no clean filter, so the 1 s bound of (c) is not measured on a repository that uses Git LFS |
+| 23 | Git 2.34.0 and 2.34.1 are accepted, but they do not refuse a repository owned by another user | C001-REQ-125, C001-IF-012 §6, C001-TS-164, C001-TS-165 | "| 2.34.0           |" — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:759` | git added the ownership check (`safe.directory`) in 2.35.2 and backported it to 2.34.2; with 2.34.0 or 2.34.1 the refusal of C001-TS-165 does not occur and intake goes on. The hardening of C001-IF-012 §2 item 2 still keeps repository-configured programs from running. A minimum of 2.34.2 would make the refusal hold on every accepted version |
+| 24 | The review configuration of the base commit is trusted as code: it sets the test command that every analysis runs, and the key variable and endpoint of a cloud provider | C001-REQ-505, C001-REQ-820, C001-IF-004 | "any code through `tests.command` (C001-REQ-505), so the trust boundary does not move." — `20-plan/20-decisions/ADR-008-credential-store-access.md:108` | Stated in the plan, not in the specification (CR-44). C001-REQ-820 narrows the credential-store entries such a configuration can use; `keyEnv` can still name any environment variable |
+| 25 | On Windows, a same-size edit of a filtered file whose modification time is set back is not seen: it stays out of the change and enters evidence workspaces | C001-IF-012 §7 item 1, C001-REQ-127, C001-REQ-527 | "**Answer:** (fatigue guard — recommended option applied)" — `10-spec/questions-log.md:409` | Q-filterworkspace-02, accepted as git's own limit under the fatigue guard and not asked. With the fix of CR-37 the limit applies only on Windows and only to paths that the base commit's `.gitattributes` puts under a filter; without it, repository settings extend it to every file on every system. Not yet marked (CR-37) |
+
+### Re-review 5 verdict
+The seven defects are resolved in substance: a git program that is missing, too old or refuses the
+repository stops every command with ERR-INTAKE-008 (D-001); Node.js 22 and git 2.34 are stated
+prerequisites (D-002); grammar versions are fixed per release (D-003); evidence commands start
+without git's repository-locating variables (D-004); credential-store services are limited to
+`sdd-review` (D-005); a submodule commit missing locally leaves an empty path with ERR-EVID-012
+(D-006); and a filtered file that git's index records as up to date is read from the index at
+intake and copied from the working tree into evidence workspaces (D-007). P-01's answers to
+Q-cleanfilter-01 and Q-filterworkspace-01 are applied, with no extracted instructions; CR-35 is
+resolved. No blocker is open. Two findings are major: CR-36 (C001-REQ-509 and C001-REQ-522 still
+require the snapshot's content in workspaces that now hold working-tree copies, so the approved
+requirements and C001-TS-597 contradict each other) and CR-37 (trusting stat data lets an agent
+keep a same-size edit out of the change while evidence runs execute it, repository settings and
+untracked attributes extend this beyond the Windows limit accepted under the fatigue guard, and
+that limit is stated and marked nowhere). Seven are minor: CR-38 to CR-44. Each has owners among
+the specialists, and none needs a P-01 decision to be fixed, except the optional `keyEnv` namespace
+of CR-44. Recommendation: fix CR-36 and CR-37 before G2, with the minors in the same pass, and
+check the fixed text in a short focused pass. At G2, P-01 should read gate notes rows 20 to 25,
+in particular row 25 (an edit that Windows cannot see) and row 24 (the base commit's configuration
+is trusted as code).
+
+## Focused re-review 6
+
+**Scope.** The second pass on defects D-001 to D-007 of `change.md`: the fixes for CR-36 to CR-44
+of focused re-review 5, round 15 of `10-spec/questions-log.md` (Q-cleanfilter-02 answered "LFS by
+hash + harden rest") and the split of the clean-filter rule of evidence workspaces into
+C001-REQ-527, C001-REQ-528 and C001-REQ-529 (the allocation of C001-REQ-528 that the brief names
+Q-reqsplit-01). Changed since focused re-review 5: C001-REQ-125 to C001-REQ-128 with
+C001-AC-125.1 to C001-AC-128.1 and C001-TS-162 to C001-TS-188; C001-REQ-509, C001-REQ-522 and
+C001-REQ-526 to C001-REQ-529 with C001-AC-509.1, C001-AC-526.1 to C001-AC-529.1, C001-TS-586 to
+C001-TS-599 and C001-TS-951 to C001-TS-959; the C001-REQ-820 rationale; C001-US-101, C001-US-502,
+C001-US-503 and C001-US-504; six glossary terms; C001-IF-012 §1, §2, §5, §6 and §7 items 1 to 8,
+G-07, G-11, G-12, G-15 and G-16; C001-IF-013 §2 items 1, 3, 4, 5 and 8; ERR-INTAKE-008,
+ERR-INTAKE-009, ERR-EVID-012 and ERR-EVID-013; `50-interfaces/README.md`; C001-IF-010 §7;
+`review-config.schema.json`; C001-CON-13, C001-CON-14, C001-CON-17, C001-CON-18 and C001-CON-22;
+C001-COMP-003, C001-COMP-004, C001-COMP-006 and C001-COMP-011; `sequences/triage-and-clearing.md`;
+`00-index.md` and `70-dod.md`. The requirement, acceptance, story and glossary files were read in
+full where they changed; interfaces, constraints, architecture, index and DoD also with `git diff`
+against the G2 approval (commit 57e5b42). Out of scope by the brief: the plan-phase ADRs that lag
+the specification, and TR-06, TR-08 and LINT-OBS-001.
+`sdd lint 001 --phase 10-spec --json`: 869 errors. 851 of them are TR-06 and TR-08, the counts
+that `sdd trace 001` reports (0 / 215 requirements implemented by a task, 0 / 636 scenarios mapped
+to a test case); the other 18, as many as there are NFRs, are cut from the printed output and are
+taken to be the plan-phase LINT-OBS-001 that the brief names. `sdd lint 001 --quick --file` on the
+changed requirement, acceptance, glossary, interface, error-catalogue, schema, constraint and
+architecture files: 0 findings. `sdd trace 001`: TR-01 55 / 55, TR-02 215 / 215, TR-03 215 / 215,
+TR-04 18 / 18, TR-05 215 / 215 and 18 / 18; 27 open items (19 in `10-spec/85-open-items.md`, five
+of them for Q-filterworkspace-02, and 8 in `00-ideation/85-open-items.md`).
+
+**Reviewed set** (changed IDs and the IDs linked to them; the frontmatter keeps `all` because this
+file holds the full review): C001-REQ-101, C001-AC-101.1, C001-REQ-117, C001-REQ-120,
+C001-REQ-125, C001-AC-125.1, C001-TS-162 to C001-TS-166, C001-TS-178, C001-REQ-126,
+C001-AC-126.1, C001-TS-167 to C001-TS-173, C001-TS-176, C001-TS-179, C001-TS-180, C001-REQ-127,
+C001-AC-127.1, C001-TS-177, C001-TS-181 to C001-TS-184, C001-REQ-128, C001-AC-128.1,
+C001-TS-174, C001-TS-175, C001-TS-185 to C001-TS-188, C001-US-101, C001-REQ-505, C001-REQ-509,
+C001-AC-509.1, C001-TS-523, C001-TS-524, C001-TS-525, C001-TS-558, C001-TS-951, C001-REQ-521,
+C001-REQ-522, C001-REQ-525, C001-REQ-526, C001-AC-526.1, C001-TS-591 to C001-TS-596,
+C001-TS-952, C001-REQ-527, C001-AC-527.1, C001-TS-597 to C001-TS-599, C001-REQ-528,
+C001-AC-528.1, C001-TS-953 to C001-TS-956, C001-REQ-529, C001-AC-529.1, C001-TS-957 to
+C001-TS-959, C001-US-502, C001-US-503, C001-US-504, C001-REQ-809, C001-REQ-820, C001-AC-820.1,
+C001-TS-858 to C001-TS-862, C001-US-803, C001-IF-004, C001-IF-010, C001-IF-012, C001-IF-013,
+C001-CON-13, C001-CON-14, C001-CON-17, C001-CON-18, C001-CON-22, C001-COMP-003, C001-COMP-004,
+C001-COMP-006, C001-COMP-011, C001-NFR-001, C001-NFR-003, C001-DOD-001, C001-DOD-005,
+C001-DOD-008; and ERR-INTAKE-008, ERR-INTAKE-009, ERR-EVID-012 and ERR-EVID-013 of `errors.md`,
+the glossary terms clean filter, up to date in the index, Git LFS file, Git LFS pointer file,
+stored form and workspace content, `50-interfaces/README.md`, `sequences/triage-and-clearing.md`,
+`00-index.md`, DOD-G-02, round 15 and the second fatigue-guard section of `questions-log.md`, and
+the scenario counter of `ids.json`.
+
+**Open after focused re-review 6:** 0 blocker, 2 major (CR-45, CR-46), 2 minor (CR-47, CR-48).
+CR-36 to CR-44 are resolved (below). CR-33 and CR-34 (minor, open since focused re-review 4) lie
+outside the reviewed set and were not re-checked.
+
+| Findings | blocker | major | minor |
+|---|---|---|---|
+| New in this re-review (CR-45 to CR-48) | 0 | 2 | 2 |
+| All findings CR-1 to CR-48 | 2 | 14 | 32 |
+
+### Defects D-001 to D-007
+The resolutions recorded in focused re-review 5 stand, and what that pass left open is now fixed:
+D-001 and D-002 (CR-41, CR-43), D-005 (CR-44) and D-006 (CR-39, CR-42). For D-007, CR-36 to
+CR-40 are resolved; the rule P-01 chose in round 15 leaves CR-45 to CR-47.
+
+### Status of CR-36 to CR-44
+| Finding | Status | Evidence of the fix |
+|---|---|---|
+| CR-36 | resolved | "IF a test run or an evidence-bundle command executes on file content that differs from the workspace content of its evidence workspace" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:94`; "on the workspace content of their evidence workspaces" — `…/CAP-05-review-evidence/requirements.md:215`; the term workspace content, with "so both count as the snapshot's file" — `10-spec/40-domain/glossary-delta.md:139`; the optional scenario: "Scenario: C001-TS-951 — A bundle command that rewrites the copied bytes of a Git LFS file in its workspace is not recorded" — `…/CAP-05-review-evidence/acceptance.md:329`. The title of C001-AC-509.1 was not updated (CR-47) |
+| CR-37 | resolved | attributes from the base commit only: "the `filter` attribute that the `.gitattributes` files of" / "the base commit's tree give its path (G-11)" — `10-spec/50-interfaces/git-access.md:110-111`; every stat field "whatever the repository's" / "`core.checkStat` and `core.trustctime` settings say" — `…/git-access.md:135-136`; the values compared on Windows — `…/git-access.md:145-148`; Git LFS files judged by hash (C001-REQ-128, C001-REQ-529, P-01's round-15 answer); abuse scenarios C001-TS-183, C001-TS-184, C001-TS-186 and C001-TS-187 (`10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:943`, `:960`, `:1021`, `:1036`); the marker reaches the open items (`10-spec/85-open-items.md:16`, `:18`, `:26`, `:27`, `:34`). The residual that remains is wider than the one P-01 accepted: CR-45 |
+| CR-38 | resolved | C001-REQ-126 covers a file "that is not up to date in the index, has no entry in git's index or has an index entry whose blob cannot be read from git's object database" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:217`; C001-REQ-127 only one "whose index entry names a blob that can be read from git's object database" — `…/requirements.md:225`; C001-TS-176 under C001-AC-126.1 with the causes "index blob missing" and "no entry in git's index" — `…/CAP-01-change-intake/acceptance.md:885`, `:897-898`; ERR-INTAKE-009 names the cause per file and "for a missing index blob, run `git fsck` and stage the file again with `git add` to restore the blob" — `10-spec/50-interfaces/errors.md:27` |
+| CR-39 | resolved | "with the number of these files, their filter drivers and up to 10 of their paths" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:217`; "the number of such submodule paths and up to 10 of them" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:233`; "the number of these files and up to 10 of them" — `…/CAP-05-review-evidence/requirements.md:249` |
+| CR-40 | resolved | the copy and its notice are separate requirements: "### C001-REQ-528 — Report files under a clean filter left in their stored form in an evidence workspace" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:247`, with "the copy of C001-REQ-527 and C001-REQ-529 and this notice can fail independently, so they are separate requirements (CR-40)" (`:250`); the trigger includes the rewrite: "as it fills the workspace or writes the file again before a run" — `…/requirements.md:241`, `:257`; the notice comes with each test run, mutation run and bundle command (`:249`); C001-US-504 lists C001-REQ-527 to C001-REQ-529 — `…/CAP-05-review-evidence/stories.md:74` |
+| CR-41 | resolved | "IF the git program is not found or cannot be started, prints a version older than 2.34 or no readable version, or refuses to read the repository, THEN THE analysis core SHALL stop each command that reads the repository" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:209`; "the git program at "<git path>" could not be started (<operating system's reason>)" — `10-spec/50-interfaces/errors.md:26`; C001-TS-162 second row and C001-TS-178 (`…/CAP-01-change-intake/acceptance.md:741`, `:796`). The optional part (a Node.js older than 22) was not adopted |
+| CR-42 | resolved | "| G-16 | `submoduleTree(parent, path, commit)` |" with "§2 and the repository check of §6 apply to that repository" — `10-spec/50-interfaces/git-access.md:58`; "These rules hold for every repository the port reads: the repository of G-01 and the submodule" / "repositories of G-16." — `…/git-access.md:19-20`; "This includes the data of submodule repositories that fill evidence workspaces (C001-IF-012 G-16)." — `10-spec/60-architecture/constraints.md:20`; the registry row of C001-IF-012 lists C001-REQ-526 — `10-spec/50-interfaces/README.md:24`; "uses C001-IF-012 (G-08, G-13, G-15, G-16)" — `10-spec/60-architecture/architecture.md:215`; C001-TS-952 tells a refused repository from a missing commit (`10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1008`) |
+| CR-43 | resolved | "Git access is implemented by running the git program that the developer installed (C001-ADR-004, accepted)." — `10-spec/60-architecture/constraints.md:21`; "The" / "port is implemented by running the git program that the developer installed" — `10-spec/50-interfaces/git-access.md:12-13`; "- **Depends on:** none (external: the installed git program, C001-CON-14, C001-CON-18)" — `10-spec/60-architecture/architecture.md:102`; "A workspace holds no git metadata: no `.git` directory or file" / "(C001-ADR-006, accepted)" — `10-spec/50-interfaces/evidence-runs.md:187-188`; the ADR scope of C001-CON-22 no longer lists git metadata or submodule working trees (`…/constraints.md:29`), and no artifact of `10-spec/` cites an ADR section any more |
+| CR-44 | resolved | "It is defence in depth, not the trust boundary: the same configuration sets the test command that every analysis runs (C001-REQ-505), so whoever writes the base commit's configuration already runs code on the developer's machine." — `10-spec/20-capabilities/CAP-08-model-provider/requirements.md:159`; "`keyEnv` may name any environment variable, by design." — `10-spec/50-interfaces/model-provider.md:124`, with its reason (`:124-127`); the trust boundary also in the schema description (`10-spec/50-interfaces/review-config.schema.json:4`), the name table of `50-interfaces/README.md` and `architecture.md` §1 and §6. Gate notes row 24 replaced |
+| CR-33, CR-34 | not re-checked | outside the reviewed set of this revision |
+
+### Round 15 and the allocation of C001-REQ-528
+Round 15: "**Answer:** LFS by hash + harden rest (Recommended)" (`10-spec/questions-log.md:411`)
+is applied in C001-REQ-126 to C001-REQ-128, C001-REQ-527 to C001-REQ-529, C001-IF-012 §7,
+C001-IF-013 §2 item 1, ERR-INTAKE-009, ERR-EVID-013 and the glossary, with both parts of the
+option text: "attributes from the base commit only, repo settings ignored, all stat fields
+compared" (C001-IF-012 §7 and item 1) and the cost "costs hashing LFS content per intake and fill"
+(C001-REQ-128, C001-REQ-529, C001-IF-012 §5, C001-CON-22). The answer carries no extracted
+instructions. The residual that the option names, "Windows timestamp gap remains for non-LFS
+filters only, marked at G2" (`10-spec/questions-log.md:406`), is narrower than the one the
+specification states and marks (CR-45). The allocation of C001-REQ-528 is applied as the split of
+CR-40, but the questions log holds no entry Q-reqsplit-01 (CR-48).
+
+### Findings
+
+### CR-45 — The residual limit of the stat rule is wider than the one P-01 accepted in Q-cleanfilter-02, is marked with a Windows-only question P-01 never saw, and is understated outside C001-IF-012 §7 item 8
+- **Severity:** major
+- **Refs:** C001-REQ-127, C001-REQ-527, C001-REQ-101, C001-IF-012, C001-REQ-509, C001-US-502, C001-REQ-117
+- **Evidence:** the option P-01 chose: "Windows timestamp gap remains for non-LFS filters only, marked at G2" — `10-spec/questions-log.md:406`, "**Answer:** LFS by hash + harden rest (Recommended)" — `…/questions-log.md:411`; the question named the forged index as one of three routes, "(same-size edit with mtime reset, untracked filter settings, forged .git/index)" — `…/questions-log.md:402`, the option P-01 did not choose gave it as its weakness, "Windows same-size edit with mtime reset and a forged .git/index can still hide an edit." — `…/questions-log.md:407`, and the option rejected for this kind of gap: "Keep §7 and mark limits (3.20) — violates C001-REQ-101." — `…/questions-log.md:409`; against the interface: "on every system, an index entry written after the edit that records the edited file's stat data" / "with the blob of the base side, written into the index file directly or by git running another" / "clean command that the repository's configuration names. Intake then counts the file as" / "unchanged although its bytes differ" — `10-spec/50-interfaces/git-access.md:220-223`, marked with the question "### Q-filterworkspace-02 — On Windows, an edit of a file under a clean filter that keeps its size and sets its modification time back is not visible in git's stat data" — `…/questions-log.md:416`, which is "- **Blocking:** no · **Material:** no" (`:417`) and has "**Answer:** (fatigue guard — recommended option applied)" (`:423`), while Q-cleanfilter-02 is "- **Blocking:** yes · **Material:** yes" (`:403`); the requirements word the second case as a written index file: "and on every system a `.git/index` written to record the stat data of an edited file makes its entry up to date; in both cases intake reads the index blob and the edit is not part of the change" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:226`, and alike `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:242`, `…/CAP-01-change-intake/acceptance.md:1089` and `…/CAP-05-review-evidence/acceptance.md:1268`; texts that state no exception: "gets its checked-out" / "content only when it is shown to be the snapshot's (C001-REQ-527, C001-REQ-529)" — `…/CAP-05-review-evidence/stories.md:42-43`, "a run on that content is a run on the snapshot" — `…/CAP-05-review-evidence/requirements.md:95`; and a Windows gap for Git LFS files in the moved-on check: "On Windows, an edit" / "of a Git LFS file after intake that keeps its size and sets its modification time back can" / "therefore be missing from that notice" — `10-spec/50-interfaces/git-access.md:181-183`
+- **Why it matters:** P-01 chose option 1 over option 2 on texts that put the forged index on option 2's side and gave option 1 a Windows-only residual. In the specification the forged index stays open, on every system, for every file that the base commit's `.gitattributes` put under a filter other than Git LFS (git-crypt, nbstripout, a project filter), and it needs no hand-written index: one git command run with a substitute clean command that prints the base blob (`git -c filter.<driver>.clean=<that command> update-index --refresh`) makes git record the edited file's stat data with the base blob and leaves no setting behind. Intake then reads the base blob (no hunk, nothing to sign) while every evidence workspace copies the edited bytes and runs them, the outcome that Q-cleanfilter-02 rejected as a violation of C001-REQ-101 (Must). The only acceptance of it is the fatigue-guard marker of a non-blocking question about Windows, so the open items P-01 reviews at G2 present it as the Windows question. Outside C001-IF-012 §7 item 8, the second case reads as a hand-written index file, which understates how easy it is, and C001-US-502 and the C001-REQ-509 rationale state without exception that the copied bytes are the snapshot's. G-12 adds a Windows gap for Git LFS files, outside "non-LFS filters only"; it affects only the moved-on notice (C001-REQ-117), never a snapshot or a workspace.
+- **Suggested fix:** Owner: conductor: put the residual to P-01 as a question of its own (for example Q-cleanfilter-03: keep option 1 with the residual on every system for files under a filter other than Git LFS, or take option 3 of Q-cleanfilter-02 for those files, compared by their bytes with no stat trust, at the cost of every such file showing as changed in every review), or have P-01 accept it explicitly at G2 from gate notes row 25; log the answer. Owner: architect and spec-writer (`50-interfaces/git-access.md` §7 items 5 and 8, `CAP-01-change-intake/requirements.md` C001-REQ-127, `CAP-05-review-evidence/requirements.md` C001-REQ-509 and C001-REQ-527, `CAP-05-review-evidence/stories.md` C001-US-502): mark the residual with the question that decides it instead of Q-filterworkspace-02; word the second case as item 8 does (written directly, or by git running a substitute clean command); say in C001-US-502 and the C001-REQ-509 rationale that for C001-REQ-527 the copy rests on git's index record, with the limit of item 8; include the G-12 gap for Git LFS files in the same decision. Owner: test-designer: the two acceptance notes follow the requirement text.
+- **Status:** resolved (focused re-review 7); the parts carried into CR-49 and CR-52 were resolved in focused re-review 8
+
+### CR-46 — A file under no clean filter can be hidden from git's own diff by an index entry or flag; the rule that C001-TS-184 relies on is in no interface, and C001-REQ-101 has no abuse case
+- **Severity:** major
+- **Refs:** C001-REQ-101, C001-AC-101.1, C001-TS-184, C001-IF-012, C001-REQ-117, C001-NFR-001, C001-NFR-003
+- **Evidence:** G-07 compares "base tree versus the working tree, staged and unstaged edits together" and gives own reading rules only for "files under a clean filter, Git LFS files included: §7" — `10-spec/50-interfaces/git-access.md:49`; the port runs git's status and diff: "With the git" / "program this includes setting `GIT_OPTIONAL_LOCKS=0` and passing `--no-optional-locks`, so that" / "status and diff never refresh the index." — `…/git-access.md:23-25`, "C001-ADR-004 implements this port with the installed git program" — `…/git-access.md:86`; the only file content that §5 counts as read and hashed: "G-07 reads and hashes the working-tree bytes of every" / "Git LFS file in the working tree (§7 item 7)" — `…/git-access.md:76-77`; the index flags are ignored only for filtered files: "The" / "assume-unchanged and skip-worktree flags are ignored, so the stat data always decide (CR-37)" — `…/git-access.md:139-140`, "No stat data," / "no flag of the index entry and no racy test is used." — `…/git-access.md:200-201`; yet a scenario requires it for a source file: "And the test then wrote ".git/index" so that the entry of "src/cart.ts" records the blob of "src/cart.ts" in B0 together with the stat data of the edited file, not racy" and "Then the change lists "src/cart.ts" as modified with 4 added lines" — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:964`, `:966`; the assume-unchanged and skip-worktree rows exist only for filtered files — `…/acceptance.md:956-957`, `:869`; and C001-REQ-101 has no abuse case: "| C001-REQ-101 | TS-101 | TS-102 | TS-103 | n/a: intake errors are C001-REQ-105, C001-REQ-106, C001-REQ-107 and C001-REQ-113 | n/a | n/a | n/a |" — `…/acceptance.md:1057`, "- **abuse (bare n/a):** the requirement reads only git data and files of the developer's own repository, which the developer controls" — `…/acceptance.md:1088`
+- **Why it matters:** git's diff of a commit against the working tree, run without refreshing the index, takes the blob of the index entry for every file whose stat data match it and does not look at a file whose entry is marked assume-unchanged or skip-worktree. An adapter that builds G-07 on that diff, which is how the interface describes the port, lets `git update-index --assume-unchanged src/auth.ts` (one command, nothing forged) or a forged entry hide an edit of any source file: no hunk, no guarded-area match, nothing to sign, and G-12 does not report it either. C001-TS-184 expects the opposite for a forged entry, so the property is required by a scenario, but no interface rule states it, and §5 does not count reading every tracked file at each intake (C001-NFR-001) and at each moved-on check, which every verdict asks for (C001-NFR-003). The flags have no scenario for such files, and the abuse cell of C001-REQ-101 rests on the developer controlling the repository, while the revision's own threat (CR-37, Q-cleanfilter-02) is an agent with a shell in that repository. Ignoring skip-worktree also needs a rule for sparse checkouts: a path outside the sparse cone is absent from the working tree, so under §7 items 1, 3 and 7 a filtered file there is already compared by its missing bytes and listed as deleted, and for other files G-07 says nothing.
+- **Suggested fix:** Owner: architect (`50-interfaces/git-access.md` G-07, G-12, §5): state that G-07 compares every path of the base tree and of the index with its working-tree bytes (after git's built-in end-of-line conversion, §2 item 2) whatever git's index records for it (stat data, assume-unchanged, skip-worktree), except a skip-worktree entry whose file is absent from the working tree, which counts as unchanged as in git (sparse checkout), with the same exception in §7 items 1, 3 and 7; count that reading in §5 against C001-NFR-001 and, through G-12, C001-NFR-003, or let G-12 reuse hashes as §7 item 5 does for Git LFS files and state the limit. Owner: test-designer (`CAP-01-change-intake/acceptance.md`): an abuse scenario under C001-AC-101.1 in which an edited `src/cart.ts` is marked assume-unchanged, and one in which it is marked skip-worktree, each listed as modified; a sparse-checkout scenario in which files outside the cone, filtered ones included, are not listed; the abuse cell of C001-REQ-101 citing them and C001-TS-184.
+- **Status:** resolved (focused re-review 7); the hash reuse it led to was CR-49
+
+### CR-47 — The statements of C001-REQ-126 and C001-REQ-528 and the criterion of C001-REQ-509 say less, or other, than the interfaces and scenarios check
+- **Severity:** minor
+- **Refs:** C001-REQ-126, C001-REQ-528, C001-AC-126.1, C001-AC-528.1, C001-AC-509.1, C001-IF-012
+- **Evidence:** "WHEN intake finds one or more files under a clean filter whose working-tree bytes, read without running the filter, differ from the content that the base commit holds at the same path, … THE analysis core SHALL list each of these files as a changed file and report notice ERR-INTAKE-009 with the number of these files, their filter drivers and up to 10 of their paths." — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:217`; against "Intake raises notice ERR-INTAKE-009 (C001-REQ-126) once when item 3 makes one or more files" / "changed that the base commit holds at the same path, naming their number, their filter drivers" / "and up to 10 of them, each with the reason item 3 applies to it" — `10-spec/50-interfaces/git-access.md:171-173`; "THE analysis core SHALL report with that run a notice that names the run, the number of these files and up to 10 of them, each with its filter driver, without changing whether the run's results are recorded as evidence." — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:249`; against the criteria: "is listed as changed and named in ERR-INTAKE-009 with its filter driver and cause" — `…/CAP-01-change-intake/acceptance.md:813`, "each with its filter driver and cause" — `…/CAP-05-review-evidence/acceptance.md:1137`; and "#### C001-AC-509.1 — Results of runs on file content that differs from the snapshot are not evidence" — `…/CAP-05-review-evidence/acceptance.md:296`, against "executes on file content that differs from the workspace content of its evidence workspace" — `…/CAP-05-review-evidence/requirements.md:94`
+- **Why it matters:** (1) For a file under a clean filter that the base commit does not hold, for example a new Git LFS file the agent did not stage, the statement of C001-REQ-126 can be read as naming it in the notice (its bytes differ from content that does not exist), while §7 item 4 names only files that the base commit holds; no scenario decides. (2) Every cause text of ERR-INTAKE-009 and ERR-EVID-013 is required by the interfaces and asserted by the scenarios, but neither statement asks for a cause, so the criteria test more than the requirements. (3) Read literally, the criterion of C001-REQ-509 is contradicted by C001-TS-597 and C001-TS-957, whose runs execute working-tree bytes that differ from the snapshot's stored blob and keep their results.
+- **Suggested fix:** Owner: spec-writer (`CAP-01-change-intake/requirements.md`, `CAP-05-review-evidence/requirements.md`): limit the notice of C001-REQ-126 to files that the base commit holds at the same path (or name added files too and change §7 item 4), and add "each with its cause" to C001-REQ-126 and C001-REQ-528. Owner: test-designer: word the title of C001-AC-509.1 with "the workspace content of its evidence workspace"; optionally a C001-AC-126.1 scenario with an added Git LFS file that is not staged.
+- **Status:** resolved (focused re-review 7); the sparse-checkout cause added since was CR-50
+
+### CR-48 — Nine scenario IDs lie outside the ID ledger and the CAP-05 block, and the decision that allocated C001-REQ-528 is not logged
+- **Severity:** minor
+- **Refs:** C001-TS-951, C001-TS-959, C001-REQ-528, C001-AC-528.1
+- **Evidence:** the ledger: `"REQ": 924, "TS": 950 }` — `ids.json:3` (the TS counter, added by this revision; C001-TS-950 is defined nowhere in `10-spec/`); the scenarios run from "Scenario: C001-TS-951 — A bundle command that rewrites the copied bytes of a Git LFS file in its workspace is not recorded" — `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:329` to "Scenario: C001-TS-959 — A Git LFS file whose snapshot blob is not a pointer file is written from that blob, not copied from the working tree" — `…/acceptance.md:1225`; the blocks of the index: "| REQ-501 to REQ-529 | AC-5nn.n | TS-5nn |" — `10-spec/00-index.md:92`, and "| AC-9nn.n | TS-9nn |" for C001-CAP-09 — `…/00-index.md:96`; Q-reqsplit-01 occurs in no file of `.sdd/`, and `10-spec/questions-log.md` ends with the fatigue-guard entry Q-filterworkspace-02 (`10-spec/questions-log.md:414-424`)
+- **Why it matters:** the ledger names C001-TS-950 as the last scenario ID issued, so the next `sdd id next TS --change 001` can return C001-TS-951, an ID already defined; lint then reports a duplicate after the fact. The block TS-501 to TS-599 of CAP-05 is full, and its nine new scenarios sit in the block that the index gives CAP-09, which a reader of the index cannot see. The split of C001-REQ-527 into three requirements is applied, but the question or decision that allocated C001-REQ-528 is in no log, so a later reader cannot tell who decided it.
+- **Suggested fix:** Owner: conductor: bring the ledger in line with the IDs in use (allocate C001-TS-951 to C001-TS-959 through `sdd id next TS --change 001`, and tombstone C001-TS-950 if it stays unused); log Q-reqsplit-01 with its answer in `10-spec/questions-log.md`, or record that the allocation was made without a question. Owner: spec-writer (`00-index.md`): give C001-CAP-05 the scenario range "TS-5nn, TS-951 to TS-959".
+- **Status:** resolved (focused re-review 7); the part carried into CR-51 was resolved in focused re-review 8
+
+### Rubric (reviewed set)
+| Rubric | Item | Result |
+|---|---|---|
+| stories | S1 Persona is a defined P-ID | pass |
+| stories | S2 Value / outcome stated | pass |
+| stories | S3 INVEST | pass |
+| stories | S4 Every story has ≥ 1 requirement | pass |
+| stories | S5 Out of scope stated where a neighbour exists | pass |
+| stories | S6 Traces to the ideation | pass |
+| requirements | R1 Singular outcome | pass |
+| requirements | R2 Testable | pass |
+| requirements | R3 Unambiguous | CR-47 |
+| requirements | R4 Correct EARS pattern | pass |
+| requirements | R5 Implementation-free | pass |
+| requirements | R6 Complete | CR-46, CR-47 |
+| requirements | R7 Consistent | CR-45, CR-47 |
+| requirements | R8 Feasible | pass |
+| requirements | R9 Necessary | pass |
+| requirements | R10 Measurable values carry units and limits | pass |
+| requirements | R11 Delta and evidence | n/a: greenfield change, no living spec (`10-context/current-state.md`) |
+| requirements | R12 Priority set and consistent with the story | pass |
+| NFRs | N1 ISO 25010 category | n/a: no NFR changed; C001-NFR-001 and C001-NFR-003 are in the set only through costs (CR-46, gate notes row 22) |
+| NFRs | N2 Metric with unit | n/a: no NFR changed |
+| NFRs | N3 Threshold set | n/a: no NFR changed |
+| NFRs | N4 Feasible method and environment | n/a: no NFR changed; no benchmark change holds a filtered file (gate notes row 22) |
+| NFRs | N5 Covered by a DoD item | n/a: no NFR changed |
+| acceptance | A1 Every REQ has ≥ 1 AC, every AC ≥ 1 scenario | pass |
+| acceptance | A2 Scenarios observable and concrete | pass |
+| acceptance | A3 One behaviour per scenario | pass |
+| acceptance | A4 Error and abuse cases present | CR-46 |
+| acceptance | A5 `n/a` cells justified credibly | CR-46 |
+| domain, interfaces, architecture | D1 Entities with attributes, relationships, owner, invariants | pass |
+| domain, interfaces, architecture | D2 Lifecycles > 2 states have a diagram and a complete transition table | pass |
+| domain, interfaces, architecture | D3 Interfaces parse and name their errors | pass |
+| domain, interfaces, architecture | D4 Every component has an ID, responsibilities, requirements served | pass |
+| domain, interfaces, architecture | D5 Decisions with alternatives recorded | CR-45 |
+| DoD and index | O1 Every REQ and NFR covered | pass |
+| DoD and index | O2 Evidence types fit the statements | pass |
+| DoD and index | O3 Global items referenced | pass |
+| DoD and index | X1 The index is navigation only | CR-48 |
+
+Notes on rows marked pass:
+- **S1 to S6, R9, R12:** C001-REQ-125 to C001-REQ-128 are listed by C001-US-101
+  (`CAP-01-change-intake/stories.md:27`), which traces to Q-cleanfilter-02 (`:28`), and
+  C001-REQ-525 to C001-REQ-529 by C001-US-502, C001-US-503 and C001-US-504
+  (`CAP-05-review-evidence/stories.md:45`, `:59`, `:74`). C001-REQ-126 to C001-REQ-128 and
+  C001-REQ-527 to C001-REQ-529 are Should under Must stories, which is consistent: without them
+  filtered files show as changed or hold their stored form, the safe direction. The wording of
+  C001-US-502 is part of CR-45.
+- **R1, R4:** C001-REQ-126 pairs the listing with the notice that reports it, verified together
+  in each scenario; C001-REQ-127 and C001-REQ-128 are event-driven with one outcome; C001-REQ-527
+  and C001-REQ-529 give one outcome under an "if and only if" condition, and the stored form that
+  follows otherwise is workspace content (glossary), which C001-REQ-522 requires; C001-REQ-528 is
+  unwanted-behaviour with one notice, bounded by "without changing whether the run's results are
+  recorded as evidence". C001-REQ-125 now names all five causes and every command that reads the
+  repository.
+- **Partition at intake (C001-REQ-126 to C001-REQ-128):** a Git LFS file is read from a matching
+  pointer file, the base commit's first (C001-REQ-128), or compared by its bytes (C001-REQ-126,
+  which takes every Git LFS file "that C001-REQ-128 does not read from a Git LFS pointer file");
+  any other filtered file is read from a readable index blob while it is up to date in the index
+  (C001-REQ-127) or compared by its bytes (C001-REQ-126: not up to date, no entry, unreadable
+  blob); a file whose bytes equal the base content is unchanged under neither, as C001-IF-012 §7
+  items 3 and 7 state. This is the order of the two bullets and of items 1 to 3 and 7 of §7
+  (`50-interfaces/git-access.md:122-128`, `:130-212`), and the cause list of item 4 and
+  ERR-INTAKE-009 (`50-interfaces/errors.md:27`); stage 0 and intent-to-add are interface details
+  (item 7, G-15). The notice scope for added files is CR-47.
+- **Partition in workspaces (C001-REQ-527 to C001-REQ-529):** C001-REQ-529 covers a Git LFS file
+  whose snapshot side is a pointer file, C001-REQ-527 any other filtered file whose snapshot side
+  is a stored blob (unchanged, or read from the index by C001-REQ-127), and C001-REQ-528 reports
+  the stored form of either; a file that C001-REQ-126 listed as changed and a Git LFS file whose
+  blob is no pointer file (C001-TS-959) are outside both. This matches C001-IF-013 §2 item 1
+  (`50-interfaces/evidence-runs.md:81-130`), the reset of §2 item 3, ERR-EVID-013 and its causes
+  (`50-interfaces/errors.md:64`) and the glossary terms stored form and workspace content. Both
+  notices give the count and at most 10 entries (CR-39).
+- **G-12 and C001-NFR-003:** G-12 reuses the hash of a Git LFS file within one process while its
+  stat data are unchanged (C001-IF-012 §5, §7 item 5). In the `review` or `open` process the first
+  G-12 runs at intake (as G-07) or when the review is resumed (C001-REQ-117), neither of which is
+  an action that C001-NFR-003 bounds, so a later verdict in the review UI hashes only the Git LFS
+  files whose stat data changed. A CLI `sign` is a process of its own and hashes every Git LFS
+  file, which no threshold bounds (C001-NFR-003 measures the UI). No benchmark change holds a
+  filtered file, so the reuse is not measured (gate notes row 22). Its Windows gap is part of
+  CR-45; reading every other file at each moved-on check is part of CR-46.
+- **R5:** the Git LFS pointer format, `core.checkStat`, `core.trustctime`, `git fsck`,
+  `safe.directory` and copy-on-write clones appear in rationales, interfaces and the error
+  catalogue; the statements name outcomes at the boundary.
+- **R8, R10:** the hardened up-to-date test reads only the index and stat data (C001-IF-012 §7
+  item 1); hashing every Git LFS file at each intake and each fill is the cost P-01 accepted with
+  the answer (gate notes row 22); versions, the cap of 10, the 1024-byte limit of a pointer file
+  and the hash algorithm carry their values.
+- **A1 to A3:** `sdd trace 001` reports 215 / 215 requirements with a criterion and every
+  criterion with scenarios. C001-TS-183 to C001-TS-188 and C001-TS-957 to C001-TS-959 use concrete
+  sizes (2,048 and 3,000 bytes), byte positions, the three systems and git's own commands;
+  C001-TS-952 shows a refusal and a missing commit in one notice; C001-TS-953 tests 10 and 11
+  files; C001-TS-956 the notice of the mutation run.
+- **D1, D2:** the revision adds no entity and no state; the glossary term workspace content and
+  C001-IF-013 §2 give what an evidence workspace holds.
+- **D3, D4:** ERR-INTAKE-008, ERR-INTAKE-009, ERR-EVID-012 and ERR-EVID-013 have condition,
+  message, fix, source, kind and surfaces, and their cause texts are the ones the scenarios
+  assert; the changed schema description and the `keyCredential.service` pattern pass quick lint.
+  C001-COMP-003 realises C001-REQ-125 to C001-REQ-128, C001-REQ-526 and C001-REQ-527
+  (`60-architecture/architecture.md:100`), C001-COMP-004 C001-REQ-125 to C001-REQ-128,
+  C001-COMP-006 C001-REQ-820, and C001-COMP-011 C001-REQ-525 to C001-REQ-529 with G-15 and G-16.
+- **O1 to O3:** DOD-G-02 counts 215 active requirements; C001-DOD-001 covers
+  "C001-REQ-101…128" and C001-DOD-005 "C001-REQ-501…529" (`10-spec/70-dod.md:32`, `:36`); the
+  index counts 215 requirements (`10-spec/00-index.md:108`), and `sdd trace 001` reports 215 / 215
+  for TR-02, TR-03 and TR-05.
+
+### Gate notes (rows 20, 22, 24 and 25 replaced, row 26 added; rows 1 to 19 of focused re-review 4 and rows 21 and 23 of focused re-review 5 stand)
+| # | Choice | Where | Evidence | Note for the gate |
+|---|---|---|---|---|
+| 20 | A git index refresh, or staging a Git LFS file, after intake raises the moved-on notice for a filtered file whose content did not change | C001-IF-012 §7 item 5, C001-REQ-117, C001-TS-177, C001-TS-188 | "When git later refreshes its index (for" / "example during `git status`) or the agent stages a Git LFS file, a file can pass from item 3 to" / "item 2 or 7 without a change of its content" — `10-spec/50-interfaces/git-access.md:176-178` | Editors and agents run `git status` often, so a review whose intake met a touched or racy filtered file (C001-TS-169) can show ERR-INTAKE-007 within seconds; the same holds after the agent stages a Git LFS file that intake compared by its bytes (C001-TS-188). The notice informs only, and a new review reads the file from the index or the pointer file |
+| 22 | Hashing Git LFS content and resetting filtered files are costs inside C001-NFR-001 and C001-NFR-018 (a) and (c), and no benchmark change has a filtered file | C001-IF-012 §5, §7 item 5, C001-IF-013 §2 items 1 and 3, §8, C001-CON-22, C001-NFR-001, C001-NFR-003, C001-NFR-018 | "G-07 reads and hashes the working-tree bytes of every" / "Git LFS file in the working tree (§7 item 7); that time counts toward C001-NFR-001" — `10-spec/50-interfaces/git-access.md:76-77`; "The ADR measures reset (the copying and hashing of files under a clean filter included)" — `10-spec/60-architecture/constraints.md:29` | Accepted by P-01 with Q-cleanfilter-02 ("costs hashing LFS content per intake and fill", `10-spec/questions-log.md:406`). Every intake reads and hashes every Git LFS file of the working tree, whether or not the change touches it, so on a repository with large Git LFS content the intake time grows with that content, not with the change. Every fill and every reset hashes the Git LFS files it copies, inside (a) and (c). `30-nfr/nfr.md` names no clean filter, so none of C001-NFR-001, C001-NFR-003 and C001-NFR-018 (c) is measured on a repository that uses Git LFS. A CLI verdict, a process of its own, hashes every Git LFS file for its moved-on check |
+| 24 | The review configuration of the base commit is trusted as code: it sets the test command that an analysis runs when the developer gives none, and the key variable and endpoint of a cloud provider | C001-REQ-505, C001-REQ-820, C001-IF-004, C001-IF-010 §7 | "It is defence in depth, not the trust boundary" — `10-spec/20-capabilities/CAP-08-model-provider/requirements.md:159`; "`keyEnv` may name any environment variable, by design." — `10-spec/50-interfaces/model-provider.md:124` | Now stated in the specification (CR-44 resolved): the C001-REQ-820 rationale, the schema description, C001-IF-010 §7, the name table of `50-interfaces/README.md` and `architecture.md` §1 and §6. C001-REQ-820 narrows the credential-store entries such a configuration can use; `keyEnv` stays open by design, because every variable it can name is in the environment of the configuration's test command when that command runs. Evidence runs also execute the change itself with the developer's environment (C001-REQ-521), so the boundary is no wider than what a review already trusts |
+| 25 | Files under a filter other than Git LFS are judged by git's index and stat data, so an edit of such a file can stay out of the change while evidence runs execute it: on Windows by a same-size edit with the modification time set back, on every system by an index entry written after the edit | C001-IF-012 §7 items 1, 5 and 8, C001-REQ-127, C001-REQ-527 | "on every system, an index entry written after the edit that records the edited file's stat data" — `10-spec/50-interfaces/git-access.md:220`; P-01's option: "Windows timestamp gap remains for non-LFS filters only, marked at G2" — `10-spec/questions-log.md:406` | P-01 accepted the Windows part with Q-cleanfilter-02. The part on every system, which needs one git command with a substitute clean command, is marked only with the fatigue-guard question Q-filterworkspace-02 and was not put to P-01 (CR-45). It applies only to paths that the base commit's `.gitattributes` assign to such a filter (git-crypt, nbstripout, a project filter). Git LFS files are judged by their hash and are outside it, except that on Windows a same-size edit with the modification time set back can be missing from the moved-on notice (C001-IF-012 §7 item 5) |
+| 26 | A filtered file whose stat data differ from git's index only in a field that the repository's git settings ignore shows as changed in every review | C001-IF-012 §7 item 1, C001-REQ-126, ERR-INTAKE-009, ERR-EVID-013 | "whatever the repository's" / "`core.checkStat` and `core.trustctime` settings say" — `10-spec/50-interfaces/git-access.md:135-136`; "if the file is still listed, change its modification time first (for example with `touch`) and run `git status` again" — `10-spec/50-interfaces/errors.md:27` | Follows from "all stat fields compared" in P-01's answer. With `core.trustctime` false or `core.checkStat` "minimal", git does not rewrite an entry whose only difference is the change time, inode, user or group (for example after a tool sets an extended attribute), so the file is compared by its bytes at every intake with ERR-INTAKE-009, and holds its stored form in evidence workspaces with ERR-EVID-013, until the developer applies the `touch` and `git status` fix. Conservative: nothing is hidden, but the notices can recur |
+
+### Re-review 6 verdict
+The fixes for CR-36 to CR-44 are in place: all nine are resolved. P-01's round-15 answer is
+applied as chosen, with no extracted instructions: Git LFS files are judged by the SHA-256 hash and
+size that their pointer files name, at intake and in evidence workspaces, and the stat rule for
+other filters takes attributes from the base commit only and compares every stat field. The two
+partitions in the brief are clean: C001-REQ-126 to C001-REQ-128 at intake and C001-REQ-527 to
+C001-REQ-529 in workspaces match C001-IF-012 §7, C001-IF-013 §2 item 1 and both notices, apart
+from the notice scope and causes of CR-47. The hash reuse of G-12 keeps a verdict in the review UI
+to the Git LFS files whose stat data changed. No blocker is open. Two findings are major: CR-45
+(for filters other than Git LFS the residual holds on every system, through an index entry that
+one git command writes, while the option P-01 chose named a Windows gap only, and its marker is a
+Windows-only fatigue-guard question) and CR-46 (a source file under no clean filter can be hidden
+from git's own diff by assume-unchanged, skip-worktree or a forged entry; C001-TS-184 requires that
+it cannot, but no interface rule or cost says so, and C001-REQ-101 has no abuse case). Two are
+minor: CR-47 and CR-48. CR-45 needs a P-01 decision (a question, or explicit acceptance of gate
+notes row 25 at G2); CR-46 to CR-48 have owners among the specialists and the conductor.
+Recommendation: fix CR-46 to CR-48 and put CR-45 to P-01 before G2, then check the changed text in
+a short focused pass. At G2, P-01 should read gate notes rows 20 to 26, in particular row 25 (an
+edit kept out of the change on any system) and row 22 (hashing costs that no benchmark measures).
+CR-33 and CR-34 remain open from focused re-review 4.
+
+## Focused re-review 7
+
+*Written by sdd-critic; appended by the conductor because the file exceeds the critic's write
+limit. Findings, severities, fixes and gate notes are as the critic wrote them; some long evidence
+quotes are shortened to their file and line locations.*
+
+**Scope.** The third pass on defects D-001 to D-007 of `change.md`: the fixes for CR-45 to CR-48
+of focused re-review 6, after P-01's answer to Q-nonlfs-01 (`10-spec/questions-log.md` Round 16:
+"Accept, state it everywhere"). Checked, only for what changed for those findings: C001-IF-012 §2
+item 2, §5, §7 items 5, 6 and 8, §8 items 1 to 3, G-07 and G-12; C001-IF-013 §2 items 1, 4 and 5;
+ERR-EVID-013 (the cause "not in the working tree"); C001-CON-22; `architecture.md` §6 and
+C001-COMP-003; C001-REQ-101 (rationale), C001-REQ-126, C001-REQ-127, C001-REQ-509 (rationale),
+C001-REQ-527 and C001-REQ-528; C001-US-502; the glossary entries clean filter and up to date in
+the index; the TS cells of `00-index.md`; C001-TS-189 to C001-TS-191, C001-TS-953 to C001-TS-956,
+C001-TS-961, C001-TS-962, the title of C001-AC-509.1 and the coverage notes that cite
+Q-nonlfs-01; the TS counter of `ids.json`. Out of scope by the brief: the plan-phase ADRs that lag
+the specification, TR-06, TR-08 and LINT-OBS-001, and CR-33 and CR-34.
+`sdd lint 001 --phase 10-spec --json`: 877 errors. 856 are TR-06 and TR-08 (0 / 215 requirements
+implemented by a task, 0 / 641 scenarios mapped to a test case, as `sdd trace 001` reports); 18,
+one per NFR, are LINT-OBS-001, reported at the NFR headings because `20-plan/78-observability.md`
+does not exist; the other 3 match the three bare references to `C001-TS-950` in CR-48
+(`10-spec/90-critic-report.md:1352`, `:1353`, `:1354`), an ID neither defined nor tombstoned, which
+TR-12 reports (CR-51). The printed output is cut, so these 21 are identified from the rules and
+the IDs in use. `sdd lint 001 --quick --file` on every changed requirement, acceptance, story,
+glossary, interface, error-catalogue, constraint, architecture and index file: 0 findings.
+`sdd trace 001`: TR-01 55 / 55, TR-02 215 / 215, TR-03 215 / 215, TR-04 18 / 18, TR-05 215 / 215
+and 18 / 18; 22 open items.
+
+**Reviewed set** (changed IDs and the IDs linked to them; the frontmatter keeps `all` because this
+file holds the full review): C001-REQ-101, C001-AC-101.1, C001-TS-101 to C001-TS-103,
+C001-TS-184, C001-TS-189, C001-TS-191, C001-REQ-117, C001-AC-117.1, C001-TS-138 to C001-TS-140,
+C001-TS-150, C001-REQ-126, C001-AC-126.1, C001-TS-190, C001-REQ-127, C001-AC-127.1,
+C001-REQ-128, C001-US-101, C001-US-104, C001-REQ-509, C001-AC-509.1, C001-TS-523 to C001-TS-525,
+C001-TS-558, C001-TS-951, C001-REQ-522, C001-REQ-527, C001-AC-527.1, C001-TS-597 to C001-TS-599,
+C001-REQ-528, C001-AC-528.1, C001-TS-953 to C001-TS-956, C001-TS-961, C001-TS-962, C001-REQ-529,
+C001-AC-529.1, C001-TS-957 to C001-TS-959, C001-US-502, C001-US-503, C001-US-504, C001-IF-012,
+C001-IF-013, C001-CON-22, C001-COMP-003, C001-COMP-011, C001-NFR-001, C001-NFR-003,
+C001-DOD-001, C001-DOD-005, C001-CAP-05, C001-CAP-09; and ERR-INTAKE-007, ERR-INTAKE-009 and
+ERR-EVID-013 of `errors.md`, the glossary terms change, clean filter (with up to date in the
+index), moved-on notice, stored form and workspace content, `architecture.md` §6, the TS cells of
+`00-index.md`, Q-reqsplit-01 of round 15 and round 16 of `questions-log.md`, and the TS counter
+and tombstones of `ids.json`.
+
+**Open after focused re-review 7:** 0 blocker, 1 major (CR-49), 3 minor (CR-50, CR-51, CR-52).
+CR-46 and CR-47 are resolved; CR-45 is resolved except the parts carried into CR-49 and CR-52;
+CR-48 is resolved except the part carried into CR-51. CR-33 and CR-34 (minor, open since focused
+re-review 4) are outside the brief and were not re-checked.
+
+| Findings | blocker | major | minor |
+|---|---|---|---|
+| New in this re-review (CR-49 to CR-52) | 0 | 1 | 3 |
+| All findings CR-1 to CR-52 | 2 | 15 | 35 |
+
+### Status of CR-45 to CR-48
+| Finding | Status | Evidence of the fix |
+|---|---|---|
+| CR-45 | resolved, except the parts carried into CR-49 and CR-52 | "**Answer:** Accept, state it everywhere (Recommended)" — `10-spec/questions-log.md:429`; the residual is marked with Q-nonlfs-01, and no artifact of `10-spec/` cites Q-filterworkspace-02 any more; the second case worded as item 8 in C001-REQ-127 (`10-spec/20-capabilities/CAP-01-change-intake/requirements.md:226`) and C001-REQ-527 (`…/CAP-05-review-evidence/requirements.md:242`); the copy rests on git's record (`…/CAP-05-review-evidence/requirements.md:95`, `…/CAP-05-review-evidence/stories.md:46`); also C001-IF-013 §2 items 1, 4 and 5 (`10-spec/50-interfaces/evidence-runs.md:114-121`, `:217-218`, `:222-228`), C001-CON-22 and `architecture.md` §6 (`10-spec/60-architecture/architecture.md:445`). Not covered by Q-nonlfs-01: the moved-on gap of G-12, now wider (CR-49). The acceptance notes keep the old wording (CR-52) |
+| CR-46 | resolved | "every other file is compared by its working-tree bytes whatever git's index records for it (stat data, assume-unchanged and skip-worktree flags)" — `10-spec/50-interfaces/git-access.md:51`; §8 item 1 (`…/git-access.md:271-272`); the sparse rule of §8 item 2 (`:287-300`, `:132-134`); the reading counted (`:78-79`); C001-TS-189 and C001-TS-191 (`10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:81`, `:99`); the abuse cell of C001-REQ-101 cites C001-TS-189 and C001-TS-184 (`…/acceptance.md:1103`). A filtered file outside the sparse checkout has no intake scenario; C001-TS-961 and C001-TS-962 pin it indirectly. The hash reuse that G-12 now applies to every file is CR-49 |
+| CR-47 | resolved | "files under a clean filter that the base commit holds at the same path" and "each path with its cause" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:217`; C001-TS-190 (`…/CAP-01-change-intake/acceptance.md:954`); "each with its filter driver and its cause" — `…/CAP-05-review-evidence/requirements.md:249`; the title of C001-AC-509.1 (`…/CAP-05-review-evidence/acceptance.md:296`). The cause added since for sparse paths is missing from C001-REQ-528 (CR-50) |
+| CR-48 | resolved, except the part carried into CR-51 | `"TS": 963 }` — `ids.json:3`; Q-reqsplit-01 logged (`10-spec/questions-log.md:414`, `:417`); the CAP-05 cell names TS-951 to TS-959 (`10-spec/00-index.md:92`). Correction: the collision that CR-48 feared could not occur, because `sdd id next` starts after the larger of the counter and the highest ID in use. Not done: the tombstone of `C001-TS-950`; the index does not place C001-TS-961 and C001-TS-962 (CR-51) |
+| CR-33, CR-34 | not re-checked | outside the brief |
+
+### Round 16
+"**Answer:** Accept, state it everywhere (Recommended)" (`10-spec/questions-log.md:429`) is applied
+where the option says it will be, in C001-IF-012 (§7 introduction, items 5, 6 and 8), C001-REQ-127 and
+C001-REQ-527, and also in the C001-REQ-509 rationale, C001-US-502, C001-IF-013 §2 items 1, 4 and 5,
+C001-CON-22, `architecture.md` §6 and both acceptance notes; the gate notes follow (row 25). The
+question is material with two candidates; its options narrow the five candidates of Q-cleanfilter-02
+to the residual, so this is not a finding. The option text covers files under filters other than
+Git LFS only: the G-12 gap of the moved-on notice was not part of it (CR-49).
+
+### Findings
+
+### CR-49 — The moved-on check reuses hashes so that on Windows it misses a same-size edit with the modification time set back for every file it compares by content; C001-REQ-117 still names each differing file, P-01 has not accepted the gap, and without a racy rule it is not limited to Windows
+- **Severity:** major
+- **Refs:** C001-REQ-117, C001-AC-117.1, C001-US-104, C001-IF-012, C001-IF-013, C001-NFR-003
+- **Evidence:** "THE review assistant SHALL show a moved-on notice that names each file that differs from the snapshot and states whether HEAD moved." — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:145`, whose rationale states no limit (`:146`); G-12 hash reuse and its Windows gap — `10-spec/50-interfaces/git-access.md:302-309`; "An edit that item 8 keeps out of the change is missing from the moved-on notice as well." — `…/git-access.md:196-197`; the racy test exists only for index entries — `…/git-access.md:158-159`; "results already recorded stay; the moved-on notice reports the edits (C001-REQ-117)." — `10-spec/50-interfaces/evidence-runs.md:229-230`; the C001-REQ-117 coverage row with abuse n/a — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:1119`, `:1134`; Q-nonlfs-01 covers other filters only — `10-spec/questions-log.md:422`, `:426`
+- **Why it matters:** (1) The reuse that keeps a verdict within C001-NFR-003 now covers every file the moved-on check compares by content, so on Windows an agent that edits any source file after intake, keeps its size and sets its modification time back is not reported; a developer who signs and then commits the working tree commits code nobody reviewed (C001-US-104). C001-REQ-117 (Must) and C001-AC-117.1 still promise every differing file, and P-01 has not accepted this gap. (2) The gap is not Windows-only: §8 item 3 has no racy rule, so a same-size write in the same time-stamp step as the hashing is missed on every system. (3) The abuse cell of C001-REQ-117 rests on the developer controlling the repository, while the gap is an agent's route; no scenario covers it.
+- **Suggested fix:** Owner: conductor: put gate notes row 27 to P-01 and log the answer. Owner: spec-writer (C001-REQ-117): state the accepted limit in the rationale, citing C001-IF-012 §7 items 5 and 8 and §8 item 3. Owner: architect (§8 item 3, C001-IF-013 §2 item 5): read stat data before content and keep a hash for reuse only when the file's modification and change times are earlier than the start of that read; qualify "the moved-on notice reports the edits". Owner: test-designer: under C001-AC-117.1, an edit after intake then marked assume-unchanged (or covered by a forged entry) is still named, and on Linux a same-size edit with the modification time set back is named; the abuse cell of C001-REQ-117 citing them and the Windows limit.
+- **Status:** resolved (focused re-review 8); Windows gap accepted by P-01 with Q-movedon-01; introduced: CR-53, CR-54
+
+### CR-50 — The sparse-checkout rule reaches no requirement statement: C001-REQ-527 does not cover a changed path outside the sparse checkout, C001-REQ-528 lacks its cause, and C001-REQ-101 read literally makes such a path a deletion
+- **Severity:** minor
+- **Refs:** C001-REQ-527, C001-REQ-528, C001-AC-528.1, C001-TS-961, C001-TS-962, C001-REQ-101, C001-REQ-126, C001-TS-191
+- **Evidence:** C001-REQ-527 scope (`10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:241`); C001-REQ-528 closed cause list without "not in the working tree" (`…/requirements.md:249`, `:250`); against C001-IF-013 (`10-spec/50-interfaces/evidence-runs.md:87-89`, `:131`) and ERR-EVID-013 (`10-spec/50-interfaces/errors.md:64`); C001-TS-962 (`…/CAP-05-review-evidence/acceptance.md:1197`, `:1203`) and C001-TS-961 (`:1184`); the glossary (`10-spec/40-domain/glossary-delta.md:43`, `:19`); C001-REQ-101 statement (`10-spec/20-capabilities/CAP-01-change-intake/requirements.md:16`) against C001-TS-191 (`…/CAP-01-change-intake/acceptance.md:102`, `:107`), with the rule only in the rationale (`…/requirements.md:17`)
+- **Why it matters:** C001-TS-962 requires ERR-EVID-013 to name a path outside the sparse checkout that C001-REQ-527 does not cover; C001-REQ-528 leaves out a cause that the interface prints and the scenarios assert; C001-REQ-101 and the term change, read literally, make paths outside the sparse checkout deleted files, which C001-TS-191 does not expect.
+- **Suggested fix:** Owner: spec-writer: add to C001-REQ-527 "or a path outside the sparse checkout whose content in the snapshot is the blob of its index entry (C001-IF-012 §8 item 2)"; add "not in the working tree" to the causes of C001-REQ-528; define outside the sparse checkout in the glossary and say in the entry change that such a path counts with the blob of its index entry.
+- **Status:** resolved (focused re-review 8)
+
+### CR-51 — The index does not place C001-TS-961 and C001-TS-962, and three unused scenario IDs are not tombstoned, one of which leaves three lint errors
+- **Severity:** minor
+- **Refs:** C001-TS-961, C001-TS-962, C001-CAP-05, C001-CAP-09
+- **Evidence:** `10-spec/00-index.md:92`, `:96`; `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1179`, `:1196`; `ids.json:3`, `:5-14`; the bare references to `C001-TS-950` at `10-spec/90-critic-report.md:1352-1354`, which TR-12 reports
+- **Why it matters:** A reader of the index takes C001-TS-961 and C001-TS-962 for CAP-09 scenarios; the phase lint carries 3 TR-12 errors until `C001-TS-950` is tombstoned.
+- **Suggested fix:** Owner: conductor: `sdd id tombstone` for `C001-TS-950`, `C001-TS-960` and `C001-TS-963`, reason "allocated, unused". Owner: spec-writer (`00-index.md`): CAP-05 "TS-5nn, TS-951 to TS-959, TS-961 and TS-962"; CAP-09 "TS-9nn, except TS-951 to TS-959, TS-961 and TS-962 (C001-CAP-05)".
+- **Status:** resolved (focused re-review 8)
+
+### CR-52 — The two acceptance notes and `architecture.md` §6 word the residual and the Git LFS check differently from C001-IF-012
+- **Severity:** minor
+- **Refs:** C001-AC-127.1, C001-AC-527.1, C001-REQ-127, C001-REQ-527, C001-REQ-128
+- **Evidence:** "written after the edit … by git running another clean command that the repository's configuration names" — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:1135`, `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1297`; against `10-spec/50-interfaces/git-access.md:245-247`; "Git LFS files are checked by the SHA-256 hash of their pointer files" — `10-spec/60-architecture/architecture.md:445`, against `…/git-access.md:222-224`
+- **Why it matters:** "That the repository's configuration names" reads as a setting left in the repository, while item 8's command leaves nothing; "written after the edit" leaves out a refresh; "the SHA-256 hash of their pointer files" reads as hashing the pointer file, while the check hashes the working-tree bytes against the hash and size that the pointer names.
+- **Suggested fix:** Owner: test-designer (both coverage notes): "an index entry written or refreshed after the edit …, directly in the index file or by git refreshing its index with another clean command given for that one command (C001-IF-012 §7 item 8)". Owner: architect (`architecture.md` §6): "Git LFS files are checked against the SHA-256 hash and size that their pointer files name".
+- **Status:** resolved (focused re-review 8)
+
+### Rubric (reviewed set)
+| Rubric | Item | Result |
+|---|---|---|
+| stories | S1–S6 | pass |
+| requirements | R1 Singular outcome | pass |
+| requirements | R2 Testable | pass |
+| requirements | R3 Unambiguous | CR-50 |
+| requirements | R4 Correct EARS pattern | pass |
+| requirements | R5 Implementation-free | pass |
+| requirements | R6 Complete | pass |
+| requirements | R7 Consistent | CR-49, CR-50 |
+| requirements | R8 Feasible | pass |
+| requirements | R9 Necessary | pass |
+| requirements | R10 Measurable values carry units and limits | pass |
+| requirements | R11 Delta and evidence | n/a: greenfield change, no living spec (`10-context/current-state.md`) |
+| requirements | R12 Priority set and consistent with the story | pass |
+| NFRs | N1–N5 | n/a: no NFR changed; C001-NFR-001 and C001-NFR-003 are in the set through costs (gate notes row 22) |
+| acceptance | A1 Every REQ has ≥ 1 AC, every AC ≥ 1 scenario | pass |
+| acceptance | A2 Scenarios observable and concrete | pass |
+| acceptance | A3 One behaviour per scenario | pass |
+| acceptance | A4 Error and abuse cases present | CR-49 |
+| acceptance | A5 `n/a` cells justified credibly | CR-49, CR-52 |
+| domain, interfaces, architecture | D1–D4 | pass |
+| domain, interfaces, architecture | D5 Decisions with alternatives recorded | CR-49 |
+| DoD and index | O1–O3 | pass |
+| DoD and index | X1 The index is navigation only | CR-51 |
+
+Notes on rows marked pass: the story links agree both ways (C001-US-101, C001-US-104, C001-US-502
+to C001-US-504); C001-REQ-126 keeps one outcome under the narrowed trigger and C001-REQ-528 stays
+one notice; git commands appear in rationales and interfaces only; reading every checked-out file
+at each intake counts toward C001-NFR-001 (`50-interfaces/git-access.md:78-85`); `sdd trace 001`
+reports 215 / 215 and 641 scenarios; ERR-EVID-013 carries the new cause in condition, message and
+fix; C001-COMP-003 names §8 and realises C001-REQ-101; the DoD is unchanged, TR-05 215 / 215 and
+18 / 18.
+
+### Gate notes (rows 22 and 25 replaced, rows 27 and 28 added; rows 1 to 19 of focused re-review 4, rows 21 and 23 of focused re-review 5 and rows 20, 24 and 26 of focused re-review 6 stand)
+| # | Choice | Where | Evidence | Note for the gate |
+|---|---|---|---|---|
+| 22 | Reading every checked-out file and hashing Git LFS content at each intake, and resetting filtered files, are costs inside C001-NFR-001, C001-NFR-003 and C001-NFR-018 (a) and (c); no benchmark change has a filtered file | C001-IF-012 §5, §7 item 5, §8 items 1 and 3, C001-IF-013 §2 items 1 and 3, §8, C001-CON-22, C001-NFR-001, C001-NFR-003, C001-NFR-018 | `10-spec/50-interfaces/git-access.md:78-79`, `:90-92` | Hashing Git LFS content was accepted by P-01 with Q-cleanfilter-02. Reading every checked-out file at each intake follows from C001-REQ-101 (CR-46 resolved); intake time grows with the checked-out working tree, not with the change, and the C001-NFR-001 benchmark changes measure it for files under no clean filter; Git LFS content is not measured. In the review UI a verdict reads only the files edited since they were last hashed (row 27); a CLI verdict reads every such file once, which no threshold bounds |
+| 25 | Files under a filter other than Git LFS are judged by git's index and stat data, so an edit of such a file can stay out of the change while evidence runs execute it: on every system by an index entry written or refreshed after the edit, on Windows also by a same-size edit with the modification time set back | C001-IF-012 §7 items 1, 6 and 8, C001-REQ-127, C001-REQ-509, C001-REQ-527, C001-US-502, C001-CON-22 | `10-spec/questions-log.md:429`; `10-spec/50-interfaces/git-access.md:247` | Decided by P-01 in round 16 (Q-nonlfs-01), which supersedes the fatigue-guard resolution of Q-filterworkspace-02 (CR-45 resolved). Only for paths that the base commit's `.gitattributes` assign to such a filter: the edit is in no hunk and in no moved-on notice, while every evidence workspace filled or reset afterwards runs it and the results count as evidence. The acceptance notes still word it more narrowly (CR-52) |
+| 27 | The moved-on check reuses a file's hash while its stat data are unchanged, so on Windows a same-size edit made after intake with the modification time set back is missing from the moved-on notice, for every file it compares by content | C001-IF-012 G-12, §5, §7 item 5, §8 item 3, C001-REQ-117, `architecture.md` §6 | `10-spec/50-interfaces/git-access.md:306-308` | **Not explicitly accepted by P-01** at the time of this review: Q-nonlfs-01 covers filters other than Git LFS only. Chosen by the architect to keep a verdict within C001-NFR-003. The edit never reaches a snapshot or a workspace, but a developer who signs and then commits the working tree commits it unreviewed (C001-US-104); C001-REQ-117 (Must) still says the notice names each differing file. Until a racy rule is added, a same-size write in the same time-stamp step as the hashing is missed on every system (CR-49) |
+| 28 | A path outside a sparse checkout counts with the blob of its index entry, as git counts it: a file deleted from the working tree and marked skip-worktree is not a deletion, and a filtered file outside the sparse checkout holds its stored form in evidence workspaces | C001-IF-012 §8 item 2, C001-REQ-101, C001-IF-013 §2 item 1, ERR-EVID-013, C001-TS-191, C001-TS-961, C001-TS-962 | `10-spec/50-interfaces/git-access.md:297-298` | A specialist choice made with the fix of CR-46, not decided by P-01. Such a deletion stays out of the review only while the flag stays set. A test that reads a filtered file outside the sparse checkout reads its stored form, with ERR-EVID-013 and the fix `git sparse-checkout add`. The rule is in no requirement statement yet (CR-50) |
+
+### Re-review 7 verdict
+P-01's round-16 answer is applied as chosen. CR-46 and CR-47 are resolved; CR-45 and CR-48 are
+resolved except the parts carried into CR-49, CR-51 and CR-52. No blocker is open. One finding is
+major: CR-49. Three are minor: CR-50, CR-51 and CR-52. Recommendation: before G2, the conductor puts
+gate notes row 27 to P-01 and the architect adds the racy rule; CR-50 to CR-52 are text and ledger
+edits that need no further critic pass. At G2, P-01 should read gate notes rows 20 to 28, in
+particular row 27, row 25 (now decided) and row 28 (sparse checkouts). CR-33 and CR-34 remain open
+from focused re-review 4.
+
+## Focused re-review 8
+
+*Written by sdd-critic; appended by the conductor because the file exceeds the critic's write limit
+(text as the critic returned it, except "re-review 8" added to the rubric heading for uniqueness);
+the status lines of CR-33 to CR-52 were updated as the critic listed them.*
+
+**Scope.** A short verification pass, by the brief: the fixes for CR-49 to CR-52 of focused re-review 7 after P-01's answer to Q-movedon-01 (`10-spec/questions-log.md` Round 17), checked only for new contradictions, and a status sweep of CR-1 to CR-52. Changed: C001-IF-012 G-12, §5, §7 item 5 and §8 item 3; C001-IF-013 §2 item 5; `architecture.md` §6; C001-REQ-117, C001-REQ-527 and C001-REQ-528; the glossary entries outside the sparse checkout and change; the TS cells of `00-index.md`; C001-TS-192 to C001-TS-194, the C001-REQ-117 coverage row and note and the C001-REQ-527 note; the tombstones of `C001-TS-950`, `C001-TS-960` and `C001-TS-963`. `sdd lint 001 --phase 10-spec --json`: 877 errors, 859 of them TR-06 and TR-08 (0 / 215 requirements with a task, 0 / 644 scenarios with a test case, as `sdd trace 001` reports) and 18 taken, from the count, to be the one-per-NFR LINT-OBS-001 of earlier passes (the printed output is cut); the three TR-12 errors of CR-51 are gone. `sdd trace 001`: TR-01 to TR-05 at 100 %, 22 open items.
+
+**Reviewed set** (the frontmatter keeps `all`): C001-REQ-117, C001-AC-117.1, C001-TS-138 to C001-TS-140, C001-TS-150, C001-TS-192 to C001-TS-194, C001-US-104, C001-NFR-003, C001-REQ-101, C001-REQ-127, C001-AC-127.1, C001-REQ-527, C001-AC-527.1, C001-REQ-528, C001-AC-528.1, C001-TS-961, C001-TS-962, C001-REQ-529, C001-US-502 to C001-US-504, C001-IF-012, C001-IF-013, C001-CAP-05, C001-CAP-09; ERR-INTAKE-007, ERR-EVID-013, the glossary terms change, outside the sparse checkout and moved-on notice, `architecture.md` §6, `00-index.md`, round 17 and the tombstones of `ids.json`; for the sweep, CR-33 and CR-34 against C001-REQ-516, C001-COMP-011, `40-domain/domain-model.md` §2.25, `40-domain/state-machines.md` §5, C001-TS-582, C001-TS-583 and C001-TS-585.
+
+### Status of CR-49 to CR-52, CR-33 and CR-34
+| Finding | Status | Evidence of the fix |
+|---|---|---|
+| CR-49 | resolved | "**Answer:** Accept Windows gap, state it" — `10-spec/questions-log.md:442`; racy rule: "only when the file's modification time" / "and change time are both earlier than the start of that read by two seconds or more" — `10-spec/50-interfaces/git-access.md:314-315`; the Windows limit in the C001-REQ-117 statement and rationale (`10-spec/20-capabilities/CAP-01-change-intake/requirements.md:145-146`), G-12, §7 item 5 and §8 item 3 (`…/git-access.md:56`, `:203-211`, `:326-335`), C001-IF-013 §2 item 5 (`10-spec/50-interfaces/evidence-runs.md:229-233`), `architecture.md` §6 (`10-spec/60-architecture/architecture.md:445`); C001-TS-192 to C001-TS-194, the abuse and concurrency cells and the note (`…/CAP-01-change-intake/acceptance.md:579-626`, `:1168`, `:1184`). Introduced: CR-53, CR-54 |
+| CR-50 | resolved | "or a path outside the sparse checkout whose content in the snapshot is the blob of its index entry (C001-IF-012 §8 item 2)" — `10-spec/20-capabilities/CAP-05-review-evidence/requirements.md:241`; "or not in the working tree" — `…/requirements.md:249`; "A path outside the sparse checkout counts with the blob of its index entry, not as deleted" — `10-spec/40-domain/glossary-delta.md:19`, with the entry outside the sparse checkout (`:20`) |
+| CR-51 | resolved | "TS-5nn, TS-951 to TS-959, TS-961 and TS-962" — `10-spec/00-index.md:92`; "TS-9nn, except TS-951 to TS-959, TS-961 and TS-962 (C001-CAP-05)" — `:96`; `{ "id": "C001-TS-950", "reason": "allocated, unused"` — `ids.json:14`, with `C001-TS-960` and `C001-TS-963` (`:15-16`); no TR-12 in the phase lint |
+| CR-52 | resolved | "directly in the index file or by git refreshing its index with another clean command given for that one command" — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:1185`, `10-spec/20-capabilities/CAP-05-review-evidence/acceptance.md:1297`; "Git LFS files are checked against the SHA-256 hash and size that their pointer files name" — `10-spec/60-architecture/architecture.md:445` |
+| CR-33, CR-34 | resolved (checked in this pass) | CR-33: "preparing, free, in use, copying" — `10-spec/40-domain/domain-model.md:494`, the copy's lifetime (`:518-521`), ERR-EVID-010 and ERR-EVID-011 (`:528-531`); "the copy of the test run's workspace fails (for example for lack of disk space)" — `10-spec/40-domain/state-machines.md:176`, the outside load (`:177`); "Scenario: C001-TS-585 — A failed copy of the test run's workspace is removed and makes the mutation evidence of every hunk unavailable" — `…/CAP-05-review-evidence/acceptance.md:585`. CR-34: C001-TS-582 and C001-TS-583 keep their behavioural assertions and assert no time bound (`…/acceptance.md:437-459`) |
+
+**Round 17.** "**Answer:** Accept Windows gap, state it" (`10-spec/questions-log.md:442`) is applied as its option text says (`:438`): the hash reuse is kept, the racy rule added (C001-IF-012 §8 item 3), the Windows limit stated in C001-REQ-117, C001-IF-012 and the coverage table; no extracted instructions. Not a finding: no option is marked recommended (`:438-440`); the answer is logged verbatim. The option does not cover file times from a clock that lags the machine's (CR-53).
+
+### Findings
+
+### CR-53 — The two-second margin of the racy rule assumes that file times come from a clock that does not lag the machine's; where it lags by more, the moved-on gap is not limited to Windows, while C001-IF-012 says the gap does not exist on Linux and macOS
+- **Severity:** minor
+- **Refs:** C001-IF-012, C001-REQ-117, C001-AC-117.1, C001-TS-194
+- **Evidence:** "after taking the time of the" / "machine's clock at the start of that read" — `10-spec/50-interfaces/git-access.md:311-312`; "both earlier than the start of that read by two seconds or more" — `:315`; "The two seconds cover file" / "systems that record times in steps of up to two seconds (FAT) and operating systems that take" / "file time stamps from a clock running a fraction of a second behind the clock of the process." — `:320-322`; "so with the time-stamp rule the" / "gap does not exist there." — `:331-332`, likewise `:207-208`; "on Windows, a same-size edit made after the file was last hashed with its modification time set back is missing from the moved-on notice" — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:146`
+- **Why it matters:** on a network share the server stamps file times with its own clock. If that clock runs more than 2 s behind the machine's, a file written just before a moved-on check already carries times older than the margin, its hash is kept, and a same-size write within the same time step of the server leaves size, times and inode as kept: the notice misses it on Linux and macOS too, which C001-IF-012 rules out and P-01 did not accept with Q-movedon-01. The margin also equals the largest step it covers, so a 2 s step plus any lag leaves a window as long as the lag. As with the Windows gap, the edit never reaches a snapshot or a workspace.
+- **Suggested fix:** Owner: architect (C001-IF-012 §8 item 3, §7 item 5): state the limit (file times from a clock more than the margin behind the machine's, for example a network share, on every system) and restrict "the gap does not exist there" to the other cases; optionally widen the margin to cover a 2 s step plus a lag (for example 3 s). Owner: spec-writer (C001-REQ-117 rationale) and test-designer (the C001-REQ-117 note, `…/CAP-01-change-intake/acceptance.md:1184`): name it. Owner: conductor: gate notes row 29.
+- **Status:** open
+
+### CR-54 — The exception of C001-REQ-117 takes the file out of the names but not out of the state, and is worded by an internal event
+- **Severity:** minor
+- **Refs:** C001-REQ-117, C001-AC-117.1, C001-TS-193
+- **Evidence:** "WHILE the working tree or HEAD no longer matches the snapshot under review" … "THE review assistant SHALL show a moved-on notice that names each file that differs from the snapshot and states whether HEAD moved, except on Windows for a file whose only difference from the snapshot is a same-size edit made after the file was last hashed with its modification time set back (C001-IF-012 §8 item 3)." — `10-spec/20-capabilities/CAP-01-change-intake/requirements.md:145`; against "set its modification time back to the value it had at that check" — `10-spec/20-capabilities/CAP-01-change-intake/acceptance.md:599`
+- **Why it matters:** when the excepted edit is the only difference, the WHILE state still holds, so read literally the statement requires a notice that names no file and says HEAD did not move, while the system shows none because it cannot see the edit. "Last hashed" is an internal event a tester cannot observe (a moved-on check that reuses a hash does not hash), and "set back" does not say to which value; C001-TS-193 words both observably.
+- **Suggested fix:** Owner: spec-writer: move the exception into the WHILE state, so that a file whose only difference is such an edit counts as matching the snapshot, and word it as C001-TS-193 does: an edit made after the last intake or moved-on check, with the modification time set back to the value it had then. Carry the limit of CR-53 the same way if it is stated.
+- **Status:** open
+
+### Rubric (reviewed set, re-review 8)
+| Rubric | Item | Result |
+|---|---|---|
+| requirements | R2 Testable, R3 Unambiguous, R5 Implementation-free | CR-54 |
+| requirements | R7 Consistent | CR-53 |
+| requirements | R11 Delta and evidence | n/a: greenfield change, no living spec (`10-context/current-state.md`) |
+| NFRs | N1–N5 | n/a: no NFR changed; C001-NFR-003 enters only through C001-IF-012 §5 |
+| stories, requirements, acceptance, domain/interfaces/architecture, DoD and index | S1–S6, R1, R4, R6, R8–R10, R12, A1–A5, D1–D5, O1–O3, X1 | pass |
+
+**Why no further findings** (two findings):
+- Stories: C001-US-104 lists C001-REQ-117 and C001-US-502 to C001-US-504 list C001-REQ-527 to C001-REQ-529; no story changed.
+- Requirements: C001-REQ-527 keeps one outcome; a path outside the sparse checkout has no working-tree file, fails the copy condition and falls to C001-REQ-528, whose cause "not in the working tree" matches C001-IF-013 §2 item 1 (`10-spec/50-interfaces/evidence-runs.md:129-131`); the C001-REQ-117 rationale cites Q-movedon-01 and C001-IF-012 §7 item 5 and §8 item 3, as the option asked.
+- Acceptance: under the rule as written C001-TS-194 holds (a check 0.1 s after a write on a 1 s volume keeps no hash, so the check at 10:00:05 reads the file again), C001-TS-193 holds through the change time on Linux and macOS, C001-TS-192 matches C001-IF-012 §8 item 1; the n/a error cell of C001-REQ-117 stays credible.
+- Interfaces and architecture: G-12, §5, §7 item 5, §8 item 3, C001-IF-013 §2 item 5 and `architecture.md` §6 state one rule and one Windows limit; G-07 still reuses no hash, so snapshots and evidence workspaces are unaffected.
+- DoD and index: TR-05 215 / 215 and 18 / 18; the index places C001-TS-961 and C001-TS-962 under C001-CAP-05; the ledger's tombstones match the IDs in use.
+
+### Gate notes (row 27 replaced, row 29 added; the last sentences of rows 25 and 28, which cite CR-52 and CR-50, are void now that both are resolved; all other rows of focused re-reviews 4 to 7 stand)
+| # | Choice | Where | Evidence | Note for the gate |
+|---|---|---|---|---|
+| 27 | The moved-on check reuses a file's hash while its stat data are unchanged, so on Windows a same-size edit made after the last intake or moved-on check, with the modification time set back, is missing from the moved-on notice, for every file it compares by content | C001-IF-012 G-12, §5, §7 item 5, §8 item 3, C001-REQ-117, C001-IF-013 §2 item 5, `architecture.md` §6 | "**Answer:** Accept Windows gap, state it" — `10-spec/questions-log.md:442` | Decided by P-01 in round 17 (Q-movedon-01), with the racy rule added, so apart from row 29 the gap is Windows-only (CR-49 resolved). Keeps a verdict within C001-NFR-003. The edit never reaches a snapshot or a workspace, but a developer who signs on Windows and then commits the working tree can commit it unreviewed (C001-US-104) |
+| 29 | The racy rule keeps a hash for reuse only when the file's modification and change times are at least 2 s older than the machine's clock at the start of the read | C001-IF-012 §8 item 3, §5, C001-REQ-117 | "both earlier than the start of that read by two seconds or more" — `10-spec/50-interfaces/git-access.md:315` | A specialist choice inside the option of Q-movedon-01, not decided by P-01. When file times come from a clock running more than 2 s behind the machine's, for example a network share whose server clock lags, a same-size write in the same time step as the hashing can be missing from the moved-on notice on every operating system; not yet stated (CR-53). Moved-on notice only: snapshots and evidence workspaces are unaffected |
+
+### Re-review 8 verdict
+CR-49 to CR-52 are resolved, and so are CR-33 and CR-34, checked in this pass. After the status sweep, 0 blocker, 0 major and 2 minor findings are open (CR-53, CR-54), out of 54 findings in all (2 blocker, 15 major, 37 minor). Both are text edits for the architect, spec-writer and test-designer that need no further critic pass; alternatively, P-01 accepts row 29 and waives CR-53 at G2. At G2, P-01 should read gate notes rows 20 to 29, in particular rows 25 and 27 (gaps P-01 accepted) and rows 28 and 29 (specialist choices P-01 has not decided).

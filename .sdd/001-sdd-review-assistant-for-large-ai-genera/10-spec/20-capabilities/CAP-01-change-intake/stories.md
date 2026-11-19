@@ -21,10 +21,11 @@ what it was meant to do (`ideation.md` §8 step 1).
 - **Priority:** Must · **Size hint:** M · **Capability:** C001-CAP-01
 - **Context & notes:** checkpoint holes in agent tools: C001-R-001 §D, C001-R-003 Implications 6.
   A git repository is the unit of review [ASSUMPTION: C001-AS-03]. The base used when none is
-  named: C001-REQ-103, C001-REQ-104 (Q-intake-01).
+  named: C001-REQ-103, C001-REQ-104 (Q-intake-01). Files under a clean filter, Git LFS files
+  included: C001-REQ-126 to C001-REQ-128 (Q-cleanfilter-01, Q-cleanfilter-02).
 - **Out of scope:** other version-control systems; remote pull requests (C001-NG-02).
-- **Requirements:** C001-REQ-101, C001-REQ-102, C001-REQ-103, C001-REQ-104, C001-REQ-105, C001-REQ-106, C001-REQ-107, C001-REQ-108, C001-REQ-114
-- **Traces to:** C001-GOAL-01, C001-DEC-005, `ideation.md` §5
+- **Requirements:** C001-REQ-101, C001-REQ-102, C001-REQ-103, C001-REQ-104, C001-REQ-105, C001-REQ-106, C001-REQ-107, C001-REQ-108, C001-REQ-114, C001-REQ-125, C001-REQ-126, C001-REQ-127, C001-REQ-128
+- **Traces to:** C001-GOAL-01, C001-DEC-005, `ideation.md` §5, Q-cleanfilter-02
 
 ### C001-US-102 — Include agent commits that are not yet pushed
 - **As a** P-02 developer accepting agent output

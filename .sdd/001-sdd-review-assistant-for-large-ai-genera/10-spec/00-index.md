@@ -85,15 +85,15 @@ status: draft
 ## Capabilities and ID blocks
 | Capability | Folder | US | REQ | AC | TS |
 |---|---|---|---|---|---|
-| C001-CAP-01 Change intake | `CAP-01-change-intake/` | US-101 to US-105 | REQ-101 to REQ-124 | AC-1nn.n | TS-1nn |
+| C001-CAP-01 Change intake | `CAP-01-change-intake/` | US-101 to US-105 | REQ-101 to REQ-128 | AC-1nn.n | TS-1nn |
 | C001-CAP-02 Architecture delta | `CAP-02-architecture-delta/` | US-201 to US-206 | REQ-201 to REQ-224 | AC-2nn.n | TS-2nn |
 | C001-CAP-03 Intent map | `CAP-03-intent-map/` | US-301 to US-307 | REQ-301 to REQ-328 | AC-3nn.n | TS-3nn |
 | C001-CAP-04 Risk triage and guarded clearing | `CAP-04-risk-triage/` | US-401 to US-406 | REQ-401 to REQ-427 | AC-4nn.n | TS-4nn |
-| C001-CAP-05 Test-first reading and executable evidence | `CAP-05-review-evidence/` | US-501 to US-506 | REQ-501 to REQ-524 | AC-5nn.n | TS-5nn |
+| C001-CAP-05 Test-first reading and executable evidence | `CAP-05-review-evidence/` | US-501 to US-506 | REQ-501 to REQ-529 | AC-5nn.n | TS-5nn, TS-951 to TS-959, TS-961 and TS-962 |
 | C001-CAP-06 Review coverage, sampling and attention budget | `CAP-06-review-coverage/` | US-601 to US-606 | REQ-601 to REQ-617 | AC-6nn.n | TS-6nn |
 | C001-CAP-07 Verdicts and review record | `CAP-07-verdicts/` | US-701 to US-706 | REQ-701 to REQ-722 | AC-7nn.n | TS-7nn |
-| C001-CAP-08 Model provider and model-free mode | `CAP-08-model-provider/` | US-801 to US-806 | REQ-801 to REQ-819 (REQ-813 retired) | AC-8nn.n | TS-8nn |
-| C001-CAP-09 CLI and local review UI | `CAP-09-review-surfaces/` | US-901 to US-907 | REQ-901 to REQ-922 (REQ-903 retired) | AC-9nn.n | TS-9nn |
+| C001-CAP-08 Model provider and model-free mode | `CAP-08-model-provider/` | US-801 to US-806 | REQ-801 to REQ-820 (REQ-813 retired) | AC-8nn.n | TS-8nn |
+| C001-CAP-09 CLI and local review UI | `CAP-09-review-surfaces/` | US-901 to US-907 | REQ-901 to REQ-922 (REQ-903 retired) | AC-9nn.n | TS-9nn, except TS-951 to TS-959, TS-961 and TS-962 (C001-CAP-05) |
 
 ## ID counts
 | Type | Count |
@@ -105,7 +105,7 @@ status: draft
 | CON | 22 (C001-CON-01 to C001-CON-08 in `10-context/scope.md`, C001-CON-09 to C001-CON-22 in `60-architecture/constraints.md`) |
 | CAP | 9 |
 | US | 55 |
-| REQ | 205 (2 retired: C001-REQ-813, C001-REQ-903) |
+| REQ | 215 (2 retired: C001-REQ-813, C001-REQ-903) |
 | NFR | 18 |
 | AC | one or more per requirement; current count and coverage: `80-traceability.md` (generated) |
 | TS | current count and coverage: `80-traceability.md` (generated) |

@@ -68,7 +68,7 @@ open-hunk prompt (C001-IF-003 §4); the command never sets the git configuration
 | 0 | The command completed and wrote all its results (notices may have been printed) |
 | 1 | Internal error (ERR-CLI-003) |
 | 2 | Usage error (ERR-CLI-001) |
-| 3 | Intake refused: ERR-INTAKE-001 to ERR-INTAKE-004, ERR-CTX-001 to ERR-CTX-003, ERR-SDD-001 to ERR-SDD-003 |
+| 3 | Intake refused: ERR-INTAKE-001 to ERR-INTAKE-004, ERR-CTX-001 to ERR-CTX-003, ERR-SDD-001 to ERR-SDD-003; git unusable: ERR-INTAKE-008, for every command that reads git data (C001-IF-012 §6) |
 | 4 | Empty change (ERR-INTAKE-005) |
 | 5 | Unknown review, intent or hunk (ERR-STORE-004, ERR-ACT-004) |
 | 6 | Review action refused: ERR-ACT-001 to ERR-ACT-003, ERR-ACT-006 (the actions of the local review UI return the other refusals of `errors.md` as HTTP problems only) |

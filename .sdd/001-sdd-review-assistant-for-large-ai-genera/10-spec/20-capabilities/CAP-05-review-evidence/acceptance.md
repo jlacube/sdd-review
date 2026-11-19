@@ -16,11 +16,12 @@ notation and the fixtures `shop-ts`, `shop-py`, `shop-cs` and `tool-go` are thos
 |---|---|
 | `svc-java` | Java repository (outside the deep ecosystems) whose Maven test run writes a Cobertura XML report |
 | `agent-log.md` | Agent transcript of the `shop-ts` change, named at intake; it records the run `node scripts/try-coupon.js SAVE10` with the output "total 0.00", linked to intent "Apply a coupon" |
+| `shop-lfs` | Fixture `shop-ts` with two clean filters: the `.gitattributes` file of its base commit holds `assets/*.png filter=lfs diff=lfs merge=lfs -text` and `config/*.secret filter=crypt`; the repository configuration sets `filter.lfs.clean`, `filter.lfs.smudge` and `filter.lfs.process` to a stub that behaves as `git-lfs` 3.5, and `filter.crypt.clean` and `filter.crypt.smudge` to a stub that encrypts and decrypts with a fixed key as git-crypt does; both stubs append each call they receive to the log `filter-calls.log`, outside the working tree (the filter stub's log). The base commit stores `assets/logo.png`, `assets/banner.png`, `assets/hero.png` and `assets/img01.png` to `assets/img11.png` as Git LFS pointer files (Git LFS files), `assets/legacy.png` as its PNG content, committed before the `.gitattributes` line, so that its blob is not a Git LFS pointer file, and `config/app.secret`, `config/db.secret` and `config/cache.secret` as encrypted blobs (files under a filter other than Git LFS). Each file is checked out with its content (PNG content, or for `config/` decrypted text starting with "KEY=") and is up to date in git's index when the snapshot is taken, unless a scenario states otherwise. `scripts/sha256.js` prints, for each file at or below the paths it is given, in path order, the path relative to its working directory, ": " and the SHA-256 of the file's bytes, one line each, and exits with status 0. The cause texts of ERR-EVID-012 and ERR-EVID-013 are those of `50-interfaces/errors.md` |
 
 Test-file conventions per ecosystem: C001-IF-005 §10 (`50-interfaces/builtin-policy.md`); scenarios
 state the convention a file follows in a `Given` step. Every test command runs on the local machine.
 
-**Repository record** (scenarios of C001-REQ-521 and C001-REQ-522): before the run starts the test
+**Repository record** (scenarios of C001-REQ-521, C001-REQ-522, C001-REQ-525, C001-REQ-527 and C001-REQ-529): before the run starts the test
 records the output of `git status --porcelain=v2`, the hash of `.git/index`, every branch and tag
 with its commit, the count of commits reachable from every ref, and the content hash and file mode
 of every file under the working-tree root, ignored files included; a file-system watcher on the
@@ -292,7 +293,7 @@ Scenario: C001-TS-522 — Failing tests are evidence, not a failure to run
 
 ## C001-REQ-509
 
-#### C001-AC-509.1 — Results of runs on file content that differs from the snapshot are not evidence
+#### C001-AC-509.1 — Results of runs on file content that differs from the workspace content of their evidence workspace are not evidence
 ```gherkin
 Scenario: C001-TS-523 — A test run that adds a file the ignore rules do not exclude produces no evidence
   Given the review of fixture `shop-ts` has the test command `npm test`, whose test "report › writes summary" writes the file `report-summary.json` next to `package.json`
@@ -323,6 +324,15 @@ Scenario: C001-TS-558 — A run that writes only files the ignore rules exclude 
   When the test run of the snapshot completes
   Then the evidence output records the 40 passing tests as evidence of the snapshot
   And no notice ERR-EVID-005 is shown
+```
+```gherkin
+Scenario: C001-TS-951 — A bundle command that rewrites the copied bytes of a Git LFS file in its workspace is not recorded
+  Given the evidence bundle of intent "Apply a coupon" of the `shop-lfs` snapshot "S1" holds the confirmed command `node scripts/shrink-logo.js`, which rewrites `assets/logo.png` in its working directory with a smaller PNG and exits with status 0
+  And `assets/logo.png` is unchanged by the change and has not been touched since "S1" was taken, so that its evidence workspace receives its working-tree bytes
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records no run of `node scripts/shrink-logo.js` as evidence
+  And the developer is notified with ERR-EVID-005 that the files no longer match the snapshot, naming `assets/logo.png`
+  And the SHA-256 of the working-tree file `assets/logo.png` is unchanged
 ```
 
 ## C001-REQ-510
@@ -897,6 +907,359 @@ Scenario: C001-TS-566 — The moved-on notice reports the edit while the evidenc
   And the evidence output of "S1" still records the 40 passing tests
 ```
 
+## C001-REQ-525
+
+#### C001-AC-525.1 — Every command of an evidence run starts without the git repository-locating environment variables, whatever the developer's environment holds
+```gherkin
+Scenario Outline: C001-TS-586 — A review started from a git hook hands neither GIT_DIR nor GIT_INDEX_FILE to its commands
+  Given the review of fixture `shop-ts` was started from a git hook of `shop-ts`, so that the environment of the analysis core sets `GIT_DIR` to the absolute path of the git directory of `shop-ts` and `GIT_INDEX_FILE` to the absolute path of its index file
+  And the test `tests/git-env.test.ts › no git location` passes only when neither `GIT_DIR` nor `GIT_INDEX_FILE` is set
+  And the confirmed bundle command `node scripts/print-git-env.js` of intent "Apply a coupon" prints one line per variable `GIT_DIR` and `GIT_INDEX_FILE`: its name, "=" and its value, or "unset" when it is not set
+  When <run> completes
+  Then <outcome>
+
+  Examples:
+    | run | outcome |
+    | the test run of `npx jest` | the evidence output records `tests/git-env.test.ts › no git location` as passing |
+    | mutation testing of `src/cart/total.ts#1`, whose mutation tool runs `tests/git-env.test.ts › no git location` on the unmutated code before the first mutant | the evidence output records the mutation results of `src/cart/total.ts#1` and no notice ERR-EVID-006 is shown |
+    | the run of the evidence bundle of intent "Apply a coupon" | the evidence output records the standard output "GIT_DIR=unset", a line end, "GIT_INDEX_FILE=unset" and a line end |
+```
+```gherkin
+Scenario: C001-TS-587 — A test that commits through git changes nothing in the repository of a hook-started review
+  Given the review of fixture `shop-ts` was started from a git hook of `shop-ts`, so that the environment of the analysis core sets `GIT_DIR` to the absolute path of the git directory of `shop-ts` and `GIT_INDEX_FILE` to the absolute path of its index file
+  And the test `tests/release.test.ts › tags a release` runs `git add -A`, `git commit -m "release"` and `git tag v9.9.9` in its working directory
+  And the repository record was taken before the test run of `npx jest` starts
+  When the test run of `npx jest` completes
+  Then every value of the repository record is identical
+  And the repository has no tag "v9.9.9"
+  And no notice ERR-EVID-009 is shown
+```
+```gherkin
+Scenario Outline: C001-TS-588 — Each git repository-locating variable is removed from the command's environment
+  Given the review of fixture `shop-ts` runs in an environment that sets `<name>` to <value>
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/print-env.js <name>`, which prints the name it is given, "=" and the value of that variable, or "unset" when it is not set
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the standard output "<name>=unset" followed by a line end
+
+  Examples:
+    | name                             | value                                                        |
+    | GIT_DIR                          | the absolute path of the git directory of `shop-ts`          |
+    | GIT_WORK_TREE                    | the absolute path of the working-tree root of `shop-ts`      |
+    | GIT_IMPLICIT_WORK_TREE           | "1"                                                          |
+    | GIT_COMMON_DIR                   | the absolute path of the git directory of `shop-ts`          |
+    | GIT_INDEX_FILE                   | the absolute path of the index file of `shop-ts`             |
+    | GIT_OBJECT_DIRECTORY             | the absolute path of the object directory of `shop-ts`       |
+    | GIT_ALTERNATE_OBJECT_DIRECTORIES | the absolute path of the object directory of `shop-ts`       |
+    | GIT_GRAFT_FILE                   | the absolute path of `info/grafts` in the git directory of `shop-ts` |
+    | GIT_SHALLOW_FILE                 | the absolute path of `shallow` in the git directory of `shop-ts` |
+    | GIT_CONFIG                       | the absolute path of `config` in the git directory of `shop-ts` |
+    | GIT_REPLACE_REF_BASE             | "refs/replace/"                                              |
+    | GIT_NO_REPLACE_OBJECTS           | "1"                                                          |
+    | GIT_PREFIX                       | "src/"                                                       |
+    | GIT_NAMESPACE                    | "agent"                                                      |
+    | GIT_QUARANTINE_PATH              | the absolute path of `objects/incoming-x1` in the git directory of `shop-ts` |
+```
+```gherkin
+Scenario Outline: C001-TS-589 — Other variables are kept and GIT_CEILING_DIRECTORIES is replaced
+  Given the review of fixture `shop-ts` runs in an environment that sets `<name>` to <value>
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/print-env.js <name>`, which prints the name it is given, "=" and the value of that variable, or "unset" when it is not set
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the standard output "<name>=" followed by <printed> and a line end
+
+  Examples:
+    | name                    | value                                                    | printed                                                          |
+    | GIT_CONFIG_GLOBAL       | the absolute path of a file `ci.gitconfig` outside the working tree | the same path                                         |
+    | GIT_AUTHOR_NAME         | "Dev One"                                                | "Dev One"                                                        |
+    | GIT_SSH_COMMAND         | "ssh -o BatchMode=yes"                                   | "ssh -o BatchMode=yes"                                           |
+    | SHOP_MODE               | "ci"                                                     | "ci"                                                             |
+    | GIT_CEILING_DIRECTORIES | the absolute path of the working-tree root of `shop-ts`  | the absolute path of the parent directory of the command's working directory |
+```
+```gherkin
+Scenario Outline: C001-TS-590 — On Windows a variable is removed whatever the letter case of its name
+  Given the review of fixture `shop-ts` runs on Windows 11 in an environment that sets the variable named `<spelled>` to the absolute path of the git directory of `shop-ts`
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/print-env.js GIT_DIR`, which looks the name up regardless of letter case, as Windows does, and prints "GIT_DIR=" and the value, or "GIT_DIR=unset" when no variable of that name is set
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the standard output "GIT_DIR=unset" followed by a line end
+
+  Examples:
+    | spelled |
+    | Git_Dir |
+    | git_dir |
+```
+
+## C001-REQ-526
+
+#### C001-AC-526.1 — A submodule whose recorded commit cannot be read on the local machine is an empty directory in the evidence workspace and is named in ERR-EVID-012 with that commit and its cause: no local repository, commit not in its repository, or repository refused by git
+```gherkin
+Scenario Outline: C001-TS-591 — A submodule whose recorded commit is missing is left empty and named in the notice with its cause
+  Given the snapshot of fixture `shop-ts` records the submodule `vendor/payments` at commit P2, and <state>
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/list-dir.js vendor/payments`, which prints, for each directory it names, the directory, ": ", the number of its entries and " entries", and exits with status 0
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "vendor/payments: 0 entries" followed by a line end
+  And the developer is notified with ERR-EVID-012 that names the run of `node scripts/list-dir.js vendor/payments`, the count 1 and `vendor/payments` with the hash of P2 and the cause "<cause>"
+  And no notice ERR-EVID-005 is shown
+
+  Examples:
+    | state                                                                                  | cause                        |
+    | the local repository of `vendor/payments` holds its commit P1 but not P2               | commit not in its repository |
+    | `vendor/payments` has no local repository, as when the submodule was never initialised | no local repository          |
+```
+```gherkin
+Scenario: C001-TS-952 — A submodule repository that git refuses is left empty, named with git's message, and the refusal is not overridden
+  Given the snapshot of fixture `shop-ts` records the submodule `vendor/payments` at commit P2 and the submodule `vendor/tax` at commit T4
+  And the local repository of `vendor/payments` holds P2 and is owned by another operating-system user than the developer, and neither the developer's global nor the system git configuration holds a `safe.directory` entry
+  And the local repository of `vendor/tax` does not hold T4
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/list-dir.js vendor/payments vendor/tax`, which prints, for each directory it names, the directory, ": ", the number of its entries and " entries", and exits with status 0
+  And the test has recorded the content of the developer's global and system git configurations
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "vendor/payments: 0 entries", a line end, "vendor/tax: 0 entries" and a line end
+  And the developer is notified with one notice ERR-EVID-012 that names the count 2, `vendor/payments` with the hash of P2 and the cause "repository refused by git" followed by git's first error line, which reports the ownership of the repository, and `vendor/tax` with the hash of T4 and the cause "commit not in its repository"
+  And no error ERR-INTAKE-008 is shown
+  And the developer's global and system git configurations are identical to the recorded content
+```
+```gherkin
+Scenario: C001-TS-592 — A missing commit of a nested submodule empties only the nested path
+  Given the snapshot of fixture `shop-ts` records the submodule `vendor/payments` at commit P2, which its local repository holds and whose tree holds 5 entries at its top level and records the nested submodule `lib/crypto` at commit K3
+  And the local repository of `vendor/payments/lib/crypto` does not hold K3
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/list-dir.js vendor/payments vendor/payments/lib/crypto`, which prints, for each directory it names, the directory, ": ", the number of its entries and " entries", and exits with status 0
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the standard output "vendor/payments: 5 entries", a line end, "vendor/payments/lib/crypto: 0 entries" and a line end
+  And the developer is notified with ERR-EVID-012 that names the count 1 and `vendor/payments/lib/crypto` with the hash of K3
+```
+```gherkin
+Scenario: C001-TS-593 — A submodule whose recorded commit is on the local machine is filled and raises no notice
+  Given the snapshot of fixture `shop-ts` records the submodule `vendor/payments` at commit P2, which its local repository holds and whose tree holds 5 entries at its top level
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/list-dir.js vendor/payments`, which prints, for each directory it names, the directory, ": ", the number of its entries and " entries", and exits with status 0
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the standard output "vendor/payments: 5 entries" followed by a line end
+  And no notice ERR-EVID-012 is shown
+```
+```gherkin
+Scenario Outline: C001-TS-594 — The notice states the number of empty submodules and names at most 10 of them with their commits
+  Given the snapshot of fixture `shop-ts` records <n> submodules, numbered from `vendor/m01` on, none of whose recorded commits is on the local machine
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/try-coupon.js SAVE10`, which prints "total 90.00" and exits with status 0
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the developer is notified with one notice ERR-EVID-012 that names the count <n> and <named>, each with the hash of its recorded commit
+  And the evidence output records the run with exit status 0 and standard output "total 90.00" followed by a line end
+
+  Examples:
+    | n  | named                      |
+    | 10 | each of the 10 paths       |
+    | 11 | exactly 10 of the 11 paths |
+```
+```gherkin
+Scenario: C001-TS-595 — A test run whose workspace holds the empty submodule keeps its results and raises the notice
+  Given the snapshot of fixture `shop-ts` records the submodule `vendor/payments` at commit P2, which is not on the local machine
+  And the test `tests/payments.test.ts › charges a card` imports a file of `vendor/payments`, and the other 40 tests of the snapshot pass without it
+  When the test run of `npx jest` completes
+  Then the developer is notified with ERR-EVID-012 that names the test run of `npx jest`, the count 1 and `vendor/payments` with the hash of P2
+  And the evidence output records the results of the test run as evidence of the snapshot, with `tests/payments.test.ts › charges a card` failing and the 40 other tests passing
+  And no notice ERR-EVID-005 is shown
+```
+```gherkin
+Scenario: C001-TS-596 — A missing submodule commit is not fetched
+  Given the snapshot of fixture `shop-ts` records the submodule `vendor/payments` at commit P2, which its local repository does not hold
+  And the `.gitmodules` file of the snapshot gives `vendor/payments` the URL `https://git.cloud.test/payments.git`, served on an isolated test network by a recording stub that holds P2
+  And the per-process network capture of C001-NFR-011 is running, and the test has recorded the refs and the count of objects of the local repository of `vendor/payments`
+  When the test run of `npx jest` completes
+  Then the recording stub has received no request
+  And the network capture records 0 connections of the review assistant's processes to non-loopback addresses
+  And the refs and the count of objects of the local repository of `vendor/payments` are identical to the recorded values
+  And the developer is notified with ERR-EVID-012 that names `vendor/payments` with the hash of P2
+```
+
+## C001-REQ-527
+
+#### C001-AC-527.1 — A file under a clean filter other than Git LFS whose snapshot side is a stored blob gets its working-tree bytes, copied without a filter, only while the hardened up-to-date test finds it up to date with that blob before and after the copy and its stat data do not change during the copy; otherwise it holds its stored form
+```gherkin
+Scenario Outline: C001-TS-597 — A file under another filter that git's index records as up to date with its snapshot blob gets its working-tree bytes
+  Given the evidence bundle of intent "Apply a coupon" of the `shop-lfs` snapshot "S1" holds the confirmed command `node scripts/sha256.js <file>`
+  And <state>
+  And the repository record was taken before the run starts
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "<file>: " followed by the SHA-256 of the working-tree file <file> and a line end
+  And no notice ERR-EVID-013 names this run
+  And no notice ERR-EVID-005 is shown
+  And "S1" has one evidence workspace
+  And the filter stub's log records no call made after the run was requested
+  And every value of the repository record is identical
+
+  Examples:
+    | file | state |
+    | config/app.secret | `config/app.secret` is unchanged by the change and has not been touched since "S1" was taken |
+    | config/db.secret | before "S1" was taken, the agent wrote new content to `config/db.secret` and staged it with `git add`, so that intake took its snapshot side from git's index (C001-REQ-127), and the file has not been touched since |
+    | config/app.secret | after "S1" was taken, `config/app.secret` was touched, an earlier run of the command in the only evidence workspace of "S1", now free, raised ERR-EVID-013 for it, and the developer then ran `git status`, which recorded the file again as up to date with the same blob |
+```
+```gherkin
+Scenario Outline: C001-TS-598 — Files under another filter that the hardened test does not find up to date with their snapshot blob get their stored form and are named in ERR-EVID-013 with the cause
+  Given before the `shop-lfs` snapshot "S1" was taken, the agent wrote new content to `config/db.secret` and staged it with `git add`, so that intake took its snapshot side from git's index (C001-REQ-127)
+  And before "S1" was taken, the agent wrote new content to `config/cache.secret` after git last recorded its stat data, so that intake listed `config/cache.secret` as modified with its working-tree bytes as its snapshot content (C001-REQ-126), and git's index still does not record it as up to date
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/sha256.js config`
+  And <event>
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0
+  And its standard output gives for <file> the SHA-256 of the file's stored form, the encrypted blob of its snapshot side
+  And it gives for `config/cache.secret` the SHA-256 of the snapshot content of `config/cache.secret`
+  And the developer is notified with one notice ERR-EVID-013 that names the run of `node scripts/sha256.js config`, the count 1 and <file> with the filter driver `crypt` and the cause "<cause>"
+  And the notice does not name `config/cache.secret`
+  And no notice ERR-EVID-005 is shown
+  And the filter stub's log records no call made after the run was requested
+
+  Examples:
+    | event | file | cause |
+    | after "S1" was taken, `config/app.secret` was touched: its modification time was set to the current time and its content left unchanged | `config/app.secret` | not up to date in git's index |
+    | after "S1" was taken, `config/app.secret` was rewritten with other content and not staged | `config/app.secret` | not up to date in git's index |
+    | after "S1" was taken, `config/app.secret` was rewritten with other content and staged with `git add`, so that its index entry records another blob | `config/app.secret` | another blob in git's index |
+    | after "S1" was taken, on Linux or macOS, `config/app.secret` was rewritten in place with other bytes of the same size and its modification time was set back to the value that git's index records for it | `config/app.secret` | not up to date in git's index |
+    | after "S1" was taken, on Linux or macOS, the repository's git configuration was given `core.checkStat` "minimal" and `core.trustctime` "false", and `config/app.secret` was then rewritten in place with other bytes of the same size and its modification time was set back to the value that git's index records for it | `config/app.secret` | not up to date in git's index |
+    | after "S1" was taken, `config/app.secret` was rewritten with other content and its index entry was then marked with `git update-index --assume-unchanged config/app.secret` | `config/app.secret` | not up to date in git's index |
+    | after "S1" was taken, `config/db.secret` was touched | `config/db.secret` | not up to date in git's index |
+    | after "S1" was taken, the developer's account lost read permission on `config/app.secret` | `config/app.secret` | unreadable |
+    | while the evidence runner copies `config/app.secret` into the evidence workspace, a file-system hook of the test sets the file's modification time to the current time and leaves its content unchanged | `config/app.secret` | changed during the copy |
+```
+```gherkin
+Scenario: C001-TS-599 — Two evidence workspaces of one snapshot, filled before and after a touch, differ in a file under another filter
+  Given the test run of `npx jest` on the `shop-lfs` snapshot "S1" runs in an evidence workspace that was filled while git's index recorded `config/app.secret` as up to date with its snapshot blob
+  And the test `tests/config.test.ts › reads the key` passes only when `config/app.secret` in its working directory starts with "KEY="
+  And after that workspace was filled, the developer touched `config/app.secret` in the working tree and left its content unchanged
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/sha256.js config/app.secret`
+  When the developer runs the evidence bundle of intent "Apply a coupon" before the test run completes
+  Then the command runs in a second evidence workspace of "S1", prepared for it
+  And the evidence output records the run with exit status 0 and standard output "config/app.secret: " followed by the SHA-256 of the encrypted blob of `config/app.secret` in the base commit and a line end
+  And the developer is notified with ERR-EVID-013 that names the run of `node scripts/sha256.js config/app.secret`, the count 1 and `config/app.secret` with the filter driver `crypt` and the cause "not up to date in git's index"
+  And when the test run of `npx jest` completes, the evidence output records `tests/config.test.ts › reads the key` as passing
+  And no notice ERR-EVID-013 names the test run of `npx jest`
+  And no notice ERR-EVID-005 is shown
+```
+
+## C001-REQ-528
+
+#### C001-AC-528.1 — A run whose workspace holds, when it starts, the stored form of a file under a clean filter raises one ERR-EVID-013 that names the run, the number of such files and up to 10 of them, each with its filter driver and cause, and the recording of the run's results stays with the workspace check
+```gherkin
+Scenario Outline: C001-TS-953 — The notice states the number of files in their stored form and names at most 10 of them
+  Given after the `shop-lfs` snapshot "S1" was taken, `assets/img01.png` to `assets/img<last>.png` were rewritten with other content and not staged
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/try-coupon.js SAVE10`, which prints "total 90.00" and exits with status 0
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the developer is notified with one notice ERR-EVID-013 that names the run of `node scripts/try-coupon.js SAVE10`, the count <n> and <named>, each with the filter driver `lfs` and the cause "content differs from its Git LFS pointer file"
+  And the evidence output records the run with exit status 0 and standard output "total 90.00" followed by a line end
+  And no notice ERR-EVID-005 is shown
+
+  Examples:
+    | last | n  | named                      |
+    | 10   | 10 | each of the 10 files       |
+    | 11   | 11 | exactly 10 of the 11 files |
+```
+```gherkin
+Scenario: C001-TS-954 — One notice names files of both filters, each with its filter driver and cause
+  Given after the `shop-lfs` snapshot "S1" was taken, `assets/logo.png` was rewritten with other content and not staged, and `config/app.secret` was touched with its content left unchanged
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/sha256.js assets/logo.png config/app.secret`
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the developer is notified with one notice ERR-EVID-013 that names the run of `node scripts/sha256.js assets/logo.png config/app.secret` and the count 2
+  And the notice names `assets/logo.png` with the filter driver `lfs` and the cause "content differs from its Git LFS pointer file", and `config/app.secret` with the filter driver `crypt` and the cause "not up to date in git's index"
+  And the evidence output records the run with exit status 0
+```
+```gherkin
+Scenario: C001-TS-955 — A test run whose workspace holds a stored form keeps its results as evidence and raises the notice
+  Given after the `shop-lfs` snapshot "S1" was taken, `assets/logo.png` was rewritten with other content and not staged
+  And the test `tests/logo.test.ts › logo is a PNG` passes only when `assets/logo.png` in its working directory starts with the 8-byte PNG signature, and the other 40 tests of "S1" pass whatever `assets/logo.png` holds
+  When the test run of `npx jest` completes
+  Then the developer is notified with ERR-EVID-013 that names the test run of `npx jest`, the count 1 and `assets/logo.png` with the filter driver `lfs` and the cause "content differs from its Git LFS pointer file"
+  And the evidence output records the results of the test run as evidence of the snapshot, with `tests/logo.test.ts › logo is a PNG` failing and the 40 other tests passing
+  And no notice ERR-EVID-005 is shown
+```
+```gherkin
+Scenario: C001-TS-956 — Mutation testing in the copy of a test run's workspace raises its own notice
+  Given the test run of `npx jest` on the `shop-lfs` snapshot "S1" ran in an evidence workspace in which `assets/logo.png` holds its stored form because it was rewritten with other content after "S1" was taken, its results were recorded, and ERR-EVID-013 named that test run
+  And mutation testing of "S1" takes the copy of that workspace and generates at least one mutant
+  When mutation testing of the snapshot completes
+  Then the developer is notified with ERR-EVID-013 that names the mutation run of "S1", the count 1 and `assets/logo.png` with the filter driver `lfs` and the cause "content differs from its Git LFS pointer file"
+  And the evidence output records the mutants of the mutation run as killed or surviving
+```
+```gherkin
+Scenario Outline: C001-TS-961 — A filtered file outside a sparse checkout holds its stored form and is named with the cause "not in the working tree"
+  Given before the `shop-lfs` snapshot "S1" was taken, the developer ran `git sparse-checkout set --no-cone "/*" "!/<file>"`, so that the index entry of `<file>` is marked skip-worktree and the working tree holds no file at `<file>`
+  And the evidence bundle of intent "Apply a coupon" of "S1" holds the confirmed command `node scripts/sha256.js <file>`
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "<file>: " followed by the SHA-256 of <stored form> and a line end
+  And the developer is notified with one notice ERR-EVID-013 that names the run of `node scripts/sha256.js <file>`, the count 1 and `<file>` with the filter driver `<driver>` and the cause "not in the working tree"
+  And the notice states the fix `git sparse-checkout add <directory>`
+  And no notice ERR-EVID-005 is shown
+  And the filter stub's log records no call made after the run was requested
+  And the working tree still holds no file at `<file>`
+
+  Examples:
+    | file              | driver | stored form                                                   |
+    | config/app.secret | crypt  | the encrypted blob of `config/app.secret` in the base commit  |
+    | assets/logo.png   | lfs    | the Git LFS pointer file of `assets/logo.png` in the base commit |
+```
+```gherkin
+Scenario: C001-TS-962 — Files below a sparse-directory entry hold the blobs of their index entries, a committed change included, and are all named
+  Given after the base commit of the `shop-lfs` snapshot "S1", the agent committed new content of `config/db.secret` in a commit on HEAD
+  And then, before "S1" was taken, the developer ran `git sparse-checkout set --cone --sparse-index src tests scripts assets`, so that the index holds a sparse-directory entry for `config/` and the working tree holds no file below `config/`
+  And the evidence bundle of intent "Apply a coupon" of "S1" holds the confirmed command `node scripts/sha256.js config`
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output of 3 lines, in this order: "config/app.secret: " followed by the SHA-256 of the blob of `config/app.secret` in the base commit, "config/cache.secret: " followed by the SHA-256 of the blob of `config/cache.secret` in the base commit, and "config/db.secret: " followed by the SHA-256 of the blob of `config/db.secret` in HEAD
+  And the developer is notified with one notice ERR-EVID-013 that names the run of `node scripts/sha256.js config` and the count 3
+  And the notice names `config/app.secret`, `config/cache.secret` and `config/db.secret`, each with the filter driver `crypt` and the cause "not in the working tree"
+  And no notice ERR-EVID-005 is shown
+  And the filter stub's log records no call made after the run was requested
+```
+
+## C001-REQ-529
+
+#### C001-AC-529.1 — A Git LFS file whose snapshot side is a pointer file gets its working-tree bytes, copied without a filter, if and only if the copy in the workspace has the SHA-256 hash and size that the pointer file names, at every fill and every reset; otherwise it holds the pointer file
+```gherkin
+Scenario Outline: C001-TS-957 — A Git LFS file whose copy matches its pointer file gets its working-tree bytes whatever git's index records
+  Given the evidence bundle of intent "Apply a coupon" of the `shop-lfs` snapshot "S1" holds the confirmed command `node scripts/sha256.js <file>`
+  And <state>
+  And the repository record was taken before the run starts
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "<file>: " followed by the SHA-256 of the working-tree file <file> and a line end
+  And no notice ERR-EVID-013 names this run
+  And no notice ERR-EVID-005 is shown
+  And "S1" has one evidence workspace
+  And the filter stub's log records no call made after the run was requested
+  And every value of the repository record is identical
+
+  Examples:
+    | file | state |
+    | assets/logo.png | `assets/logo.png` is unchanged by the change and has not been touched since "S1" was taken |
+    | assets/banner.png | before "S1" was taken, the agent wrote new content to `assets/banner.png` and staged it with `git add`, so that the snapshot holds the pointer file that git's index recorded for it (C001-REQ-128), and the file has not been changed since |
+    | assets/logo.png | after "S1" was taken, the modification time of `assets/logo.png` was set to the current time and its content left unchanged |
+    | assets/logo.png | after "S1" was taken, the agent ran `git rm --cached assets/logo.png`, so that git's index holds no entry for it, and left its content unchanged |
+    | assets/logo.png | after "S1" was taken, `assets/logo.png` was rewritten with other content, an earlier run of the command in the only evidence workspace of "S1", now free, raised ERR-EVID-013 for it, and the original content was then written back to the working-tree file |
+```
+```gherkin
+Scenario Outline: C001-TS-958 — A Git LFS file whose copy does not match its pointer file holds the pointer file and is named in ERR-EVID-013
+  Given the evidence bundle of intent "Apply a coupon" of the `shop-lfs` snapshot "S1" holds the confirmed command `node scripts/sha256.js assets/logo.png`
+  And <event>
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "assets/logo.png: " followed by the SHA-256 of the Git LFS pointer file of `assets/logo.png` in the base commit and a line end
+  And the developer is notified with one notice ERR-EVID-013 that names the run of `node scripts/sha256.js assets/logo.png`, the count 1 and `assets/logo.png` with the filter driver `lfs` and the cause "<cause>"
+  And no notice ERR-EVID-005 is shown
+  And the filter stub's log records no call made after the run was requested
+
+  Examples:
+    | event | cause |
+    | after "S1" was taken, `assets/logo.png` was rewritten with other content and not staged | content differs from its Git LFS pointer file |
+    | after "S1" was taken, `assets/logo.png` was rewritten with other content and staged with `git add`, so that git's index records a new pointer file for it | content differs from its Git LFS pointer file |
+    | after "S1" was taken, on Windows 11, byte 100 of `assets/logo.png` was changed in place, so that its size stays the same, and its modification time was set back to the value that git's index records for it | content differs from its Git LFS pointer file |
+    | after "S1" was taken, on Linux, byte 100 of `assets/logo.png` was changed in place, so that its size stays the same, and its modification time was set back to the value that git's index records for it | content differs from its Git LFS pointer file |
+    | after "S1" was taken, on macOS, byte 100 of `assets/logo.png` was changed in place, so that its size stays the same, and its modification time was set back to the value that git's index records for it | content differs from its Git LFS pointer file |
+    | after "S1" was taken, `assets/logo.png` was rewritten with other content, and the test then wrote `.git/index` so that the entry of `assets/logo.png` records its pointer blob of the base commit together with the stat data of the rewritten file, not racy | content differs from its Git LFS pointer file |
+    | before "S1" was taken, `assets/logo.png` was checked out without running the smudge filter, so that the working tree holds its Git LFS pointer file, as when its content was never downloaded | content differs from its Git LFS pointer file |
+    | after "S1" was taken, the developer's account lost read permission on `assets/logo.png` | unreadable |
+```
+```gherkin
+Scenario: C001-TS-959 — A Git LFS file whose snapshot blob is not a pointer file is written from that blob, not copied from the working tree
+  Given after the `shop-lfs` snapshot "S1" was taken, the agent rewrote `assets/legacy.png` in the working tree with other content and did not stage it
+  And the evidence bundle of intent "Apply a coupon" holds the confirmed command `node scripts/sha256.js assets/legacy.png`
+  When the developer runs the evidence bundle of intent "Apply a coupon"
+  Then the evidence output records the run with exit status 0 and standard output "assets/legacy.png: " followed by the SHA-256 of the blob of `assets/legacy.png` in the base commit and a line end
+  And no notice ERR-EVID-013 is shown
+  And no notice ERR-EVID-005 is shown
+```
+
 ## Coverage table
 
 | REQ | happy | alternate | boundary | error | authorization | concurrency/idempotency | abuse |
@@ -909,7 +1272,7 @@ Scenario: C001-TS-566 — The moved-on notice reports the edit while the evidenc
 | C001-REQ-506 | TS-516 | TS-517, TS-567 | TS-518 | TS-516, TS-574, TS-584 | n/a: one local developer, no accounts or roles in v1 (scope §2) | n/a: results of a run on changed files are rejected under REQ-509 (TS-523) | n/a: only the analysis core's own run is recorded; agent claims are tested in TS-440 |
 | C001-REQ-507 | TS-519 | TS-519 | n/a: the requirement has no numeric limit; every added line is executed or not | TS-520 | n/a: one local developer, no accounts or roles in v1 (scope §2) | n/a: one report per test run | n/a: full coverage outside the deep ecosystems clears nothing (TS-519) |
 | C001-REQ-508 | TS-521 | TS-521 | TS-522 | TS-521 | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-521 | n/a: unavailable evidence only keeps more hunks open |
-| C001-REQ-509 | TS-523 | TS-524 | TS-558 | TS-523, TS-525 | n/a: one local developer, no accounts or roles in v1 (scope §2) | n/a: working-tree edits during a run void nothing (REQ-522, TS-563) | TS-525 |
+| C001-REQ-509 | TS-523 | TS-524, TS-951 (rewritten working-tree copy of a Git LFS file) | TS-558 | TS-523, TS-525, TS-951 | n/a: one local developer, no accounts or roles in v1 (scope §2) | n/a: working-tree edits during a run void nothing (REQ-522, TS-563) | TS-525, TS-951 |
 | C001-REQ-510 | TS-526 | TS-527 | TS-528 | n/a: an unreadable transcript is refused at intake by REQ-113 | n/a: one local developer, no accounts or roles in v1 (scope §2) | n/a: the bundle is listed, not run, by this requirement | n/a: proposed commands are not run unconfirmed (TS-529) |
 | C001-REQ-511 | TS-530 | TS-531 | n/a: a command is confirmed or not; no numeric limit | TS-555 | TS-529 | n/a: one run action of the developer at a time | TS-529 |
 | C001-REQ-512 | TS-532 | TS-534, TS-554 | TS-534 | TS-533 | n/a: confirmation is tested under REQ-511 (TS-529) | TS-582 (run asked for during the mutation copy), TS-583 (run while mutation testing runs); runs that change their own files: REQ-509 (TS-524); a working tree edited before the run: REQ-522 (TS-565) | TS-535 |
@@ -924,4 +1287,11 @@ Scenario: C001-TS-566 — The moved-on notice reports the edit while the evidenc
 | C001-REQ-521 | TS-559 | TS-561, TS-568 and TS-569 (the stated exception: a working-tree path named in the developer's environment or in the command text) | TS-560 | TS-560, TS-561 | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-560 (process killed during the run) | TS-562 |
 | C001-REQ-523 | TS-568 | TS-569 | TS-571 | TS-573 | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-570 | TS-572 |
 | C001-REQ-524 | TS-575 | TS-576, TS-577 | TS-575 (12 parts not observed, 10 named), TS-576 (the whole working tree) | TS-577, TS-578 | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-578 (change notice and incomplete-observation notice after one run) | TS-579 |
-| C001-REQ-522 | TS-563 | TS-564, TS-565 | TS-566 | n/a: runs whose own files differ from the snapshot are REQ-509 (TS-523, TS-524) | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-563, TS-564 | n/a: an edit of the working tree cannot reach a run (TS-565); a command that rewrites its own files is TS-525 |
+| C001-REQ-522 | TS-563 | TS-564, TS-565, TS-599 (a workspace filled after a working-tree touch holds the stored form), TS-958 (an edited Git LFS file holds its pointer file) | TS-566 | n/a: runs whose own files differ from the snapshot are REQ-509 (TS-523, TS-524) | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-563, TS-564 | n/a: an edit of the working tree cannot reach a run (TS-565); a command that rewrites its own files is TS-525 |
+| C001-REQ-525 | TS-586 | TS-589 (kept variables, replaced `GIT_CEILING_DIRECTORIES`) | TS-588 (each removed variable), TS-590 (letter case on Windows) | n/a: removing variables has no failure path; a command that cannot start is REQ-508 (TS-521) | n/a: one local developer, no accounts or roles in v1 (scope §2) | n/a: each command gets its own environment when it starts (C001-IF-013 §1 item 1); runs of the snapshot do not share a workspace (§1 item 4) | TS-587 |
+| C001-REQ-526 | n/a: unwanted-behaviour requirement, its scenarios are in the error column | TS-592 (nested submodule), TS-595 (test run keeps its results), TS-952 (two causes in one notice) | TS-593 (commit present, no notice), TS-594 (10 and 11 submodules) | TS-591 (no local repository, commit not in its repository), TS-592, TS-594, TS-595, TS-952 (repository refused by git) | TS-952 (git's ownership check of a submodule repository, not overridden) | n/a: the notice is raised once per run for that run's workspace (TS-595, TS-591); workspace reuse between runs is C001-IF-013 §2 item 3 | TS-596 (a reachable remote holding the commit is not fetched from) |
+| C001-REQ-527 | TS-597 (unchanged file up to date: working-tree bytes, no notice, no filter call, repository unchanged) | TS-597 (staged edit read from the index), TS-599 (two workspaces of one snapshot differ) | TS-598 (same-size edit on Linux and macOS: only the change time differs; a file compared by its working-tree bytes under C001-REQ-126 is never named) | TS-598 (touched, edited, staged again, unreadable) | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-598 (stat data changed during the copy), TS-597 (reset after `git status` copies the file), TS-599 (bundle run while the test run holds its workspace) | TS-598 (modification time set back; `core.checkStat`, `core.trustctime` and assume-unchanged do not weaken the test) |
+| C001-REQ-528 | n/a: unwanted-behaviour requirement, its scenarios are in the error column | TS-954 (two filter drivers in one notice), TS-955 (test run) | TS-953 (10 and 11 files: count and at most 10 named) | TS-598 (causes of a file under another filter), TS-958 (causes of a Git LFS file), TS-961 and TS-962 (a file outside a sparse checkout: cause "not in the working tree"), TS-955 (results kept as evidence) | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-956 (mutation run in the copy of the test run's workspace), TS-597 and TS-957 (a file written again before a later run raises no notice for that run) | n/a: the notice only reports; whether results are evidence is decided by the workspace check (TS-955, C001-REQ-509) |
+| C001-REQ-529 | TS-957 (unchanged file: working-tree bytes, no notice, no filter call, repository unchanged) | TS-957 (pointer file of the index entry; touched file; no index entry), TS-959 (blob that is not a pointer file) | TS-958 (same size, one byte changed) | TS-958 (edited, staged again, never downloaded, unreadable) | n/a: one local developer, no accounts or roles in v1 (scope §2) | TS-957 (reset after the content is written back) | TS-958 (modification time set back on Windows 11, Linux and macOS; forged index entry), TS-951 (a command rewrites the copy) |
+
+- **C001-REQ-527, residual limit:** for files under a clean filter other than Git LFS, an edit leaves the file up to date in the index in two cases, so the evidence workspace receives the edited bytes: on Windows, a same-size edit whose modification time is set back; and on every system, an index entry written or refreshed after the edit that records the edited file's stat data with the blob of the snapshot side, directly in the index file or by git refreshing its index with another clean command given for that one command (C001-IF-012 §7 item 8; the copy: §7 item 6). No scenario asserts either case, and the same-size rows of TS-598 run on Linux and macOS only. P-01 accepted this limit with Q-nonlfs-01 (`10-spec/questions-log.md`, Round 16). Git LFS files are outside this limit (TS-958).

@@ -25,7 +25,7 @@ flowchart LR
   browser["Web browser (C001-NFR-017)"]
   ra["Review assistant: CLI, analysis core, local review UI"]
   repo[("Git repository: working tree and git data")]
-  git["git program or git library (ADR, C001-CON-14)"]
+  git["Installed git program, 2.34 or later (C001-CON-14, C001-CON-18)"]
   tools["Project test command, coverage and mutation tools"]
   provider["Model provider: local runtime or cloud API (optional)"]
   creds["Environment variables, OS credential store"]
@@ -45,9 +45,9 @@ flowchart LR
 | External actor or system | Interaction | Boundary rule |
 |---|---|---|
 | P-02 developer | runs the CLI, reviews in the browser, gives verdicts | the only source of verdicts (C001-REQ-702) |
-| P-03 repository maintainer | commits the review configuration | read from the base commit (C001-REQ-426) |
-| Git repository | change, commits, configuration, attributes | read-only (C001-IF-012, C001-CON-13) |
-| git program or library | implementation of the git access port | ADR in 20-plan (C001-CON-14) |
+| P-03 repository maintainer | commits the review configuration | read from the base commit (C001-REQ-426) and trusted as the project's own code: it sets the test command an analysis runs (C001-IF-004, trust boundary) |
+| Git repository | change, commits, configuration, attributes; submodule repositories | read-only (C001-IF-012, C001-CON-13) |
+| Installed git program | implementation of the git access port (C001-ADR-004) | a prerequisite the developer installs, run only as a separate program with the hardening profile of C001-ADR-004, never linked or shipped (C001-CON-14, C001-CON-18) |
 | Project test command, coverage and mutation tools | evidence runs on the snapshot | run as the developer's commands, started in evidence workspaces outside the working tree, never in it; project code that addresses the working tree on its own is detected and reported, not prevented (C001-IF-013 §9, C001-CON-22) |
 | Model provider | model tasks | through the model gateway only (C001-IF-010, C001-CON-12) |
 | Web browser | renders the local review UI | loopback, same origin, token (C001-IF-002, C001-CON-10) |
@@ -93,10 +93,15 @@ C001-COMP-019. The CLI is C001-COMP-001.
 - **Name:** Git access adapter
 - **Status:** new
 - **Responsibility:** implements the read-only git access port under its safety rules (no write,
-  no repository-configured program, no network); the implementation choice is an ADR in 20-plan.
-- **Realizes:** C001-REQ-120, C001-REQ-707
+  no repository-configured program, no network) by running the installed git program
+  (C001-ADR-004); checks the program and the repository before the first git read of each
+  command (C001-IF-012 §6); compares every file under no clean filter by its working-tree bytes,
+  whatever git's index records for it, and reads a path outside a sparse checkout from its index
+  entry (C001-IF-012 §8); reads the submodule repositories that fill evidence workspaces under
+  the same rules (G-16).
+- **Realizes:** C001-REQ-101, C001-REQ-120, C001-REQ-125, C001-REQ-126, C001-REQ-127, C001-REQ-128, C001-REQ-526, C001-REQ-527, C001-REQ-707
 - **Interfaces:** provides C001-IF-012
-- **Depends on:** none (external: git program or library)
+- **Depends on:** none (external: the installed git program, C001-CON-14, C001-CON-18)
 - **Owned data:** none
 
 ### C001-COMP-004 — Intake and snapshot builder
@@ -106,7 +111,7 @@ C001-COMP-019. The CLI is C001-COMP-001.
   the default branch of the remote or a local `main` or `master`, else HEAD; C001-IF-012 §4),
   computes the change, cuts hunks, attributes them to commits, gathers the intent context through the intent source reader, measures the size,
   computes the snapshot ID, stores the snapshot content, and detects a moved-on working tree.
-- **Realizes:** C001-REQ-101, C001-REQ-102, C001-REQ-103, C001-REQ-104, C001-REQ-105, C001-REQ-106, C001-REQ-107, C001-REQ-108, C001-REQ-109, C001-REQ-110, C001-REQ-112, C001-REQ-114, C001-REQ-115, C001-REQ-116, C001-REQ-117, C001-REQ-120, C001-REQ-121, C001-REQ-122
+- **Realizes:** C001-REQ-101, C001-REQ-102, C001-REQ-103, C001-REQ-104, C001-REQ-105, C001-REQ-106, C001-REQ-107, C001-REQ-108, C001-REQ-109, C001-REQ-110, C001-REQ-112, C001-REQ-114, C001-REQ-115, C001-REQ-116, C001-REQ-117, C001-REQ-120, C001-REQ-121, C001-REQ-122, C001-REQ-125, C001-REQ-126, C001-REQ-127, C001-REQ-128
 - **Interfaces:** uses C001-IF-012 and C001-IF-007
 - **Depends on:** C001-COMP-003, C001-COMP-005, C001-COMP-014
 - **Owned data:** Snapshot, ChangedFile, Hunk, ChangeCommit, IntentContext
@@ -131,7 +136,7 @@ C001-COMP-019. The CLI is C001-COMP-001.
 - **Responsibility:** reads the review configuration from the base commit, removes and reports
   settings that weaken built-in guarded areas, validates the rest, merges it with the built-in
   policy, and yields the effective configuration or the unreadable state.
-- **Realizes:** C001-REQ-409, C001-REQ-423, C001-REQ-424, C001-REQ-425, C001-REQ-426, C001-REQ-427, C001-REQ-801, C001-REQ-809, C001-REQ-819
+- **Realizes:** C001-REQ-409, C001-REQ-423, C001-REQ-424, C001-REQ-425, C001-REQ-426, C001-REQ-427, C001-REQ-801, C001-REQ-809, C001-REQ-819, C001-REQ-820
 - **Interfaces:** reads C001-IF-004; provides C001-IF-005; uses C001-IF-012
 - **Depends on:** C001-COMP-003
 - **Owned data:** ReviewConfiguration
@@ -193,7 +198,12 @@ C001-COMP-019. The CLI is C001-COMP-001.
 - **Status:** new
 - **Responsibility:** prepares, resets and removes evidence workspaces that hold the snapshot's
   files outside the working tree, and runs every command in one of them, never in the working
-  tree; runs the project's test command with per-test coverage, counting only execution of
+  tree; gives a Git LFS file its working-tree copy when the copy's SHA-256 hash and size match its
+  pointer file, and a file under another clean filter its working-tree copy while git's index
+  records it as up to date with its snapshot-side blob, else its stored form with ERR-EVID-013
+  (C001-IF-013 §2 item 1); fills submodule paths from their local repositories through the git access port and
+  leaves a path empty with ERR-EVID-012 when its commit cannot be read (C001-IF-013 §2 item 8);
+  runs the project's test command with per-test coverage, counting only execution of
   workspace files and making Python project modules load from the workspace (C001-IF-013 §2
   item 7); reads standard coverage reports; runs mutation testing in risk order in a
   self-contained copy of the test run's workspace, checks that its tests load the copy's files
@@ -203,8 +213,8 @@ C001-COMP-019. The CLI is C001-COMP-001.
   the working tree and the repository's index and refs during every run and reports changes
   (ERR-EVID-009) and parts it could not observe (ERR-EVID-010, C001-IF-013 §9); ranks evidence
   strength.
-- **Realizes:** C001-REQ-505, C001-REQ-506, C001-REQ-507, C001-REQ-508, C001-REQ-509, C001-REQ-510, C001-REQ-511, C001-REQ-512, C001-REQ-513, C001-REQ-514, C001-REQ-515, C001-REQ-516, C001-REQ-517, C001-REQ-518, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524, C001-NFR-018
-- **Interfaces:** provides C001-IF-013; uses C001-IF-012 (G-08, G-13); produces the evidence document of C001-IF-008
+- **Realizes:** C001-REQ-505, C001-REQ-506, C001-REQ-507, C001-REQ-508, C001-REQ-509, C001-REQ-510, C001-REQ-511, C001-REQ-512, C001-REQ-513, C001-REQ-514, C001-REQ-515, C001-REQ-516, C001-REQ-517, C001-REQ-518, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524, C001-REQ-525, C001-REQ-526, C001-REQ-527, C001-REQ-528, C001-REQ-529, C001-NFR-018
+- **Interfaces:** provides C001-IF-013; uses C001-IF-012 (G-08, G-13, G-15, G-16); produces the evidence document of C001-IF-008
 - **Depends on:** C001-COMP-003, C001-COMP-007, C001-COMP-014 (snapshot content for the workspaces)
 - **Owned data:** TestRun, TestResult, line coverage, MutationResult, PropertyCounterExample, EvidenceBundle, BundleCommand, BundleRun, run EvidenceItems, EvidenceWorkspace
 
@@ -312,7 +322,7 @@ C001-COMP-019. The CLI is C001-COMP-001.
 |---|---|---|
 | Intake to architecture delta | CLI `review` → core `startReview` → git port resolves the base (named, merge base with the upstream branch, with the default branch of the remote or a local `main` or `master`, else HEAD; C001-IF-012 §4) and the change → intent source reader (refuses a named SDD change that is not open and an invalid neutral file, skips unreadable `.sdd/` entries, drops an architecture without paths, records lines read on both sides) → snapshot ID; existing review reopened, else snapshot stored → configuration from the base commit → static analysis (language, architecture delta with architecture-edit drift and unanalysed manifests, deterministic intent map with spec-edit flags, guarded areas, risk, mechanical clearing, samples) → UI server started → browser opens on the architecture delta | C001-REQ-101, C001-REQ-102, C001-REQ-103, C001-REQ-104, C001-REQ-114, C001-REQ-115, C001-REQ-119, C001-REQ-123, C001-REQ-124, C001-REQ-201, C001-REQ-222, C001-REQ-223, C001-REQ-224, C001-REQ-326, C001-REQ-328, C001-REQ-426, C001-REQ-901, C001-REQ-902; C001-TS-101, C001-TS-104, C001-TS-106, C001-TS-108, C001-TS-130, C001-TS-133, C001-TS-143, C001-TS-201, C001-TS-202, C001-TS-203, C001-TS-476, C001-TS-901, C001-TS-902, C001-TS-903 |
 | Model-assisted analysis with fallback | orchestrator starts model tasks → gateway checks provider and readable configuration, locality (from the endpoint text: socket, 127.0.0.0/8, ::1 or `localhost` are local), opt-in, excluded paths, required key → cloud announcement → adapter request with timeout → validation → intent mapper drops links to intents the map does not hold → marked output recorded as a new revision; any failure → model-free items and a notice with one code per cause (C001-IF-010 §7), review state untouched | C001-REQ-308, C001-REQ-315, C001-REQ-216, C001-REQ-325, C001-REQ-327, C001-REQ-805, C001-REQ-806, C001-REQ-808, C001-REQ-814, C001-REQ-816, C001-REQ-817, C001-REQ-818, C001-REQ-819; C001-TS-317, C001-TS-812, C001-TS-814, C001-TS-822, C001-TS-835, C001-TS-841, C001-TS-843, C001-TS-844, C001-TS-847 |
-| Triage and clearing with evidence | static stage clears by mechanical proof → evidence workspace filled from the base tree and the snapshot content outside the working tree → test run in it with per-test coverage of workspace files, Python project modules loaded from the workspace, workspace check before and after; edits of the working tree meanwhile change nothing; the working tree, index and refs observed during the run, changes reported (ERR-EVID-009) and parts not fully observed reported (ERR-EVID-010) → passing-tests clearing with evidence records → the test run's workspace copied as a self-contained mutation workspace; a run asking for that workspace meanwhile waits for the copy; a failed copy makes mutation evidence unavailable (ERR-EVID-006) → self-containment check, files loaded outside the copy get unavailable mutation evidence (ERR-EVID-011) → mutation testing in risk order in the copy, leaving CPU capacity free for bundle runs in the test run's workspace, copy removed when it ends → a surviving mutant reopens a test-cleared hunk → each result saved as a revision, then shown → UI lists cleared hunks collapsed with rules and strength | C001-REQ-406, C001-REQ-410, C001-REQ-411, C001-REQ-413, C001-REQ-419, C001-REQ-420, C001-REQ-505, C001-REQ-506, C001-REQ-509, C001-REQ-514, C001-REQ-515, C001-REQ-516, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524; C001-TS-419, C001-TS-435, C001-TS-442, C001-TS-445, C001-TS-459, C001-TS-460, C001-TS-462, C001-TS-512, C001-TS-516, C001-TS-523, C001-TS-539, C001-TS-543, C001-TS-570 |
+| Triage and clearing with evidence | static stage clears by mechanical proof → evidence workspace filled from the base tree and the snapshot content outside the working tree, submodule paths from their local repositories through the git port, a path left empty with ERR-EVID-012 when its commit cannot be read → test run in it with per-test coverage of workspace files, Python project modules loaded from the workspace, workspace check before and after; edits of the working tree meanwhile change nothing; the working tree, index and refs observed during the run, changes reported (ERR-EVID-009) and parts not fully observed reported (ERR-EVID-010) → passing-tests clearing with evidence records → the test run's workspace copied as a self-contained mutation workspace; a run asking for that workspace meanwhile waits for the copy; a failed copy makes mutation evidence unavailable (ERR-EVID-006) → self-containment check, files loaded outside the copy get unavailable mutation evidence (ERR-EVID-011) → mutation testing in risk order in the copy, leaving CPU capacity free for bundle runs in the test run's workspace, copy removed when it ends → a surviving mutant reopens a test-cleared hunk → each result saved as a revision, then shown → UI lists cleared hunks collapsed with rules and strength | C001-REQ-406, C001-REQ-410, C001-REQ-411, C001-REQ-413, C001-REQ-419, C001-REQ-420, C001-REQ-505, C001-REQ-506, C001-REQ-509, C001-REQ-514, C001-REQ-515, C001-REQ-516, C001-REQ-521, C001-REQ-522, C001-REQ-523, C001-REQ-524, C001-REQ-526; C001-TS-419, C001-TS-435, C001-TS-442, C001-TS-445, C001-TS-459, C001-TS-460, C001-TS-462, C001-TS-512, C001-TS-516, C001-TS-523, C001-TS-539, C001-TS-543, C001-TS-570, C001-TS-591, C001-TS-593 |
 | Sampling, defect report and escalation | samples kept per rule → developer reads a sampled hunk and reports a defect → git identity read, refusal when not set (ERR-ACT-006) → defect report recorded with the rules that had cleared the hunk, possibly none → those rules are escalated → their unread hunks reopen and leave the sample populations; read hunks keep their memberships; samples of the rules that are not escalated refilled, an escalated rule's sample takes no new hunk, even below its target (C001-INV-16) → escalation recorded in the same save as the report → relying verdicts go stale | C001-REQ-604, C001-REQ-606, C001-REQ-607, C001-REQ-608, C001-REQ-609, C001-REQ-616, C001-REQ-617, C001-REQ-716, C001-REQ-721; C001-TS-610, C001-TS-617, C001-TS-622, C001-TS-624, C001-TS-626, C001-TS-743 |
 | Signing an intent with unread hunks | developer signs → moved-on check → orchestrator reads the git identity, refusal when not set (ERR-ACT-006) → open hunks counted → refusal with counts → prompt → confirmed sign with counts → verdict entry with basis, shares, coverage statement and git user saved before confirmation | C001-REQ-117, C001-REQ-701, C001-REQ-702, C001-REQ-703, C001-REQ-712, C001-REQ-721, C001-REQ-907, C001-REQ-920; C001-TS-138, C001-TS-701, C001-TS-706, C001-TS-708, C001-TS-709, C001-TS-710, C001-TS-732, C001-TS-913, C001-TS-944 |
 | Headless analysis and CLI verdict | CLI `analyse --headless` → intake and full analysis without the UI, no git identity needed → files written → CLI `sign` while the UI of the same review is open → git identity checked → both surfaces append to the same record in arrival order | C001-REQ-721, C001-REQ-912, C001-REQ-913, C001-REQ-914, C001-REQ-915, C001-REQ-917; C001-TS-926, C001-TS-928, C001-TS-929, C001-TS-932, C001-TS-933, C001-TS-937 |
@@ -412,7 +422,7 @@ The developer shows the record to someone else by giving them the record file (C
 | `review` / `open` process | developer's machine | C001-COMP-001, C001-COMP-002 to C001-COMP-017, C001-COMP-018 | until the developer stops it |
 | Other CLI process (`analyse`, `sign`, `status`, …) | developer's machine | C001-COMP-001, C001-COMP-002 to C001-COMP-017 | one command |
 | Browser tab | developer's browser | C001-COMP-019 | while the developer reviews |
-| Child processes | developer's machine | git program (if chosen); test command, mutation tool and bundle commands, each with an evidence workspace as working directory (C001-IF-013 §1) | one run each |
+| Child processes | developer's machine | the installed git program (C001-ADR-004); test command, mutation tool and bundle commands, each with an evidence workspace as working directory (C001-IF-013 §1) | one run each |
 | Evidence workspaces | developer's machine, outside the working-tree root and the git directory (C001-CON-22) | the snapshot's files; ignored paths per ADR | from the first run of the snapshot's jobs to the end of the process that runs them |
 | Model provider | local runtime on the machine, or a cloud endpoint over HTTPS | — | external |
 
@@ -432,15 +442,16 @@ not attributed (C001-REQ-521, C001-REQ-522, C001-IF-013 §9).
 | Privacy and egress | no connection off the machine except to an opted-in cloud provider, through one gateway (C001-CON-11, C001-CON-12); locality decided from the endpoint text, `localhost` connected through loopback addresses without name resolution (C001-IF-010 §6); model-excluded paths filtered before any request |
 | Secrets | keys from environment or credential store only, never stored or logged (C001-CON-21) |
 | Repository integrity | read-only git port, no repository-configured program (C001-IF-012, C001-CON-13); verdicts change nothing in the repository (C001-REQ-707); evidence runs started in workspaces outside the working tree, so the analysis core leaves no trace in it after a cancelled, failed or killed run, mutated code included; project code that writes into the working tree on its own is reported with ERR-EVID-009, not prevented, and a part of the working tree or repository that could not be observed for a whole run is reported with ERR-EVID-010 (C001-IF-013 §2 and §9, C001-CON-22, C001-REQ-521, C001-REQ-523, C001-REQ-524); no build output of the working tree enters a workspace, and Python project modules load from the workspace (C001-IF-013 §2 items 4 and 7, C001-REQ-509) |
+| Change completeness | the change is computed from working-tree content: no index entry, index flag (assume-unchanged, skip-worktree) or time stamp hides an edit of a file under no clean filter, and Git LFS files are checked against the SHA-256 hash and size that their pointer files name (C001-IF-012 §7 item 7, §8, C001-REQ-101); a path outside a sparse checkout is read from its index entry, as git reads it (C001-IF-012 §8 item 2). Residual limits: for files under another clean filter, an index entry written or refreshed after an edit (every system) or a same-size edit with its modification time set back (Windows) keeps the edit out of the change while evidence workspaces run it (C001-IF-012 §7 item 8, accepted by P-01 with Q-nonlfs-01); on Windows, the moved-on notice can miss a same-size edit with its modification time set back, which never reaches a snapshot or a workspace (C001-IF-012 §7 item 5, §8 item 3) |
 | Attribution | the orchestrator reads the git identity (G-10) for each of the ten recorded actions of C001-IF-003 §4 and refuses the action while `user.name` or `user.email` is not set, so every entry is attributable; read-only commands, bundle runs and headless analysis need no identity (C001-REQ-721, C001-INV-10) |
 | Error handling | every failure maps to a code of `50-interfaces/errors.md`; errors stop and change nothing, notices continue; CLI exit codes (C001-IF-001); problem details in the API (C001-IF-002) |
 | Observability | a local log file per repository in the store, one entry per error and notice with operation, identifying inputs and cause (constitution NFR-D-04); no telemetry (C001-CON-11) |
-| Configuration | review configuration from the base commit with built-in floor and defaults (C001-IF-004, C001-IF-005); CLI options per review |
+| Configuration | review configuration from the base commit, trusted as the project's own code since it sets the test command an analysis runs (trust boundary: C001-IF-004; key settings: C001-IF-010 §7), with built-in floor and defaults (C001-IF-004, C001-IF-005); CLI options per review |
 | Durability and recovery | entries of every recorded action flushed before confirmation; each revision saved as one complete set before it is shown; unapplied entries re-applied and unfinished jobs restarted on reopen; an unfinished last record line removed (§4.2, C001-IF-009, C001-NFR-014) |
 | Determinism | fixed diff algorithm, ordered tie-breaks, model results recorded per snapshot, sample seed per review (C001-CON-17) |
 | Performance | static pre-pass before any model or test work (C001-CON-19); parsing in process with parallel workers; view models served from memory; mutation testing leaves CPU capacity free so that bundle runs keep their bound while it runs, at a cost to mutation time that the ADR of C001-CON-22 measures (C001-IF-013 §1 item 4, §8; C001-NFR-001 to C001-NFR-004, C001-NFR-018) |
 | Portability | per-OS shells, file locks and credential stores (C001-IF-013 §1, C001-CON-15) |
-| Licensing | permissive dependencies only; git access per ADR (C001-CON-07, C001-CON-14) |
+| Licensing | permissive dependencies only; git run only as a separate, developer-installed program, never linked or shipped (C001-CON-07, C001-CON-14) |
 
 ## 7. Constraints
 See `constraints.md`.
