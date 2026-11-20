@@ -9,6 +9,7 @@ jobs:
       matrix:
         os: [windows-2025, macos-15-intel, macos-15, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +39,7 @@ jobs:
           - { os: ubuntu-24.04, browser: firefox }
           - { os: windows-2025, browser: edge }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     env:
       SDD_BROWSER: ${{ matrix.browser }}
     steps:
@@ -47,7 +49,15 @@ jobs:
           node-version: 22
       - run: npm ci
       - if: matrix.browser == 'firefox'
-        run: npx playwright install --with-deps firefox
+        shell: bash
+        timeout-minutes: 12
+        # A hung apt or download step once stalled a run for hours: bound each try and retry.
+        run: |
+          for attempt in 1 2 3; do
+            timeout 240 npx playwright install --with-deps firefox && exit 0
+            echo "playwright install attempt $attempt failed or timed out"
+          done
+          exit 1
       - run: npm test -- test/browser
       - run: npm run build
       - run: npm run acceptance:browser -- --scenario C001-TS-901 --scenario C001-TS-902 --scenario C001-TS-903 --scenario C001-TS-913
