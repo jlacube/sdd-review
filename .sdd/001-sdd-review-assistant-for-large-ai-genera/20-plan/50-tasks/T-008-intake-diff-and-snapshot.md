@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intake — named base commit, histogram diff, hunks and snapshot
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-006, C001-T-007]
 implements: [C001-REQ-101, C001-REQ-102, C001-REQ-115]
 satisfies_ac: [C001-AC-101.1, C001-AC-102.1, C001-AC-115.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-101, C001-TS-102, C001-TS-103, C001-TS-105, C001-TS-133, C
 components: [C001-COMP-004]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 7aa5d03, completed_at: 2026-11-20, notes: "Histogram diff+slider, hunks, snapshot ID; 77 intake unit tests + 31-case golden corpus green on 4 CI runners; TS-101..135 await CLI (T-009/T-010); defects D-015, D-016; PR at M-01 merge" }
 ---
 # C001-T-008 — Intake: named base commit, histogram diff, hunks and snapshot
 
