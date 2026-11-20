@@ -41,7 +41,11 @@ export class AcceptanceWorld extends World {
 
   /** Runs the built CLI in the fixture repository (the system under test). */
   cli(args: string[], cwd = this.repo?.dir): CliResult {
-    const r = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [CLI, ...args], {
+      cwd,
+      encoding: 'utf8',
+      env: { ...process.env, NODE_OPTIONS: '' },
+    });
     this.lastRun = { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
     return this.lastRun;
   }

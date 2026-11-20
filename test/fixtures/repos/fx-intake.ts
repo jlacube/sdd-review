@@ -1,4 +1,5 @@
 import { FixtureRepo, type FixtureOptions } from '../builder/fixture-repo.js';
+import { buildFxUpstream } from './fx-upstream.js';
 
 /**
  * `fx-intake` (CAP-01 acceptance): a repository whose base commit B0 holds the files that the
@@ -22,4 +23,5 @@ export function buildFxIntake(options: FixtureOptions = {}): FixtureRepo {
 
 export const NAMED_FIXTURES: Record<string, (options?: FixtureOptions) => FixtureRepo> = {
   'fx-intake': buildFxIntake,
+  'fx-upstream': buildFxUpstream,
 };
