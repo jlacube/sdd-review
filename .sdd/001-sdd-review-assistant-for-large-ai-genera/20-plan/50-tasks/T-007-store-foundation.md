@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Review state store — layout, record append and revision switch
 milestone: C001-M-01
-status: todo
+status: done
 depends_on: [C001-T-003]
 implements: [C001-REQ-920, C001-REQ-713, C001-NFR-014]
 satisfies_ac: [C001-AC-920.1, C001-AC-713.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-944, C001-TS-945, C001-TS-735, C001-TS-736]
 components: [C001-COMP-014]
 risk_refs: [C001-RISK-019]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 1ef2b5f, completed_at: 2026-11-20, notes: "Store root/record/revisions/snapshots; 73 unit tests incl. multi-process and kill-at-step green on 4 CI runners; TS-944/945/735/736 await T-009; server.lock left to UI server task; PR at M-01 merge" }
 ---
 # C001-T-007 — Review state store: layout, record append and revision switch
 
