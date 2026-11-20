@@ -1,0 +1,9 @@
+node_modules
+dist
+.claude
+bash.exe.stackdump
+runtime/dotnet/bin
+runtime/dotnet/obj
+runtime/dotnet/dist
+__pycache__
+.ruff_cache

@@ -1,0 +1,9 @@
+dist
+node_modules
+runtime/python/vendor
+runtime/dotnet/dist
+runtime/dotnet/obj
+runtime/dotnet/bin
+package-lock.json
+.sdd
+.claude
