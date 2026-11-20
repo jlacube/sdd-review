@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Local review UI server with host, token, origin and CSP checks
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-009]
 implements: [C001-REQ-905, C001-REQ-906, C001-REQ-907, C001-REQ-908, C001-NFR-009, C001-NFR-010]
 satisfies_ac: [C001-AC-905.1, C001-AC-906.1, C001-AC-907.1, C001-AC-908.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-907, C001-TS-910, C001-TS-911, C001-TS-913, C001-TS-914, C
 components: [C001-COMP-018]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 30b121f, completed_at: 2026-11-20, notes: "UI server guards/router/static; 85 unit tests + 31 CI acceptance scenarios green on 4 runners; TS-907/914 pass with stand-in core (real-core proof in T-092); TS-913/917 await T-012; D-020; PR at M-01 merge" }
 ---
 # C001-T-011 — Local review UI server with host, token, origin and CSP checks
 
