@@ -32,6 +32,8 @@ export interface FixtureOptions {
   /** Start from this repository at this commit instead of an empty repository. */
   readonly base?: BaseRepoSpec;
   readonly initialBranch?: string;
+  /** The object format of the new repository; git 2.29 or later for sha256. */
+  readonly objectFormat?: 'sha1' | 'sha256';
 }
 
 const IDENTITY = {
@@ -65,7 +67,13 @@ export class FixtureRepo {
     if (options.base) {
       repo.cloneBase(options.base);
     } else {
-      repo.git('init', '-q', '-b', options.initialBranch ?? 'main');
+      repo.git(
+        'init',
+        '-q',
+        '-b',
+        options.initialBranch ?? 'main',
+        ...(options.objectFormat === 'sha256' ? ['--object-format=sha256'] : []),
+      );
     }
     repo.git('config', 'user.name', 'Fixture Author');
     repo.git('config', 'user.email', 'fixture@example.test');

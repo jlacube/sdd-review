@@ -109,6 +109,9 @@ export interface IndexEntryState {
 export type SubmoduleTree =
   | {
       readonly present: true;
+      /** The submodule's local repository, usable as the parent of a nested G-16. */
+      readonly location: RepositoryLocation;
+      readonly commit: string;
       readonly entries: readonly TreeEntry[];
       readonly readBlob: (path: string) => Promise<Buffer | null>;
     }

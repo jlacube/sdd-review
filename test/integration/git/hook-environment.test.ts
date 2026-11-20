@@ -19,6 +19,8 @@ import { FixtureRepo } from '../../fixtures/builder/fixture-repo.js';
 import { buildFxIntake } from '../../fixtures/repos/fx-intake.js';
 import { REMOVED_GIT_VARIABLES } from '../../../src/core/git/environment.js';
 import { GitProcessRunner, type GitTarget, type SpawnFn } from '../../../src/core/git/process.js';
+import { GitAdapter } from '../../../src/core/git/operations.js';
+import { runAllOperations } from './support/all-operations.js';
 import { GIT_VERSIONS, versionOf } from './support/versions.js';
 
 // C001-TC-025 (C001-ADR-004 A2.2, Q-hookenv-01): with each variable of the "Removed" list set to a
@@ -181,6 +183,32 @@ describe.each(GIT_VERSIONS)('hook environment on $label', ({ path, expect: pinne
     },
   );
 
+  const OPERATION_PATHS = ['src/cart.ts', 'src/util.ts'];
+
+  it.skipIf(!enabled)(
+    'every operation G-01 to G-16 returns the target data with each removed variable set to a decoy',
+    { timeout: 600_000 },
+    async () => {
+      const run = async (env: NodeJS.ProcessEnv) => {
+        const adapter = new GitAdapter({ gitPath: path!, baseEnv: env });
+        try {
+          return await runAllOperations(adapter, target.dir, OPERATION_PATHS);
+        } finally {
+          await adapter.close();
+        }
+      };
+      const expected = await run(cleanBase());
+      expect(expected['G-02']).toMatchObject({ commit: targetC1 });
+      expect(expected['G-10']).toEqual({ name: 'Fixture Author', email: 'fixture@example.test' });
+      expect((expected['G-07'] as Array<{ path: string }>).map((f) => f.path)).toContain(
+        'src/order.ts',
+      );
+      for (const [name, value] of Object.entries(decoyValues())) {
+        expect(await run({ ...cleanBase(), [name]: value }), name).toEqual(expected);
+      }
+    },
+  );
+
   it.skipIf(!enabled)(
     'controls: plain git does read the decoy through GIT_DIR and GIT_INDEX_FILE',
     async () => {
@@ -204,8 +232,8 @@ describe.each(GIT_VERSIONS)('hook environment on $label', ({ path, expect: pinne
 
   it.skipIf(!enabled)(
     'a review started from a real pre-commit hook reads the repository index, not the hook temporary index',
-    { timeout: 120_000 },
-    () => {
+    { timeout: 300_000 },
+    async () => {
       const require = createRequire(import.meta.url);
       const tsx = pathToFileURL(require.resolve('tsx/esm')).href;
       const probe = resolve('test/integration/git/support/hook-probe.ts');
@@ -223,6 +251,12 @@ describe.each(GIT_VERSIONS)('hook environment on $label', ({ path, expect: pinne
         env: cleanBase(),
       }).toString('latin1');
 
+      const outside = new GitAdapter({ gitPath: path!, baseEnv: cleanBase() });
+      const hookExpected = JSON.parse(
+        JSON.stringify(await runAllOperations(outside, target.dir, ['src/cart.ts', 'src/util.ts'])),
+      ) as Record<string, unknown>;
+      await outside.close();
+
       // A commit of chosen paths: git builds a temporary index and sets GIT_INDEX_FILE for the hook.
       target.git('commit', '-q', '-m', 'order only', '--', 'src/order.ts');
       const seen = JSON.parse(readFileSync(out, 'utf8')) as {
@@ -233,6 +267,7 @@ describe.each(GIT_VERSIONS)('hook environment on $label', ({ path, expect: pinne
         head: string;
         blob: string | null;
         status: number[];
+        all: Record<string, unknown>;
       };
 
       expect(seen.status).toEqual([0, 0, 0]);
@@ -246,6 +281,8 @@ describe.each(GIT_VERSIONS)('hook environment on $label', ({ path, expect: pinne
       expect(seen.adapterIndex).toBe(plainBefore);
       expect(seen.head).toBe(targetC1);
       expect(seen.blob).toBe('export const cart = 1;\n');
+      // Every operation of the adapter read the same data as outside the hook (C001-T-006).
+      expect(seen.all).toEqual(hookExpected);
       // The commit itself succeeded and holds the chosen path.
       expect(target.git('show', '--name-only', '--format=', 'HEAD')).toBe('src/order.ts');
     },

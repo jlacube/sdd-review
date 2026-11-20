@@ -5,7 +5,9 @@ import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { REMOVED_GIT_VARIABLES } from '../../../../src/core/git/environment.js';
+import { GitAdapter } from '../../../../src/core/git/operations.js';
 import { GitProcessRunner } from '../../../../src/core/git/process.js';
+import { runAllOperations } from './all-operations.js';
 
 const [out, gitPath] = process.argv.slice(2) as [string, string];
 const runner = new GitProcessRunner({ gitPath });
@@ -23,6 +25,11 @@ const batch = runner.batch(target);
 const blob = await batch.read('HEAD:src/cart.ts');
 await batch.close();
 
+// Every operation of the adapter (C001-T-006), started from the hook's environment.
+const adapter = new GitAdapter({ gitPath });
+const all = await runAllOperations(adapter, process.cwd(), ['src/cart.ts', 'src/util.ts']);
+await adapter.close();
+
 // What a plain git command of this hook would read: the temporary index.
 const raw = execFileSync(gitPath, ['ls-files', '-s', '-z'], { cwd: process.cwd() });
 
@@ -35,6 +42,7 @@ writeFileSync(
     rawIndex: raw.toString('latin1'),
     head: head.stdout.toString('utf8').trim(),
     blob: blob?.content.toString('utf8') ?? null,
+    all,
     status: [found.status, ls.status, head.status],
   }),
 );
