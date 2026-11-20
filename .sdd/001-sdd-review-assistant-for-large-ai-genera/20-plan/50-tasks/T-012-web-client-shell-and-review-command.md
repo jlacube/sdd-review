@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Web client shell and the review command (walking skeleton complete)
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-011, C001-T-010]
 implements: [C001-REQ-901, C001-REQ-902, C001-NFR-017]
 satisfies_ac: [C001-AC-901.1, C001-AC-902.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-901, C001-TS-902, C001-TS-903]
 components: [C001-COMP-019, C001-COMP-001]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 245bc1e, completed_at: 2026-11-20, notes: "Web shell, review command, forbidden-HTML lint, CSP check; CI green at c7cd09e incl. browser jobs (Chrome, Firefox, Edge) running TS-901/902/903/913; TS-917 awaits later views; D-021; PR at M-01 merge" }
 ---
 # C001-T-012 — Web client shell and the review command
 
