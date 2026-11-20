@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: CLI skeleton, headless analysis output and exit codes
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-009, C001-T-004]
 implements: [C001-REQ-912, C001-REQ-914]
 satisfies_ac: [C001-AC-912.1, C001-AC-914.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-926, C001-TS-927, C001-TS-929, C001-TS-930, C001-TS-931]
 components: [C001-COMP-001]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 715afc2, completed_at: 2026-11-20, notes: "CLI parser, analyse --headless, exit codes; 14 acceptance scenarios + unit tests green on 4 CI runners; TS-930 sign example awaits T-082; defects D-018, D-019; PR at M-01 merge" }
 ---
 # C001-T-010 — CLI skeleton, headless analysis output and exit codes
 
