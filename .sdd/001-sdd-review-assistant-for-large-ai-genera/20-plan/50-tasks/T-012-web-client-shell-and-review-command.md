@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Web client shell and the review command (walking skeleton complete)
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-011, C001-T-010]
 implements: [C001-REQ-901, C001-REQ-902, C001-NFR-017]
 satisfies_ac: [C001-AC-901.1, C001-AC-902.1]
