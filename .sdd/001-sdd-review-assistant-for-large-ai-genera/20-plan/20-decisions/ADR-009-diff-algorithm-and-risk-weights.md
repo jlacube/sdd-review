@@ -3,7 +3,9 @@ id: "C001-ADR-009"
 artifact: plan/adr
 change: "CHG-001"
 phase: 20-plan
-status: proposed
+status: accepted
+date: 2026-11-20
+deciders: ["P-01"]
 ---
 # C001-ADR-009 — Diff algorithm and default risk weights
 
@@ -41,7 +43,7 @@ monotone by construction and is the only presented model whose sums and per-minu
 what C001-REQ-610 and C001-REQ-617 use them for.
 
 The decision adds no dependency and changes no interface, so it needed no question to P-01; status
-stays proposed: accepted with the plan at gate G3.
+stays proposed: accepted with the plan at gate G3. Accepted by P-01 with the plan at gate G3 on 2026-11-20 ("Approve").
 
 ## Design
 
@@ -129,9 +131,14 @@ score = round(L^α × H, 3), with H = 1 + w_G·G + w_N·N + w_U·U + w_D·D
 
 1. **Corpus:** agent changes in the three deep ecosystems that are neither benchmark changes
    (`30-nfr/nfr.md` §0) nor in the sealed G-8 pool (§3), at least 12 (4 per ecosystem) of 2,000 to
-   10,000 changed lines; at least 8 defects seeded in each by a person who does not calibrate,
-   covering the six kinds of §3 item 3, plus defects found when reviewing them. A hunk is labelled
-   defective when it holds a defect.
+   10,000 changed lines; at least 8 defects seeded in each by a person who does not calibrate (the
+   calibration seeder), covering the six kinds of §3 item 3, plus defects found when reviewing them.
+   These are the unseeded defects already in the agent's commits that the calibration seeder
+   notices while reading a change to seed it, recorded by the seeder with file and lines like the
+   seeded ones; no separate full review of the corpus is made, no minimum number applies to them,
+   and the seeder reads the change in a plain diff or editor, not in the review assistant, so that
+   the risk order cannot steer which defects are noticed. A hunk is labelled defective when it
+   holds a seeded or noticed defect.
 2. **Signals:** computed by the release candidate's static analysis in model-free mode, with each
    change's test run, exactly as in a review.
 3. **Metric:** effort-aware recall at 20 % of changed lines: the share of defective hunks found when

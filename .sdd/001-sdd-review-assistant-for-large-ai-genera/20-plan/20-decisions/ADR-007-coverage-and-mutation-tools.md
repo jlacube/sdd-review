@@ -6,8 +6,12 @@ phase: 20-plan
 status: accepted
 date: 2026-11-18
 deciders: ["P-01"]
+amended: 2026-11-19
 ---
 # C001-ADR-007 — Per-test coverage adapters and mutation tools
+
+> **Amended on 2026-11-19** (Amendment 1 at the end of this file): confirmed facts and measurement
+> results are recorded outside this ADR. The decision is unchanged.
 
 ## Context and problem
 
@@ -197,3 +201,30 @@ transitive dependencies.
   C001-CON-11, C001-CON-15 and C001-CON-22; no new constraint.
 - **Components:** C001-COMP-011 (adapters, engine, conversion, ordering), C001-COMP-010 (risk scores
   that order the hunks, C001-ADR-009), C001-COMP-014 (results saved per revision).
+
+## Amendment 1 — 2026-11-19: confirmed facts and measurement results recorded outside this ADR
+
+**Why.** §2 and §3 mark facts "to verify" and the Stryker minimum versions "to fix after
+verification", and the Consequences leave their confirmation to later tasks. This ADR belongs to
+the plan that P-01 approves at G3, and the approval covers its text. A confirmed fact or a result
+written into it after G3 would make the approved plan stale.
+
+**What stays.** The decision, P-01's acceptance of 2026-11-18 (Q-mutation-01), the design and
+C001-OA-009 are unchanged. Where the text above differs from this amendment, this amendment
+applies.
+
+**A1.1 — Confirmed facts.** The confirmed state of every item that §2 and §3 mark "to verify" or
+"to fix after verification", and of every licence of §5, is recorded in the report named in
+C001-T-002, not in this ADR. A task that confirms one of them by test adds its result to that
+report. The minimum versions of StrykerJS and Stryker.NET that §3 leaves open are the values that
+report confirms.
+
+**A1.2 — Measurements.** The risks to measure of the Consequences are taken with W2 and W3 of
+C001-ADR-006 §11 and recorded in the results file named in C001-T-021 (C001-ADR-006, Amendment 2).
+
+**A1.3 — A fact or result that calls for another decision.** A measurement result that calls for
+another decision goes back to P-01 through decision point DP-1 (C001-T-024). A confirmed fact that
+does not hold is recorded as a defect on this ADR, as C001-T-002 states, and goes to P-01 when it
+calls for another decision. When P-01's decision changes a choice of this ADR, it is recorded in a
+new ADR, or in one that supersedes the affected part of this ADR. This ADR is not edited to record
+it.

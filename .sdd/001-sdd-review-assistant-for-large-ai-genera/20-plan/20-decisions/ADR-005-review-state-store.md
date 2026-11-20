@@ -3,7 +3,9 @@ id: "C001-ADR-005"
 artifact: plan/adr
 change: "CHG-001"
 phase: 20-plan
-status: proposed
+status: accepted
+date: 2026-11-20
+deciders: ["P-01"]
 ---
 # C001-ADR-005 — Review state store: per-user application-data folder with plain files
 
@@ -36,7 +38,7 @@ Chosen for proposal: **per-user application-data folder with the plain-file layo
 leaves the repository untouched, keeps the store private to the developer's account, implements
 §4.1 and §4.2 with no dependency, and keeps the record a plain file to hand to others. The lead is
 0.75, with no near tie. The decision adds no dependency and changes no interface, so it needed no
-question to P-01; status stays proposed: accepted with the plan at gate G3.
+question to P-01; status stays proposed: accepted with the plan at gate G3. Accepted by P-01 with the plan at gate G3 on 2026-11-20 ("Approve").
 
 What the decision fixes:
 

@@ -99,3 +99,78 @@
 - **Sources:** C001-ADR-001, ADR-003, ADR-004, ADR-006, ADR-008 (sdd-architect A and B; conductor)
 - **Answer:** Small spec revision now (Recommended)
 - **Extracted instructions:** none — defects D-001 … D-007 recorded with `sdd defect add`.
+
+## Round 4 — 2026-11-19
+
+### Q-ci-01 — Which CI service runs the acceptance, browser and benchmark-verification jobs on Windows 11 x86-64, macOS x86-64 and arm64, and Ubuntu x86-64?
+- **Blocking:** yes · **Material:** no
+- **Why it matters:** C001-NFR-016, C001-NFR-017 and C001-DOD-027/028 need CI runners on all four platform kinds plus an offline job; T-001, T-097 and T-100 assume GitHub Actions.
+- **Options:**
+  1. GitHub Actions (Recommended) — Hosted Windows, macOS x86-64 + arm64 and Ubuntu runners; the plan's workflow paths already assume it; needs the repository on GitHub.
+  2. Another hosted CI — Fits an existing organisation setup; T-001, T-097, T-100 change pipeline targets; macOS arm64 runners must exist.
+  3. Self-hosted runners — No hosted-service dependency; someone maintains four platform kinds.
+- **Sources:** C001-NFR-016, C001-NFR-017, C001-DOD-027, C001-DOD-028, C001-T-001 (sdd-planner)
+- **Answer:** GitHub Actions (Recommended)
+- **Extracted instructions:** none
+
+### Q-hookenv-01 — When a review is started from a git hook, git sets GIT_DIR / GIT_INDEX_FILE; the spec strips them from evidence commands (C001-REQ-525) but not from the tool's own git reads. How should this be handled?
+- **Blocking:** no · **Material:** yes
+- **Why it matters:** A pre-commit hook can point GIT_INDEX_FILE at a temporary index, so the git adapter could read the wrong index.
+- **Options:**
+  1. Plan task + risk (Recommended) — The git-adapter task starts every git read with those variables cleared, with a test and a risk entry; consistent with the spec.
+  2. Spec revision — Add a requirement to C001-IF-012 via `/architect:revise spec 001`; another G2 re-approval.
+- **Sources:** C001-REQ-525, C001-IF-012, C001-ADR-004 Amendment 1 (sdd-architect; options by the conductor)
+- **Answer:** Plan task + risk (Recommended)
+- **Extracted instructions:** none
+
+## Round 5 — 2026-11-19
+
+### Q-ci-02 — GitHub-hosted runners offer no Windows 11 x86-64 image (windows-2025 is Windows Server). How should the Windows 11 evidence of C001-NFR-016 and C001-DOD-027 be produced?
+- **Blocking:** yes · **Material:** no
+- **Why it matters:** C001-NFR-016 sets 100 % of the acceptance scenarios on Windows 11 x86-64 in CI; hosted runners alone give no Windows 11 run.
+- **Options:**
+  1. Win 11 runner, release (Recommended) — Hosted windows-2025 on every push, plus one Windows 11 x86-64 machine as a self-hosted runner for nightly and closing-commit suites (also the C001-NFR-009 second host); Windows 11-only faults surface nightly.
+  2. Self-hosted Win 11 every push — Exact OS per push; machine kept online, queue slows when busy.
+  3. Accept windows-2025 — No extra machine; needs a revision of C001-NFR-016 and G2 re-approval.
+- **Sources:** C001-NFR-016, C001-DOD-027, C001-T-001, C001-T-100 (sdd-test-designer)
+- **Answer:** Win 11 runner, release (Recommended)
+- **Extracted instructions:** none
+
+## Round 6 — 2026-11-19
+
+### Q-filterreopen-01 — The snapshot (C001-IF-008) does not record which files are under a clean filter; a reopened process recomputes the set, which differs if a filter-driver setting changed between intake and reopen. How should this be handled?
+- **Blocking:** no · **Material:** yes · **Candidates considered:** 4 (sdd-planner)
+- **Why it matters:** Decides whether C001-T-067 only records this case or the spec stores the set (C001-IF-008 change, another G2).
+- **Options:**
+  1. Accept and document (Recommended) — No spec change; T-067 proves the sets match when settings are unchanged; user documentation states the limit.
+  2. Store the set in snapshot — No difference possible; spec revision of C001-IF-008 and C001-IF-012, another G2.
+  3. Detect and warn — Hash driver settings at intake, notice on mismatch at reopen; new notice code, spec revision.
+- **Rejected:** Run intake again on reopen — contradicts C001-REQ-118.
+- **Sources:** C001-RISK-008, C001-T-067, C001-IF-012, C001-IF-008, C001-ADR-006 (sdd-planner)
+- **Answer:** Accept and document (Recommended)
+- **Extracted instructions:** none
+
+### Q-release-01 — Where should the sdd-review package be published for release candidates and 1.0.0?
+- **Blocking:** no · **Material:** no
+- **Why it matters:** Sets the publish and rollback steps of `75-rollout.md` and who can install the tool.
+- **Options:**
+  1. Public npm registry (Recommended) — Simplest install; dist-tags and deprecation support rollback; the package is public.
+  2. GitHub Packages — Access tied to the GitHub repository; installers configure a registry and token.
+  3. Release tarball only — No registry account; no dist-tags, manual updates.
+- **Sources:** C001-ADR-001, C001-RB-001, C001-T-103 (sdd-planner)
+- **Answer:** Public npm registry (Recommended)
+- **Extracted instructions:** none
+
+## Round 7 — 2026-11-19
+
+### Q-secondhost-01 — How should the macOS 14+ x86-64 and arm64 machines be provided for the second-host connection test of C001-NFR-009 (b) at release?
+- **Blocking:** yes · **Material:** yes · **Candidates considered:** 5 (sdd-test-designer)
+- **Why it matters:** NFR-009 must hold on each supported OS; hosted macOS runners have no Docker or nested virtualisation and cannot be reached by another host; without this C001-DOD-020 lacks evidence for two OSes.
+- **Options:**
+  1. Two Macs you provide (Recommended) — One Intel, one Apple silicon, on one LAN with a second host; free if available; needed once per RC.
+  2. Rented cloud Macs — e.g. EC2 mac1 (x86-64) and mac2 (arm64) in one virtual network with a Linux instance as the second host; always available and scriptable; billed at least 24 h each per use; needs a cloud account.
+  3. Hosted runners + overlay net — Hosted macOS runners on e.g. Tailscale with a hosted Linux runner; adds a third-party account and secret; not a physical LAN.
+- **Rejected:** Container on hosted macOS runners — no Docker or nested virtualisation; Same machine to its own non-loopback address — not a second host.
+- **Sources:** C001-NFR-009, C001-NFR-016, C001-TC-009, C001-T-092 (sdd-test-designer)
+- **Answer:** Rented cloud Macs
+- **Extracted instructions:** none

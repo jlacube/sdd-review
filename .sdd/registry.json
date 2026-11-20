@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-19T20:39:01Z",
+  "generated_at": "2026-11-20T00:01:13Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -9,7 +9,7 @@
       "kind": "greenfield",
       "profile": "full",
       "status": "active",
-      "phase": "10-spec",
+      "phase": "20-plan",
       "phases": {
         "00-ideation": {
           "status": "approved",
@@ -24,16 +24,16 @@
           "approved_by": "Jerome LACUBE"
         },
         "20-plan": {
-          "status": "draft",
-          "approved_hash": null,
-          "approved_at": null,
-          "approved_by": null
+          "status": "approved",
+          "approved_hash": "sha256:ed53f7ae987642d109cd590590d299174198fdb69a363e48614290bbfd5570a6",
+          "approved_at": "2026-11-20",
+          "approved_by": "Jerome LACUBE"
         }
       },
       "implementation": {
         "status": "not-started",
         "tasks": {
-          "total": 0,
+          "total": 116,
           "done": 0,
           "blocked": 0,
           "in_progress": 0
@@ -47,9 +47,9 @@
           "summary": "No error code or behaviour when git is missing, older than 2.34, or refuses the repository (C001-ADR-004)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "ERR-INTAKE-008 and C001-IF-012 §6 (five causes: not found, cannot start, no readable version, older than 2.34, repository refused); C001-REQ-125",
+          "closed_at": "2026-11-19"
         },
         {
           "id": "D-002",
@@ -57,9 +57,9 @@
           "summary": "Node.js 22+ and git 2.34+ are not stated as prerequisites (C001-ADR-001, C001-ADR-004)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "C001-CON-18 names Node.js 22+ and git 2.34+ (separate program, ADR-004 hardening) as prerequisites",
+          "closed_at": "2026-11-19"
         },
         {
           "id": "D-003",
@@ -67,9 +67,9 @@
           "summary": "Parser grammar versions are not named as a fixed-per-release input (C001-ADR-003)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "C001-CON-17 fixes parser grammar versions per release, citing C001-ADR-003",
+          "closed_at": "2026-11-19"
         },
         {
           "id": "D-004",
@@ -77,9 +77,9 @@
           "summary": "Evidence commands inherit the environment unchanged, so GIT_DIR and GIT_INDEX_FILE from a git-hook launch can point evidence runs at the developer's repository (C001-ADR-006)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "C001-IF-013 §1 item 7 removes git repository-locating environment variables from evidence commands; C001-REQ-525",
+          "closed_at": "2026-11-19"
         },
         {
           "id": "D-005",
@@ -87,9 +87,9 @@
           "summary": "Credential-store service names in the review configuration are not limited to the sdd-review namespace (C001-ADR-008)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "keyCredential.service pattern ^sdd-review(/.*)?$ in the IF-004 schema, ERR-CFG-004; C001-REQ-820",
+          "closed_at": "2026-11-19"
         },
         {
           "id": "D-006",
@@ -97,9 +97,9 @@
           "summary": "No error code or behaviour when a submodule commit recorded by the snapshot is missing locally (C001-ADR-006)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "C001-IF-013 §2 item 8 and G-16: missing submodule commit leaves an empty directory with notice ERR-EVID-012 (three causes); C001-REQ-526",
+          "closed_at": "2026-11-19"
         },
         {
           "id": "D-007",
@@ -107,9 +107,9 @@
           "summary": "Clean filters are forbidden (IF-012 §2 item 2), so files under a clean filter such as Git LFS always show as changed; behaviour and notice unspecified (C001-ADR-004)",
           "reporter": "sdd-architect",
           "date": "2026-11-18",
-          "status": "open",
-          "resolution": null,
-          "closed_at": null
+          "status": "closed",
+          "resolution": "C001-IF-012 §7–§8 per Q-cleanfilter-01/02, Q-filterworkspace-01, Q-nonlfs-01: Git LFS verified by pointer hash, other filters by hardened stat rule, ERR-INTAKE-009 and ERR-EVID-013; C001-REQ-126…128, 527…529",
+          "closed_at": "2026-11-19"
         }
       ],
       "waivers": [

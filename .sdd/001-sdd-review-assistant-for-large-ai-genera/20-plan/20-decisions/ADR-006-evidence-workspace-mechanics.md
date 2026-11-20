@@ -6,8 +6,13 @@ phase: 20-plan
 status: accepted
 date: 2026-11-18
 deciders: ["P-01"]
+amended: 2026-11-19
 ---
 # C001-ADR-006 — Evidence-workspace mechanics
+
+> **Amended on 2026-11-19** (Amendments 1 and 2 at the end of this file): Amendment 1 aligns it
+> with the specification re-approved at G2 on 2026-11-19; Amendment 2 records the measurement
+> results outside this ADR. The decision is unchanged.
 
 ## Context and problem
 
@@ -331,3 +336,203 @@ the first test run still exceeds 3.0, a bound goes to P-01 as C001-AS-08 states.
   open, revision save time inside (c)), C001-COMP-002 (job scheduling, copy window).
 - **Follow-up tasks:** spike for W1 to W5 and K1 to K6 in milestone 1; observer per OS;
   copier with clone detection; Python hook; root rewrite; sweep of left-over workspaces.
+
+## Amendment 1 — 2026-11-19: alignment with the revised specification
+
+**Why.** This ADR raised defects D-004 and D-006, and C001-ADR-004 raised D-007, whose resolution
+changed the fill rule (Q-specfix-01). The specification revision that closed them was re-approved
+at G2 on 2026-11-19. It added:
+- C001-REQ-525 and C001-IF-013 §1 item 7: git repository-locating variables;
+- C001-REQ-526, C001-IF-013 §2 item 8, C001-IF-012 G-16 and ERR-EVID-012: submodules;
+- C001-REQ-527 to C001-REQ-529, C001-IF-013 §2 items 1 and 3, C001-IF-012 G-15 and ERR-EVID-013:
+  files under a clean filter.
+
+These rest on P-01's answers to Q-filterworkspace-01, Q-cleanfilter-02 and Q-nonlfs-01
+(`10-spec/questions-log.md`, rounds 14 to 16). C001-CON-22 now names the copier of this ADR for
+those files, and asks this ADR to measure their copying and hashing at reset.
+
+**What stays.** The decision is unchanged: copy-in with copy-on-write. P-01's acceptance of
+2026-11-18 (Q-workspace-02) is unchanged, and the measurements and kill tests of §11 remain
+preconditions of it. No new option was considered, so C001-OA-008 is unchanged. The text above
+stays as it was accepted. Where it differs from this amendment, this amendment applies, and
+C001-IF-013 is the contract for both.
+
+| Passage above | Now |
+|---|---|
+| Context: what the specification fixes; the dependency on C001-ADR-004 | A1.1 |
+| §1 Disk space | A1.4 |
+| §2 Fill, Index, Reset and check | A1.4, A1.5 |
+| §5 Git metadata: `GIT_CEILING_DIRECTORIES` "prepended to any value already set"; git location variables "left unchanged" | A1.2 (replaced) |
+| §5 Submodules: "no notice code exists for it" | A1.3 |
+| §10 Time budget | A1.5 |
+| §11 Measurements and kill tests | A1.6, A1.7 |
+| Consequences: "Residual risk, proposed for a revision of C001-IF-013 §1 item 1 …" | A1.2 (closed) |
+| Consequences: Good, Bad, Constraints, Components, Follow-up tasks | A1.8 |
+
+**A1.1 — Scope.** Besides the notices named in the Context, the specification now fixes
+C001-REQ-525 to C001-REQ-529 and the notices ERR-EVID-012 and ERR-EVID-013. From C001-ADR-004, this
+ADR also uses G-15 (index state of a file under a filter other than Git LFS) and G-16 (submodule
+trees); see C001-ADR-004, Amendment 1, A1.7.
+
+**A1.2 — Environment of evidence commands (C001-IF-013 §1 items 1 and 7, C001-REQ-525; D-004
+closed).** This replaces both sentences of §5 on environment variables. Every command of an
+evidence run gets its environment from the developer's, changed as C001-IF-013 §1 item 7 states.
+That covers test commands, mutation tools, bundle commands and the runs that C001-ADR-007 starts in
+a workspace. Before the command starts, the evidence runner:
+- removes every variable on the "Removed" list of that item; on Windows, names match whatever
+  their letter case;
+- sets `GIT_CEILING_DIRECTORIES` to the parent of the workspace root alone, discarding the
+  developer's value;
+- keeps every other variable.
+
+The "Removed" list is the fixed list of that item, built into the release. It is not taken from
+the installed git at run time. A git command of project code in a workspace therefore finds no
+repository, whether or not the review was started from a git hook. A command whose text sets a
+removed variable again is the developer's own command (C001-IF-013 §1 item 6). This closes the
+residual risk named in the Consequences.
+
+**A1.3 — Submodules (C001-IF-013 §2 item 8, C001-REQ-526, ERR-EVID-012; D-006 closed).** This
+completes §5 Submodules. Each submodule path is filled through G-16, one level of nesting at a time.
+When G-16 gives a submodule as absent (no local repository, commit not in its repository, or
+repository refused):
+- the path stays an empty directory, the submodules nested in it are not read, and nothing is
+  fetched;
+- the workspace's state records the path with its recorded commit and the cause;
+- each test run, mutation run and bundle command whose workspace holds such a path raises
+  ERR-EVID-012. The mutation copy of §7 keeps the empty path, so mutation runs raise it too.
+
+The workspace index of §2 records the empty directory, so the check of C001-IF-013 §3 compares
+against it. A reset does not fill the path again (C001-IF-013 §2 item 3). A workspace prepared
+later asks G-16 again.
+
+**A1.4 — Filling files under a clean filter (C001-IF-013 §2 item 1, C001-REQ-527 to C001-REQ-529,
+ERR-EVID-013; Q-filterworkspace-01, Q-cleanfilter-02, Q-nonlfs-01; D-007 closed).** This completes
+§2 Fill. Its sentence "no filter, `ident` or textconv program runs" still holds. The evidence
+runner writes the files that C001-IF-013 §2 item 1 covers as follows:
+- **Covered files:** C001-COMP-003 gives the files of the snapshot that are under a clean filter,
+  each with its driver (C001-IF-012 §7). The snapshot-side blob of each file comes from the
+  snapshot (C001-COMP-014). A Git LFS file is covered only when that blob is a Git LFS pointer file
+  (C001-TS-959).
+- **Copy:** the copier of §3.1, applied to one file. It makes a copy-on-write clone where the file
+  system supports one, else a byte copy, and never a hard link. It applies no end-of-line
+  conversion, then sets the file mode of the snapshot side. It reads the working-tree file and
+  writes only in the workspace.
+- **Git LFS file:** after the copy, the runner reads the copy in the workspace and compares its
+  SHA-256 hash and size with the `oid` and `size` of the pointer file. On a match the copy stays,
+  and the workspace index of §2 records that hash. Otherwise the stored form replaces the copy.
+  The repository's index is not read.
+- **File under another filter:** the runner reads G-15 before the copy: the file must be up to
+  date, with an entry that records the snapshot-side blob. It makes the copy, then reads G-15
+  again: the file must still be up to date, with the same blob and the same stat data as before.
+  Otherwise the file gets its stored form. The limit of C001-IF-012 §7 item 8, which P-01 accepted
+  with Q-nonlfs-01, applies: in the cases it names, the checks pass for edited bytes.
+- **Stored form:** the snapshot-side blob, written like any other file of the fill (for Git LFS the
+  pointer file, for git-crypt the encrypted content). A file also gets its stored form when the
+  working tree holds no file at its path (for example a path outside the sparse checkout) or when
+  it cannot be read. The workspace's state records each file in its stored form, with its driver
+  and cause. Every run in that workspace raises ERR-EVID-013. The mutation copy of §7 copies the
+  test run's workspace, so it raises the notice for the same files.
+- **Disk space (§1):** the expected size counts each covered file at its working-tree size. For a
+  Git LFS file this can be far above the size of its pointer file.
+- **No lasting copy:** working-tree bytes of covered files exist only inside workspaces
+  (Q-filterworkspace-01).
+
+**A1.5 — Reset, check and time (C001-IF-013 §2 item 3, §3, §8).** This completes §2 Reset and
+check, and §10.
+- **Reset:** before each run, the reset also writes again, by A1.4, every covered file that holds
+  its stored form. Such a file gets its working-tree copy once its checks pass. A covered file that
+  holds its working-tree copy, and that the check finds unchanged, is not copied again.
+- **Check:** the workspace index holds the content that A1.4 gave each file, so the check compares
+  each workspace with its own content. Workspaces of one snapshot can therefore differ
+  (C001-IF-013 §2 item 1).
+- **Time:** at fill, the cost of covered files belongs to preparation, outside every threshold
+  (C001-IF-013 §8 item 3). At a reset, the rewriting, G-15 reads and hashing count in (a) and (c).
+  In the mutation copy they count in (b) (C001-IF-013 §8 items 1, 2 and 4).
+
+A reset adds nothing for covered files while none holds its stored form. The estimate of §10
+therefore stands for repositories without such files.
+
+**A1.6 — Measurement W6 (C001-CON-22).** C001-CON-22 now asks this ADR to measure reset including
+the copying and hashing of files under a clean filter. The reference repositories of the benchmark
+changes consist of files under no clean filter (C001-IF-012 §5, `30-nfr/nfr.md` §0). The spike of
+§11 therefore adds:
+
+| Label | What is measured or tested | Pass condition |
+|---|---|---|
+| W6 | On a fixture made from a benchmark change of C001-NFR-005 with added Git LFS files and files of another filter: fill and reset time, once with every covered file in its working-tree copy and once with every covered file in its stored form; the share of (a) and (c) that these resets take | reported; input to W2 and W4 |
+
+K1 and K2 also run on this fixture, so the kill tests cover the copier's reads of covered files.
+The results of W6 and of these runs are recorded as Amendment 2 states (A2.1).
+
+**A1.7 — Test cases of the evidence runner.** On every operating system of C001-CON-15, the
+evidence-runner tests implement these scenarios:
+- environment: C001-TS-586 to C001-TS-590;
+- submodules: C001-TS-591 to C001-TS-596 and C001-TS-952;
+- files under a clean filter: C001-TS-597 to C001-TS-599, C001-TS-951, C001-TS-953 to
+  C001-TS-959, C001-TS-961 and C001-TS-962.
+
+Among them:
+- a Git LFS file that the change leaves unchanged gets its working-tree copy and raises no notice
+  (C001-TS-957);
+- a Git LFS file whose new content was staged gets a copy checked against the pointer file of the
+  index entry recorded at intake (C001-TS-957);
+- a Git LFS file edited after intake, or never downloaded, gets its stored form with ERR-EVID-013
+  (C001-TS-958). After the content is written back, the next reset gives the working-tree copy
+  again (C001-TS-957);
+- a file under another filter that was touched, edited, staged again or changed during the copy
+  gets its stored form (C001-TS-598), and two workspaces filled before and after a touch differ
+  (C001-TS-599);
+- filtered paths outside a sparse checkout get their stored form (C001-TS-961, C001-TS-962).
+
+**A1.8 — Consequences, updated.**
+- **Good:** tests read the content of Git LFS and git-crypt files, not pointer files or encrypted
+  content, whenever the checks pass. An edit of a Git LFS file never reaches a workspace. Git
+  commands of project code no longer reach the developer's repository through inherited
+  variables. A missing submodule is reported instead of leaving an unexplained gap.
+- **Bad:**
+  - every copy of a Git LFS file is read and hashed at each fill and each retry, a cost P-01
+    accepted with Q-cleanfilter-02;
+  - large Git LFS content adds disk space and copy time to every workspace and every mutation copy;
+  - workspaces of one snapshot can differ in covered files;
+  - for filters other than Git LFS, the limit of C001-IF-012 §7 item 8 (Q-nonlfs-01) lets edited
+    bytes run in a workspace;
+  - a project test that relied on an inherited `GIT_DIR` or on the developer's
+    `GIT_CEILING_DIRECTORIES` now behaves as outside any repository, as C001-REQ-525 intends.
+- **Constraints:** realises the choices of C001-CON-22 for copies of files under a clean filter. No
+  new constraint.
+- **Components:** C001-COMP-003 adds G-15 and G-16 (C001-ADR-004, Amendment 1). C001-COMP-014
+  supplies the snapshot-side blobs of covered files.
+- **Follow-up tasks, added:** environment builder with the "Removed" list; copier and checks for
+  covered files, with ERR-EVID-013; submodule fill through G-16, with ERR-EVID-012; measurement
+  W6.
+
+## Amendment 2 — 2026-11-19: measurement results recorded outside this ADR
+
+**Why.** §11 had the spike task of milestone 1 record each result in that section, and §10 calls
+its estimate one "to be replaced by measurement". This ADR belongs to the plan that P-01 approves
+at G3, and the approval covers its text. A result written into it after G3 would make the approved
+plan stale, and implementers could no longer use it in the later milestones.
+
+**What stays.** The decision, P-01's acceptance of 2026-11-18 (Q-workspace-02) and Amendment 1 are
+unchanged. So are the labels W1 to W6 and K1 to K6, their pass conditions, the mitigations of §11
+and the rule that this ADR relaxes neither threshold of C001-NFR-018 (§10, C001-CON-22). No new
+option was considered, so C001-OA-008 is unchanged. Where the text above differs from this
+amendment, this amendment applies.
+
+**A2.1 — Where results are recorded.** This replaces, in §11, the words "and records each result in
+this section", and the last sentence of A1.6.
+- The results of W1 to W6 are recorded in the results file named in C001-T-021, those of K1 to K6
+  in the results file named in C001-T-022. No task writes a result into this ADR.
+- The planning estimate of §10 stays as written. Where the results differ from it, the results
+  apply.
+- A result adds evidence and does not change the decision.
+
+**A2.2 — A result that calls for another decision.** Decision point DP-1 (C001-T-024) reads both
+results files and takes the outcome for each label.
+- W1 above 3.0 first triggers the mitigations of §11. Each mitigation is measured again, and its
+  result is recorded outside this ADR in the same way.
+- A result that needs another decision goes back to P-01 through DP-1: the conflict between (b)
+  and (c) of §10, a bound for C001-AS-08 once the mitigations are used up, or a mechanism of this
+  ADR that misses its measurement or fails its kill test.
+- When P-01's decision changes a choice of this ADR, it is recorded in a new ADR, or in one that
+  supersedes the affected part of this ADR. This ADR is not edited to record it.

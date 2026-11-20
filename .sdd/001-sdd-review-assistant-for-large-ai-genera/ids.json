@@ -1,6 +1,6 @@
 {
   "change": "CHG-001",
-  "allocated": { "R": 3, "OA": 2, "DEC": 7, "CAP": 9, "US": 4, "GOAL": 8, "SC": 8, "NG": 5, "AS": 8, "CON": 22, "NFR": 18, "DOD": 32, "COMP": 19, "IF": 13, "ERR": 1, "INV": 16, "REQ": 924, "TS": 963 },
+  "allocated": { "R": 3, "OA": 2, "DEC": 7, "CAP": 9, "US": 4, "GOAL": 8, "SC": 8, "NG": 5, "AS": 8, "CON": 22, "NFR": 18, "DOD": 32, "COMP": 19, "IF": 13, "ERR": 1, "INV": 16, "REQ": 924, "TS": 963, "M": 7, "T": 116, "RISK": 22, "RB": 7 },
   "blocks": [],
   "tombstones": [
     { "id": "C001-US-001", "reason": "Allocated in error: id next US ignored --block; never used (stories use capability blocks US-1nn...US-9nn)", "date": "2026-11-17" },

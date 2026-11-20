@@ -6,8 +6,12 @@ phase: 20-plan
 status: accepted
 date: 2026-11-18
 deciders: ["P-01"]
+amended: 2026-11-19
 ---
 # C001-ADR-008 — Credential-store access per operating system
+
+> **Amended on 2026-11-19** (Amendment 1 at the end of this file): aligned with the specification
+> re-approved at G2 on 2026-11-19. The decision is unchanged.
 
 ## Context and problem
 
@@ -119,3 +123,47 @@ UTF-16LE blobs on Windows, and a log scan for the test key (C001-DOD-029 style).
   and libsecret, come from the architect's knowledge as of 2026-06 (C001-OA-010, Sources). The
   research note above confirms the behaviour; the licence check of C001-CON-07 (NFR-D-03) must
   confirm the licence of the FFI library and the D-Bus client before either is added.
+
+## Amendment 1 — 2026-11-19: alignment with the revised specification
+
+**Why.** This ADR raised defect D-005 (Q-specfix-01). The specification revision that closed it was
+re-approved at G2 on 2026-11-19. It added C001-REQ-820, notice ERR-CFG-004, the pattern
+`^sdd-review(/.*)?$` for `keyCredential.service` in the schema of C001-IF-004, and the matching
+row in `50-interfaces/README.md` §2. C001-IF-010 §7 now states the trust boundary of the key
+settings.
+
+**What stays.** The decision is unchanged: per-OS native readers. P-01's acceptance of 2026-11-18
+(Q-credentials-01) is unchanged, and so is C001-OA-010. The text above stays as it was accepted.
+Where it differs from this amendment, this amendment applies.
+
+| Passage above | Now |
+|---|---|
+| Consequences: "Residual risk: the review configuration … A hardening option for a later revision of C001-IF-004 …" | A1.1 (closed) |
+| Design §1, "Values" | A1.2 |
+| Design §4, Tests | A1.3 |
+
+**A1.1 — Service names and trust boundary (C001-REQ-820, ERR-CFG-004, C001-IF-010 §7; D-005
+closed).** The hardening option is now part of the specification. A review configuration whose
+`keyCredential` names a service other than `sdd-review`, or a name beginning with `sdd-review/`,
+is treated as a configuration that cannot be read (C001-REQ-427, C001-REQ-819). The review then
+runs in model-free mode, clears no hunk and reports ERR-CFG-004 in place of ERR-CFG-001;
+`config validate` reports ERR-CFG-003. The model gateway therefore never asks a reader for another
+application's entry. The trust boundary stays where the Consequences put it, and C001-IF-010 §7 now
+states it:
+- the base commit's configuration is trusted as the project's own code;
+- `keyEnv` may name any environment variable, by design;
+- the service limit is defence in depth against a mistaken configuration, not the trust boundary.
+
+**A1.2 — Values passed to the readers (Design §1).** The service name is checked when the
+configuration is loaded (C001-COMP-006, against the schema of C001-IF-004), not in the readers. The
+readers still pass `service` and `account` as data.
+- A reader receives only `sdd-review` or a service beginning with `sdd-review/`. `account` is not
+  limited.
+- On Windows, a service `sdd-review/<name>` gives the target name `sdd-review/<name>/<account>`.
+- The store commands in the table of §1 use the default service. For a configured
+  `sdd-review/<name>`, the developer gives that service instead.
+
+**A1.3 — Tests (Design §4).** Added: the scenarios of C001-REQ-820 (C001-TS-858 to C001-TS-862)
+run on each operating system with an entry of a foreign service present in the store. They assert
+that no reader is called for that entry, and that neither its key nor its content appears in a
+log, a result or the record.

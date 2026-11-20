@@ -4,22 +4,22 @@ title: "SDD review assistant for large AI-generated changes"
 kind: "greenfield"
 profile: "full"
 status: active
-phase: 10-spec
+phase: 20-plan
 phases:
   00-ideation: { status: approved, approved_hash: "sha256:d0721f9810516e7b8ff4c5a5b0bc74b641accb23b24caff8deb7f1fd1655577d", approved_at: 2026-11-17, approved_by: "Jerome LACUBE" }
   10-spec: { status: approved, approved_hash: "sha256:150bd914bf4dd4b7e53e4d8b24a9901f2c648437357b3924d39d6a5cbd9ea0d0", approved_at: 2026-11-19, approved_by: "Jerome LACUBE" }
-  20-plan: { status: draft, approved_hash: null, approved_at: null, approved_by: null }
+  20-plan: { status: approved, approved_hash: "sha256:ed53f7ae987642d109cd590590d299174198fdb69a363e48614290bbfd5570a6", approved_at: 2026-11-20, approved_by: "Jerome LACUBE" }
 implementation: { status: not-started }
 stopped: null
 owners: []
 defects:
-  - { id: D-001, ref: C001-IF-012, summary: "No error code or behaviour when git is missing, older than 2.34, or refuses the repository (C001-ADR-004)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
-  - { id: D-002, ref: C001-CON-18, summary: "Node.js 22+ and git 2.34+ are not stated as prerequisites (C001-ADR-001, C001-ADR-004)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
-  - { id: D-003, ref: C001-CON-17, summary: "Parser grammar versions are not named as a fixed-per-release input (C001-ADR-003)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
-  - { id: D-004, ref: C001-IF-013, summary: "Evidence commands inherit the environment unchanged, so GIT_DIR and GIT_INDEX_FILE from a git-hook launch can point evidence runs at the developer's repository (C001-ADR-006)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
-  - { id: D-005, ref: C001-IF-004, summary: "Credential-store service names in the review configuration are not limited to the sdd-review namespace (C001-ADR-008)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
-  - { id: D-006, ref: C001-IF-013, summary: "No error code or behaviour when a submodule commit recorded by the snapshot is missing locally (C001-ADR-006)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
-  - { id: D-007, ref: C001-IF-012, summary: "Clean filters are forbidden (IF-012 §2 item 2), so files under a clean filter such as Git LFS always show as changed; behaviour and notice unspecified (C001-ADR-004)", reporter: sdd-architect, date: 2026-11-18, status: open, resolution: null, closed_at: null }
+  - { id: D-001, ref: C001-IF-012, summary: "No error code or behaviour when git is missing, older than 2.34, or refuses the repository (C001-ADR-004)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "ERR-INTAKE-008 and C001-IF-012 §6 (five causes: not found, cannot start, no readable version, older than 2.34, repository refused); C001-REQ-125", closed_at: 2026-11-19 }
+  - { id: D-002, ref: C001-CON-18, summary: "Node.js 22+ and git 2.34+ are not stated as prerequisites (C001-ADR-001, C001-ADR-004)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "C001-CON-18 names Node.js 22+ and git 2.34+ (separate program, ADR-004 hardening) as prerequisites", closed_at: 2026-11-19 }
+  - { id: D-003, ref: C001-CON-17, summary: "Parser grammar versions are not named as a fixed-per-release input (C001-ADR-003)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "C001-CON-17 fixes parser grammar versions per release, citing C001-ADR-003", closed_at: 2026-11-19 }
+  - { id: D-004, ref: C001-IF-013, summary: "Evidence commands inherit the environment unchanged, so GIT_DIR and GIT_INDEX_FILE from a git-hook launch can point evidence runs at the developer's repository (C001-ADR-006)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "C001-IF-013 §1 item 7 removes git repository-locating environment variables from evidence commands; C001-REQ-525", closed_at: 2026-11-19 }
+  - { id: D-005, ref: C001-IF-004, summary: "Credential-store service names in the review configuration are not limited to the sdd-review namespace (C001-ADR-008)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "keyCredential.service pattern ^sdd-review(/.*)?$ in the IF-004 schema, ERR-CFG-004; C001-REQ-820", closed_at: 2026-11-19 }
+  - { id: D-006, ref: C001-IF-013, summary: "No error code or behaviour when a submodule commit recorded by the snapshot is missing locally (C001-ADR-006)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "C001-IF-013 §2 item 8 and G-16: missing submodule commit leaves an empty directory with notice ERR-EVID-012 (three causes); C001-REQ-526", closed_at: 2026-11-19 }
+  - { id: D-007, ref: C001-IF-012, summary: "Clean filters are forbidden (IF-012 §2 item 2), so files under a clean filter such as Git LFS always show as changed; behaviour and notice unspecified (C001-ADR-004)", reporter: sdd-architect, date: 2026-11-18, status: closed, resolution: "C001-IF-012 §7–§8 per Q-cleanfilter-01/02, Q-filterworkspace-01, Q-nonlfs-01: Git LFS verified by pointer hash, other filters by hardened stat rule, ERR-INTAKE-009 and ERR-EVID-013; C001-REQ-126…128, 527…529", closed_at: 2026-11-19 }
 waivers:
   - { item: TR-06, gate: 10-spec, date: 2026-11-19, note: "Approve, waive plan checks (Recommended)" }
   - { item: TR-08, gate: 10-spec, date: 2026-11-19, note: "Approve, waive plan checks (Recommended)" }
@@ -40,3 +40,4 @@ waivers:
 | 2026-11-18 | G2 (spec) | **Approved** | "Approve" | none | unavailable |
 | 2026-11-18 | G2 (spec) | **Revise** | "Fix defects D-001 to D-007 found by the plan-phase ADRs: git missing/too old error, Node 22+/git 2.34+ prerequisites, fixed grammar versions, GIT_DIR/GIT_INDEX_FILE leaking into evidence commands, credential namespace, missing-submodule error, clean-filter files" | none | unavailable |
 | 2026-11-19 | G2 (spec) | **Approved with waivers** | "Approve, waive plan checks (Recommended)" | TR-06, TR-08, LINT-OBS-001 | unavailable |
+| 2026-11-20 | G3 (plan) | **Approved** | "Approve" | none | unavailable |

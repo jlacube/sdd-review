@@ -6,8 +6,12 @@ phase: 20-plan
 status: accepted
 date: 2026-11-18
 deciders: ["P-01"]
+amended: 2026-11-19
 ---
 # C001-ADR-003 — Syntax parsers: tree-sitter for the three deep ecosystems
+
+> **Amended on 2026-11-19** (Amendment 1 at the end of this file): aligned with the specification
+> re-approved at G2 on 2026-11-19. The decision is unchanged.
 
 ## Context and problem
 Language analysis (C001-COMP-007) parses the files of the deep ecosystems (C001-IF-005 §8) at the
@@ -95,3 +99,17 @@ What the decision fixes:
   when the dependency is added; the versions are fixed when they are pinned per release (item 1).
 - Affected constraints: C001-CON-07, C001-CON-17, C001-CON-18. Affected components: C001-COMP-007,
   C001-COMP-008, C001-COMP-010.
+
+## Amendment 1 — 2026-11-19: alignment with the revised specification
+
+**Why.** This ADR raised defect D-003 (Q-specfix-01). The specification revision that closed it was
+re-approved at G2 on 2026-11-19. C001-CON-17 now names the syntax-parser grammars, each at the
+version pinned for the release, as fixed per release beside the diff algorithm, with this ADR as
+its source. This matches decision item 1 as written.
+
+**What changes.** The consequence "Proposed for a spec revision (not edited here): C001-CON-17
+names a fixed diff algorithm per release; grammar versions are a second input … Recorded as defect
+D-003" is settled; no spec revision is pending from this ADR.
+
+**What stays.** The decision, P-01's acceptance of 2026-11-18 (Q-parsers-01), the rest of the text
+above and C001-OA-005 are unchanged.

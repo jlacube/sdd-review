@@ -6,8 +6,12 @@ phase: 20-plan
 status: accepted
 date: 2026-11-18
 deciders: ["P-01"]
+amended: 2026-11-19
 ---
 # C001-ADR-001 — Implementation language and runtime: TypeScript on Node.js
+
+> **Amended on 2026-11-19** (Amendment 1 at the end of this file): aligned with the specification
+> re-approved at G2 on 2026-11-19. The decision is unchanged.
 
 ## Context and problem
 C001-CON-18 leaves the implementation language of the CLI (C001-COMP-001), the analysis core
@@ -89,3 +93,17 @@ What the decision fixes:
   published release schedule.
 - Affected constraints: C001-CON-09, C001-CON-15, C001-CON-18. Affected components: C001-COMP-001,
   C001-COMP-002, C001-COMP-007, C001-COMP-014, C001-COMP-018.
+
+## Amendment 1 — 2026-11-19: alignment with the revised specification
+
+**Why.** This ADR raised defect D-002 (Q-specfix-01). The specification revision that closed it was
+re-approved at G2 on 2026-11-19. C001-CON-18 now names Node.js 22 or later, an LTS line, as a
+prerequisite that the developer installs outside the package, with this ADR as its source. This
+matches decision item 1.
+
+**What changes.** The consequence "Proposed for a spec revision … a constraint 'the review assistant
+runs on Node.js LTS 22 or later …' … Recorded as defect D-002" is settled; no spec revision is
+pending from this ADR.
+
+**What stays.** The decision, P-01's acceptance of 2026-11-18 (Q-language-01), the rest of the text
+above and C001-OA-003 are unchanged.
