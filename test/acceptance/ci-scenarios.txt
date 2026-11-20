@@ -2,8 +2,9 @@
 # One scenario ID per line. Add a scenario here when it passes; never list one that fails.
 #
 # Not listed yet, with the reason:
-#   C001-TS-913  needs the verdict operation of the core and the web client (C001-T-076, C001-T-012)
-#   C001-TS-917  needs the web client and a browser network log (C001-T-012)
+#   C001-TS-901, 902, 903, 913  need a browser; they run in the `browser` job of ci.yml (`npm run acceptance:browser`)
+#   C001-TS-917  opens the architecture delta, intents, a walkthrough, a hunk, evidence and coverage:
+#                views of C001-T-044 and later; the client has only the change list so far
 #   C001-TS-930  its third example (sign on an unknown intent) needs the verdict commands (C001-T-082)
 #   C001-TS-928  needs the verdict commands (C001-T-082)
 C001-TS-101

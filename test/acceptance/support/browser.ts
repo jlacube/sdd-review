@@ -24,9 +24,9 @@ export async function launchBrowser(
   return type.launch({ headless, ...(channel ? { channel } : {}) });
 }
 
-/** The kinds a run covers: one, or all three with `--all-browsers`. */
+/** The kinds a run covers: SDD_ACCEPT_BROWSERS (a list), else SDD_BROWSER (the CI job), else Chrome. */
 export function browserKindsFor(env: NodeJS.ProcessEnv = process.env): BrowserKind[] {
-  const wanted = env.SDD_ACCEPT_BROWSERS;
+  const wanted = env.SDD_ACCEPT_BROWSERS || env.SDD_BROWSER;
   if (!wanted) return ['chrome'];
   return wanted
     .split(',')

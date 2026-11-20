@@ -83,6 +83,7 @@ if (import.meta.url === new URL(`file:///${process.argv[1]?.replace(/\\/g, '/')}
     SDD_ACCEPT_REPOS: opts.repos.join(','),
     SDD_ACCEPT_OFFLINE: opts.offline ? '1' : '',
     SDD_ACCEPT_BROWSER: opts.browser ? '1' : '',
+    ...(opts.allBrowsers ? { SDD_ACCEPT_BROWSERS: 'chrome,edge,firefox' } : {}),
   };
   const r = spawnSync(process.execPath, args, { stdio: 'inherit', env });
   if (existsSync(report)) {

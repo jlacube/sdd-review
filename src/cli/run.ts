@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { openCore, type OpenedCore } from '../core/api/open.js';
 import { analyse } from './commands/analyse.js';
+import { review } from './commands/review.js';
 import { notImplemented } from './commands/pending.js';
 import { EXIT, errorLine, exitCodeOf, toReviewError } from './exit-codes.js';
 import type { CliIo } from './io.js';
@@ -52,6 +53,8 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
     switch (command.name) {
       case 'analyse':
         return await analyse(command, global, opened.core.api, io, EXIT.ok);
+      case 'review':
+        return await review(command, global, opened.core.api, io, EXIT.ok);
       default:
         throw notImplemented(command.name);
     }

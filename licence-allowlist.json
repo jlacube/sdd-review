@@ -17,7 +17,8 @@
   "permissiveNotOsiApproved": {
     "BlueOak-1.0.0": "Permissive; not OSI-approved. Used by the npm-ecosystem packages of the licence-checker tool chain (dev only). Open point for P-01 under NFR-D-03.",
     "CC0-1.0": "Public-domain dedication of data packages (spdx-license-ids); not OSI-approved as a software licence. Dev only.",
-    "CC-BY-3.0": "Attribution-only licence of the SPDX exception list data (spdx-exceptions); not OSI-approved. Dev only."
+    "CC-BY-3.0": "Attribution-only licence of the SPDX exception list data (spdx-exceptions); not OSI-approved. Dev only.",
+    "CC-BY-4.0": "Attribution-only licence of the browser-data package caniuse-lite (dev only, under @vitejs/plugin-react 5.2.0 through browserslist); not OSI-approved. Open point for P-01 under NFR-D-03 (licence report U-03)."
   },
   "forbiddenPatterns": [
     "^A?GPL",

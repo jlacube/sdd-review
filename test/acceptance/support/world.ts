@@ -21,6 +21,17 @@ export interface CliResult {
   readonly signal?: NodeJS.Signals | null;
 }
 
+/** A CLI command that keeps running until it is interrupted. */
+export interface RunningCli {
+  stdout(): string;
+  stderr(): string;
+  /** Waits until standard output matches; fails when the CLI ends first or on timeout. */
+  waitForStdout(pattern: RegExp, timeoutMs?: number): Promise<RegExpExecArray>;
+  /** Interrupts the command (the signal of Ctrl+C) and waits for its end. */
+  stop(): Promise<CliResult>;
+  result: CliResult | undefined;
+}
+
 /** State of one scenario: its fixture repository, the CLI run and the stub provider. */
 export class AcceptanceWorld extends World {
   repo: FixtureRepo | undefined;
@@ -28,6 +39,7 @@ export class AcceptanceWorld extends World {
   lastRun: CliResult | undefined;
   headless: HeadlessOutput | undefined;
   private readonly scratch: string[] = [];
+  private readonly running: RunningCli[] = [];
   private storeHome: string | undefined;
   private listenLog: string | undefined;
 
@@ -114,7 +126,65 @@ export class AcceptanceWorld extends World {
     });
   }
 
+  /**
+   * Starts a long-running CLI command (`review`) and returns a handle to read its output and to
+   * stop it with the interrupt signal (see `cliInterrupted` for the Windows mechanism).
+   */
+  cliStart(args: string[], extraEnv: NodeJS.ProcessEnv = {}, cwd = this.repo?.dir): RunningCli {
+    const windows = process.platform === 'win32';
+    const child = spawn(
+      process.execPath,
+      [...(windows ? ['--import', INTERRUPT_HOOK] : []), CLI, ...args],
+      {
+        cwd,
+        env: { ...this.cliEnv(), ...extraEnv },
+        stdio: windows ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
+    child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+    const ended = new Promise<CliResult>((resolveRun) => {
+      child.on('close', (status, signal) => resolveRun({ status, stdout, stderr, signal }));
+    });
+    const killer = setTimeout(() => child.kill('SIGKILL'), 120_000);
+    void ended.then(() => clearTimeout(killer));
+    const running: RunningCli = {
+      stdout: () => stdout,
+      stderr: () => stderr,
+      async waitForStdout(pattern, timeoutMs = 60_000) {
+        const started = Date.now();
+        for (;;) {
+          const match = pattern.exec(stdout);
+          if (match) return match;
+          if (child.exitCode !== null) {
+            throw new Error(
+              `the CLI ended (${child.exitCode}) before it printed ${pattern}: ${stderr}`,
+            );
+          }
+          if (Date.now() - started > timeoutMs) {
+            throw new Error(`no ${pattern} in: ${stdout}${stderr}`);
+          }
+          await new Promise((r) => setTimeout(r, 50));
+        }
+      },
+      async stop() {
+        if (child.exitCode === null) {
+          if (windows) child.send('SIGINT');
+          else child.kill('SIGINT');
+        }
+        this.result = await ended;
+        return this.result;
+      },
+      result: undefined,
+    };
+    this.running.push(running);
+    return running;
+  }
+
   async cleanup(): Promise<void> {
+    for (const run of this.running) if (!run.result) await run.stop().catch(() => undefined);
     await this.stub?.stop();
     this.repo?.dispose();
     for (const dir of this.scratch) rmSync(dir, { recursive: true, force: true });

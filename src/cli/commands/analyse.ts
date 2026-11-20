@@ -36,6 +36,22 @@ export function startOptionsOf(intake: IntakeOptions): StartReviewOptions {
 
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
+/** Starts the jobs of the snapshot and waits until none is pending or running. */
+export async function runJobsToEnd(
+  api: CoreApi,
+  snapshotId: string,
+  check: () => void,
+): Promise<void> {
+  await api.startJobs(snapshotId);
+  const running = async () =>
+    (await api.listJobs(snapshotId)).some((j) => ['pending', 'running'].includes(j.status));
+  while (await running()) {
+    check();
+    await sleep(50);
+  }
+  check();
+}
+
 /** The interrupt (Ctrl+C) before the results are written: nothing is written (ERR-CLI-002). */
 function interrupted(directory: string): ReviewError {
   return new ReviewError('ERR-CLI-002', {
@@ -68,14 +84,7 @@ export async function analyse(
   // The static analysis (C001-T-036 and later) and the test run, mutation testing and model tasks
   // register with the job scheduler; until they exist there is nothing to run or to wait for.
   io.stderr.write('analyse: running the analysis\n');
-  await api.startJobs(started.snapshotId);
-  const running = async () =>
-    (await api.listJobs(started.snapshotId)).some((j) => ['pending', 'running'].includes(j.status));
-  while (await running()) {
-    check();
-    await sleep(50);
-  }
-  check();
+  await runJobsToEnd(api, started.snapshotId, check);
 
   io.stderr.write(`analyse: writing the results to ${command.out}\n`);
   await api.exportResults(started.snapshotId, command.out);

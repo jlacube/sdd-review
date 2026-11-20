@@ -3,8 +3,8 @@ import type { CommandName } from '../parser.js';
 
 /** The task that provides the operation of each command that is parsed but not built yet. */
 export const PROVIDED_BY: Readonly<Partial<Record<CommandName, string>>> = {
-  review: 'C001-T-012',
-  open: 'C001-T-012',
+  // `review` is built (C001-T-012); `open` needs the restore of a review (C001-T-034).
+  open: 'C001-T-034',
   reviews: 'C001-T-034',
   status: 'C001-T-082',
   intents: 'C001-T-082',

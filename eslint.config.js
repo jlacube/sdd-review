@@ -10,6 +10,8 @@ export default tseslint.config(
       'node_modules/**',
       'runtime/python/vendor/**',
       'runtime/dotnet/**',
+      // Input of the forbidden-HTML rule's self-test; it breaks the rule on purpose.
+      'test/fixtures/lint-selftest/**',
     ],
   },
   { languageOptions: { globals: globals.node } },
@@ -73,6 +75,101 @@ export default tseslint.config(
                 '**/core/store/**',
               ],
               message: 'The CLI calls the core only through src/core/api (C001-IF-003).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // C001-ADR-002 items 1 and 2, C001-CON-20: the web client renders repository content, named
+    // files, transcripts and model output only as React text nodes, and loads styles only from
+    // static CSS files.
+    files: ['web/**/*.{ts,tsx}'],
+    languageOptions: { globals: globals.browser },
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message: 'dangerouslySetInnerHTML is forbidden: render text nodes only (C001-CON-20).',
+        },
+        {
+          selector:
+            "Property[key.name='dangerouslySetInnerHTML'], Property[key.value='dangerouslySetInnerHTML']",
+          message: 'dangerouslySetInnerHTML is forbidden: render text nodes only (C001-CON-20).',
+        },
+        {
+          selector:
+            'MemberExpression[property.name=/^(innerHTML|outerHTML|insertAdjacentHTML|createContextualFragment)$/]',
+          message: 'Writing HTML is forbidden: render text nodes only (C001-CON-20).',
+        },
+        {
+          selector:
+            'MemberExpression[computed=true][property.value=/^(innerHTML|outerHTML|insertAdjacentHTML)$/]',
+          message: 'Writing HTML is forbidden: render text nodes only (C001-CON-20).',
+        },
+        {
+          selector: "CallExpression[callee.property.name='write'][callee.object.name='document']",
+          message: 'document.write is forbidden (C001-CON-20).',
+        },
+        {
+          selector: "NewExpression[callee.name='DOMParser']",
+          message: 'Parsing HTML is forbidden: render text nodes only (C001-CON-20).',
+        },
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/core/**', '**/ui-server/**', '**/cli/**'],
+              message:
+                'The web client imports no code of the core, the server or the CLI (C001-CON-09).',
+            },
+            {
+              group: [
+                'highlight.js',
+                'highlight.js/*',
+                'prismjs',
+                'prismjs/*',
+                'shiki',
+                'shiki/*',
+                'react-syntax-highlighter',
+                'react-syntax-highlighter/*',
+                'react-highlight',
+                'react-highlight.js',
+                'lowlight',
+                'refractor',
+                'markdown-it',
+                'marked',
+                'showdown',
+                'dompurify',
+              ],
+              message:
+                'HTML-producing highlighters and renderers are forbidden (C001-ADR-002 item 2).',
+            },
+            {
+              group: [
+                'styled-components',
+                'styled-components/*',
+                '@emotion/*',
+                'goober',
+                'styled-jsx',
+                'styled-jsx/*',
+                '@stitches/*',
+                'aphrodite',
+                'jss',
+                'jss/*',
+                'react-jss',
+                '@linaria/*',
+                'twin.macro',
+                'glamor',
+                'radium',
+                'styletron-*',
+              ],
+              message:
+                'CSS-in-JS libraries are forbidden: styles are static CSS files (C001-ADR-002 item 1).',
             },
           ],
         },

@@ -49,3 +49,5 @@ jobs:
       - if: matrix.browser == 'firefox'
         run: npx playwright install --with-deps firefox
       - run: npm test -- test/browser
+      - run: npm run build
+      - run: npm run acceptance:browser -- --scenario C001-TS-901 --scenario C001-TS-902 --scenario C001-TS-903 --scenario C001-TS-913

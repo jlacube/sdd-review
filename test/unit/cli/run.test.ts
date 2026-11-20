@@ -142,9 +142,6 @@ describe('CLI commands over a fixture repository', () => {
 
   describe('exit codes of real commands', () => {
     it('1: a command whose operation is built by a later task says which task', async () => {
-      const result = await cli(['review', '--no-browser'], fx.dir);
-      expect(result.status).toBe(1);
-      expect(result.stderr).toMatch(/^ERR-CLI-003: .*C001-T-012/m);
       for (const [args, task] of [
         [['reviews'], 'C001-T-034'],
         [['status'], 'C001-T-082'],
@@ -152,7 +149,7 @@ describe('CLI commands over a fixture repository', () => {
         [['sign', 'REQ-1'], 'C001-T-082'],
         [['reject', 'REQ-1', '--reason', 'x'], 'C001-T-082'],
         [['defer', 'REQ-1', '--note', 'x'], 'C001-T-082'],
-        [['open'], 'C001-T-012'],
+        [['open'], 'C001-T-034'],
         [['config', 'validate'], 'C001-T-035'],
       ] as const) {
         const r = await cli([...args], fx.dir);

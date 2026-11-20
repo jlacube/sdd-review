@@ -15,9 +15,8 @@ import type { AcceptanceWorld } from '../../support/world.js';
 // next to each scenario; the security suite of C001-T-092 repeats them against the whole product
 // (second host, socket listing of the CLI process, a browser).
 //
-// Not bound here, with the reason: C001-TS-913 needs the verdict operation of the core and a page
-// (C001-T-076, C001-T-012); C001-TS-917 needs the web client and a browser network log
-// (C001-T-012).
+// C001-TS-913 is bound in req-901-903.steps.ts (a browser). Not bound, with the reason: C001-TS-917
+// opens views that C001-T-044 and later build; the web client has only the change list so far.
 
 interface Session {
   server: UiServer;
@@ -38,7 +37,7 @@ interface Reply {
 
 const sessions = new WeakMap<AcceptanceWorld, Session>();
 
-function session(world: AcceptanceWorld): Session {
+export function session(world: AcceptanceWorld): Session {
   const s = sessions.get(world);
   assert.ok(s, 'no review is open in the local review UI');
   return s;
