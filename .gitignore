@@ -8,3 +8,4 @@ runtime/dotnet/dist
 __pycache__
 .ruff_cache
 src/generated
+test/acceptance/.features

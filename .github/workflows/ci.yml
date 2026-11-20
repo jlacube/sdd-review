@@ -24,6 +24,27 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run lint
+      - run: npm test
       - run: npm run licence-check
       - run: npm run audit
       - run: npm run secret-scan
+  browser:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, browser: chrome }
+          - { os: ubuntu-24.04, browser: firefox }
+          - { os: windows-2025, browser: edge }
+    runs-on: ${{ matrix.os }}
+    env:
+      SDD_BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - if: matrix.browser == 'firefox'
+        run: npx playwright install --with-deps firefox
+      - run: npm test -- test/browser

@@ -23,9 +23,12 @@
     "licence-check": "node scripts/licence-check.mjs",
     "audit": "npm audit --audit-level=high",
     "secret-scan": "node scripts/secret-scan.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "acceptance": "node scripts/acceptance.mjs",
+    "acceptance:browser": "node scripts/acceptance.mjs --browser"
   },
   "devDependencies": {
+    "@cucumber/cucumber": "13.3.0",
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.5",
     "eslint": "10.15.0",
@@ -33,11 +36,13 @@
     "json-schema-to-typescript": "16.0.0",
     "license-checker-rseidelsohn": "5.0.1",
     "openapi-typescript": "7.13.0",
+    "playwright": "1.65.1",
     "prettier": "3.10.1",
+    "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.73.0",
-    "vitest": "5.1.1",
-    "vite": "7.3.8"
+    "vite": "7.3.8",
+    "vitest": "5.1.1"
   },
   "overrides": {
     "openapi-typescript": {

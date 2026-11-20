@@ -16,6 +16,11 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
     // C001-CON-09: the core never imports the UI server or the web client.
     files: ['src/core/**/*.ts'],
     rules: {
