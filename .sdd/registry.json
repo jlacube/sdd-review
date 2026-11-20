@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-20T05:48:34Z",
+  "generated_at": "2026-11-20T06:06:59Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -36,7 +36,7 @@
           "total": 116,
           "done": 10,
           "blocked": 0,
-          "in_progress": 0
+          "in_progress": 1
         },
         "last_report": "2026-11-20T00:00:00Z"
       },
@@ -225,6 +225,16 @@
           "id": "D-019",
           "ref": "C001-REQ-914",
           "summary": "No exit code or error is specified for a headless analysis interrupted by Ctrl+C (TS-931 says listed in the catalogue); C001-T-010 uses ERR-CLI-002 / exit 7 (results not written) with cause interrupted",
+          "reporter": "Jerome LACUBE",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-020",
+          "ref": "C001-IF-002",
+          "summary": "No error code in errors.md for a malformed or schema-invalid request body, unknown API route, disallowed method, unsupported media type or oversized body; the Problem schema requires a code (T-011 uses ERR-ACT-003 and ERR-ACT-004 as interim)",
           "reporter": "Jerome LACUBE",
           "date": "2026-11-20",
           "status": "open",

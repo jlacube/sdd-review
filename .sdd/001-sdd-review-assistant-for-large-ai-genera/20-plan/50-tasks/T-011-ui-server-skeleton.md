@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Local review UI server with host, token, origin and CSP checks
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-009]
 implements: [C001-REQ-905, C001-REQ-906, C001-REQ-907, C001-REQ-908, C001-NFR-009, C001-NFR-010]
 satisfies_ac: [C001-AC-905.1, C001-AC-906.1, C001-AC-907.1, C001-AC-908.1]
