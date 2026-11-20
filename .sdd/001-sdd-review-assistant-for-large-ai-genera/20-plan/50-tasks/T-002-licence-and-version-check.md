@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Confirm the licence and version facts of the ADRs
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-001]
 implements: []
 satisfies_ac: [C001-AC-505.1, C001-AC-514.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-512, C001-TS-539]
 components: [C001-COMP-007, C001-COMP-011, C001-COMP-015, C001-COMP-019]
 risk_refs: [C001-RISK-002]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 4f295d1, completed_at: 2026-11-20, notes: "Report docs/compliance/licence-and-version-report.md; licence-check/audit/lint/sdd lint pass; defects D-008..D-013 raised (D-011 Vite8 MPL-2.0 needs P-01); PR approval at M-01 merge" }
 ---
 # C001-T-002 — Confirm the licence and version facts of the ADRs
 

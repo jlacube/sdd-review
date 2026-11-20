@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-20T01:05:00Z",
+  "generated_at": "2026-11-20T01:33:21Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -34,9 +34,9 @@
         "status": "in-progress",
         "tasks": {
           "total": 116,
-          "done": 1,
+          "done": 2,
           "blocked": 0,
-          "in_progress": 1
+          "in_progress": 0
         },
         "last_report": "2026-11-20T00:00:00Z"
       },
@@ -110,6 +110,66 @@
           "status": "closed",
           "resolution": "C001-IF-012 §7–§8 per Q-cleanfilter-01/02, Q-filterworkspace-01, Q-nonlfs-01: Git LFS verified by pointer hash, other filters by hardened stat rule, ERR-INTAKE-009 and ERR-EVID-013; C001-REQ-126…128, 527…529",
           "closed_at": "2026-11-19"
+        },
+        {
+          "id": "D-008",
+          "ref": "C001-ADR-004",
+          "summary": "Hardening profile core.fsmonitor=false (decision item 3, A1.3) does not disable fsmonitor on git 2.34: in v2.34.0 config.c and fsmonitor.c any non-empty value is a hook command run through the shell (here the program named false), booleans exist only in later releases; core.fsmonitor= with an empty value disables it on 2.34 and on 2.56.1 (source-confirmed 2026-11-20, empirical proof pending in C001-T-005)",
+          "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-009",
+          "ref": "C001-ADR-007",
+          "summary": "Section 2 says coverage.py uses the sys.monitoring core on CPython 3.12 and later, but coverage.py CHANGES 7.11.1 and 7.15.3 state the sysmon core is incompatible with dynamic contexts (per-test contexts are dropped or refused), so the per-test adapter must force the ctrace core (COVERAGE_CORE=ctrace) on every Python version",
+          "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-010",
+          "ref": "C001-ADR-008",
+          "summary": "Design 3 names dbus-next (MIT) for the Secret Service client but dbus-next 0.10.2 was last released 2021-10 and its tree (usocket, node-gyp 7, request) carries critical npm audit advisories (request, form-data, tar), so it violates NFR-D-02 and is not added; dbus-native 0.16.3 (MIT, maintained, 0 advisories) is the candidate for C001-T-0xx to pin",
+          "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-011",
+          "ref": "C001-ADR-002",
+          "summary": "Vite is MIT as stated, but Vite 8.3.8 has lightningcss 1.33.0 (MPL-2.0, weak copyleft) as a regular dependency, which conflicts with NFR-D-03 and the forbidden copyleft list; Vite 7.3.8 with plugin-react 5.2.0 has no non-permissive dependency and 0 advisories; goes to P-01 before any task adds Vite",
+          "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-012",
+          "ref": "C001-ADR-007",
+          "summary": "Section 3 gives Stryker.NET mutate filters with line spans, but the Stryker.NET documentation defines the span in the mutate option as character indices {first..last} of the file text, so the adapter must convert executed line ranges to character offsets",
+          "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-013",
+          "ref": "C001-ADR-007",
+          "summary": "Section 2 says the Microsoft coverage engines have licences not permissive as far as known, but the NuGet metadata of Microsoft.CodeCoverage 18.12.0 declares MIT; no effect on the choice of AltCover (rejected for per-test attribution), only the stated reason is inaccurate",
+          "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
         }
       ],
       "waivers": [
