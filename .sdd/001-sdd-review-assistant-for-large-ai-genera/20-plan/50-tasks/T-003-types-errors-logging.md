@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Generated interface types, error catalogue and contextual log
 milestone: C001-M-01
-status: todo
+status: done
 depends_on: [C001-T-001, C001-T-002]
 implements: [C001-REQ-914]
 satisfies_ac: [C001-AC-914.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-929, C001-TS-930]
 components: [C001-COMP-001, C001-COMP-002, C001-COMP-018]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: f2e5fce, completed_at: 2026-11-20, notes: "66-code catalogue test vs errors.md, log tests (9 unit tests), types generated in build; vite pinned 7.3.8 to avoid MPL-2.0; acceptance TS-929/930 run once T-010 exists; PR at M-01 merge" }
 ---
 # C001-T-003 — Generated interface types, error catalogue and contextual log
 
