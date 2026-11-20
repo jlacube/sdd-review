@@ -3,7 +3,15 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', 'node_modules/**', 'runtime/python/vendor/**', 'runtime/dotnet/**'] },
+  {
+    ignores: [
+      'src/generated/**',
+      'dist/**',
+      'node_modules/**',
+      'runtime/python/vendor/**',
+      'runtime/dotnet/**',
+    ],
+  },
   { languageOptions: { globals: globals.node } },
   js.configs.recommended,
   ...tseslint.configs.recommended,

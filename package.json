@@ -15,23 +15,34 @@
     "runtime/"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/generate-types.mjs && tsc -p tsconfig.json",
     "lint": "npm run lint:ts && npm run lint:py && npm run lint:cs",
     "lint:ts": "eslint . && prettier --check .",
     "lint:py": "ruff check runtime/python && ruff format --check runtime/python",
     "lint:cs": "dotnet format runtime/dotnet/Placeholder.csproj --verify-no-changes",
     "licence-check": "node scripts/licence-check.mjs",
     "audit": "npm audit --audit-level=high",
-    "secret-scan": "node scripts/secret-scan.mjs"
+    "secret-scan": "node scripts/secret-scan.mjs",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.5",
     "eslint": "10.15.0",
     "globals": "17.14.0",
+    "json-schema-to-typescript": "16.0.0",
     "license-checker-rseidelsohn": "5.0.1",
+    "openapi-typescript": "7.13.0",
     "prettier": "3.10.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.73.0"
+    "typescript-eslint": "8.73.0",
+    "vitest": "5.1.1",
+    "vite": "7.3.8"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    },
+    "vite": "7.3.8"
   }
 }

@@ -7,3 +7,4 @@ runtime/dotnet/bin
 package-lock.json
 .sdd
 .claude
+src/generated
