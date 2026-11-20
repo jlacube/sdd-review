@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Core API and orchestrator skeleton
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-007, C001-T-008]
 implements: [C001-REQ-913, C001-NFR-013]
 satisfies_ac: [C001-AC-913.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-928]
 components: [C001-COMP-002]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 7d748b9, completed_at: 2026-11-20, notes: "CoreApi 37 ops (7 implemented, 30 typed not-implemented), event loop, job scheduler, identity check; 72 tests green on 4 CI runners; TS-928 cannot pass until T-010/T-076..082 (defect D-017); PR at M-01 merge" }
 ---
 # C001-T-009 — Core API and orchestrator skeleton
 
