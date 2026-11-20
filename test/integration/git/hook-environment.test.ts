@@ -9,6 +9,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
@@ -166,7 +167,9 @@ describe.each(GIT_VERSIONS)('hook environment on $label', ({ path, expect: pinne
         const found = await runner.run('rev-parse', ['--show-toplevel'], {
           target: { discoverFrom: target.dir },
         });
-        expect(resolve(found.stdout.toString('utf8').trim()), name).toBe(resolve(target.dir));
+        expect(realpathSync.native(found.stdout.toString('utf8').trim()), name).toBe(
+          realpathSync.native(target.dir),
+        );
       }
       expect(spawned.length).toBeGreaterThan(50);
       // No process of the adapter had a variable of the list in its environment.
