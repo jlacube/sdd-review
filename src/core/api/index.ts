@@ -8,6 +8,7 @@ import type {
   TriageDocument,
 } from '../../generated/analysis-results.js';
 import { ReviewError } from '../errors/review-error.js';
+import { completeRecordBytes, exportContents, writeExport } from './export.js';
 import type { GitAccessPort } from '../git/port.js';
 import { takeInChange } from '../intake/snapshot.js';
 import { SnapshotEventLoop, SnapshotLoops } from '../orchestrator/event-loop.js';
@@ -27,7 +28,7 @@ import type { ReviewIndexEntry, SnapshotStore } from '../store/snapshots.js';
  * root" of §2 is the binding and the operations take the snapshot ID and their own inputs.
  *
  * This task (C001-T-009) implements `startReview`, `getSession`, `getIntakeSummary`, `listReviews`
- * and the job operations; every other operation rejects with `NotImplementedError` until its task.
+ * and the job operations, C001-T-010 adds `exportResults` (the headless output); every other operation rejects with `NotImplementedError` until its task.
  */
 
 type Schemas = components['schemas'];
@@ -324,6 +325,19 @@ export function createCore(deps: CoreDeps): Core {
     listJobs: (snapshotId) => jobs.list(snapshotId),
     cancelJob: (snapshotId, jobId) => jobs.cancel(snapshotId, jobId),
 
+    async exportResults(snapshotId, directory) {
+      const intake = await store.readSnapshot(snapshotId); // ERR-STORE-004
+      const record = store.record(snapshotId);
+      await record.read(); // ERR-STORE-002: a damaged record is not exported
+      const revision = await revisionsOf(snapshotId).load();
+      const contents = exportContents({
+        intake,
+        revision: revision?.documents ?? null,
+        recordBytes: completeRecordBytes(record.file),
+      });
+      return { files: writeExport(directory, contents) }; // ERR-CLI-002
+    },
+
     runStaticAnalysis: later('runStaticAnalysis'),
     openReview: later('openReview'),
     checkMovedOn: later('checkMovedOn'),
@@ -339,7 +353,6 @@ export function createCore(deps: CoreDeps): Core {
     getCoverageStatement: later('getCoverageStatement'),
     getDecisionStatus: later('getDecisionStatus'),
     getRecord: later('getRecord'),
-    exportResults: later('exportResults'),
     validateConfiguration: later('validateConfiguration'),
     markRead: later('markRead'),
     markIntentRead: later('markIntentRead'),
@@ -366,3 +379,7 @@ export function createCoreApi(deps: CoreDeps): CoreApi {
 
 /** The identity check that every recorded action passes first (C001-IF-003 §4 step 4). */
 export { requireGitIdentity } from '../orchestrator/identity.js';
+
+/** The error type every operation rejects with, for surfaces that map it to their own outcome. */
+export { ReviewError, isReviewError } from '../errors/review-error.js';
+export type { ProblemDetails } from '../errors/review-error.js';

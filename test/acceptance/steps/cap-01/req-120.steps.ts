@@ -93,6 +93,9 @@ Given(
       writeFileSync(path, `#!/bin/sh\ntouch "${file}"\n`);
       chmodSync(path, 0o755);
     }
+    // The scenario says nothing of the change; an empty one is refused (ERR-INTAKE-005) before
+    // any hook could run, so the repository gets an uncommitted edit that intake takes in.
+    repo.write('src/cart.ts', `${repo.read('src/cart.ts')}// edited\n`);
     before.set(this, record(repo));
   },
 );

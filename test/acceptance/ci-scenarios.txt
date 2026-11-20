@@ -1,0 +1,20 @@
+# Acceptance scenarios that gate CI (`npm run acceptance -- --scenarios-file test/acceptance/ci-scenarios.txt`).
+# One scenario ID per line. Add a scenario here when it passes; never list one that fails.
+#
+# Not listed yet, with the reason:
+#   C001-TS-930  its third example (sign on an unknown intent) needs the verdict commands (C001-T-082)
+#   C001-TS-928  needs the verdict commands (C001-T-082)
+C001-TS-101
+C001-TS-102
+C001-TS-103
+C001-TS-105
+C001-TS-133
+C001-TS-135
+C001-TS-144
+C001-TS-145
+C001-TS-146
+C001-TS-166
+C001-TS-926
+C001-TS-927
+C001-TS-929
+C001-TS-931

@@ -1,16 +1,26 @@
 // `npm run acceptance -- --scenario <TS-ID> [--scenario ...] [--repo <ecosystem>] [--tags <expr>]
-//  [--offline] [--all-browsers]` and `npm run acceptance:browser -- ...` (C001-T-004).
+//  [--offline] [--all-browsers] [--scenarios-file <path>]` and `npm run acceptance:browser -- ...` (C001-T-004).
 // Runs Cucumber.js over the Gherkin of the acceptance files, selected by scenario ID, and prints
 // one line per scenario: passed, failed or undefined.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { extractFeatures } from './extract-features.mjs';
 
+/** The scenario IDs of a file: one per line, blank lines and `#` comments ignored (CI list). */
+export function readScenarioIds(path) {
+  if (!path) throw new Error('--scenarios-file needs a path');
+  return readFileSync(path, 'utf8')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*$/, '').trim())
+    .filter((line) => line.length > 0);
+}
+
 export function parseArgs(argv) {
   const opts = { scenarios: [], repos: [], tags: undefined, offline: false, browser: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--scenario') opts.scenarios.push(argv[++i]);
+    else if (a === '--scenarios-file') opts.scenarios.push(...readScenarioIds(argv[++i]));
     else if (a === '--repo') opts.repos.push(argv[++i]);
     else if (a === '--tags') opts.tags = argv[++i];
     else if (a === '--offline') opts.offline = true;

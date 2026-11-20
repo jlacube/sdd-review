@@ -25,6 +25,7 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
+      - run: npm run acceptance -- --scenarios-file test/acceptance/ci-scenarios.txt
       - run: npm run licence-check
       - run: npm run audit
       - run: npm run secret-scan

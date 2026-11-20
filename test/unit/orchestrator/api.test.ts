@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
 import { FixtureRepo } from '../../fixtures/builder/fixture-repo.js';
 import { buildFxIntake } from '../../fixtures/repos/fx-intake.js';
@@ -145,6 +146,35 @@ describe('core API over a fixture repository', () => {
     expect(await store.listReviews()).toEqual([]);
   });
 
+  it('exportResults writes the six files of C001-IF-001 and refuses an unwritable directory (ERR-CLI-002)', async () => {
+    const { api, root } = await rig();
+    const { snapshotId } = await api.startReview({ namedBase: base });
+    const out = join(root, 'exported');
+    const { files } = await api.exportResults(snapshotId, out);
+    expect(files.map((f) => basename(f)).sort()).toEqual([
+      'architecture-delta.json',
+      'evidence.json',
+      'intake.json',
+      'intent-map.json',
+      'review-record.jsonl',
+      'triage.json',
+    ]);
+    const intent = JSON.parse(readFileSync(join(out, 'intent-map.json'), 'utf8')) as {
+      snapshotId: string;
+      orphanHunkIds: string[];
+    };
+    expect(intent.snapshotId).toBe(snapshotId);
+    expect(intent.orphanHunkIds.length).toBeGreaterThan(0);
+    expect(readFileSync(join(out, 'review-record.jsonl'), 'utf8').endsWith('\n')).toBe(true);
+
+    await expect(api.exportResults(snapshotId, files[0] as string)).rejects.toMatchObject({
+      code: 'ERR-CLI-002',
+    });
+    await expect(api.exportResults(`s-${'e'.repeat(64)}`, out)).rejects.toMatchObject({
+      code: 'ERR-STORE-004',
+    });
+  });
+
   it('getSession and getIntakeSummary of an unknown or malformed snapshot ID return ERR-STORE-004', async () => {
     const { api } = await rig();
     for (const id of [`s-${'f'.repeat(64)}`, '../../etc', '']) {
@@ -181,7 +211,6 @@ describe('core API over a fixture repository', () => {
       ['getCoverageStatement', (a) => a.getCoverageStatement(SNAPSHOT)],
       ['getDecisionStatus', (a) => a.getDecisionStatus(SNAPSHOT)],
       ['getRecord', (a) => a.getRecord(SNAPSHOT)],
-      ['exportResults', (a) => a.exportResults(SNAPSHOT, 'out')],
       ['validateConfiguration', (a) => a.validateConfiguration('review.config.json')],
       ['markRead', (a) => a.markRead(SNAPSHOT, ['h'])],
       ['markIntentRead', (a) => a.markIntentRead(SNAPSHOT, 'i')],
@@ -207,6 +236,7 @@ describe('core API over a fixture repository', () => {
         'listReviews',
         'getSession',
         'getIntakeSummary',
+        'exportResults',
       ];
       expect(calls.map(([name]) => name).sort()).toEqual(
         CORE_OPERATIONS.filter((name) => !implemented.includes(name)).sort(),

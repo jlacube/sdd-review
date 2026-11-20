@@ -35,4 +35,28 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // The CLI reaches the core only through the core API (C001-IF-003, C001-CON-09).
+    files: ['src/cli/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/core/errors/**',
+                '**/core/git/**',
+                '**/core/intake/**',
+                '**/core/log/**',
+                '**/core/orchestrator/**',
+                '**/core/store/**',
+              ],
+              message: 'The CLI calls the core only through src/core/api (C001-IF-003).',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
