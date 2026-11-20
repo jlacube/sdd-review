@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intake — named base commit, histogram diff, hunks and snapshot
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-006, C001-T-007]
 implements: [C001-REQ-101, C001-REQ-102, C001-REQ-115]
 satisfies_ac: [C001-AC-101.1, C001-AC-102.1, C001-AC-115.1]
