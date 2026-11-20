@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-20T01:50:11Z",
+  "generated_at": "2026-11-20T02:32:00Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -34,7 +34,7 @@
         "status": "in-progress",
         "tasks": {
           "total": 116,
-          "done": 4,
+          "done": 5,
           "blocked": 0,
           "in_progress": 0
         },
@@ -166,6 +166,16 @@
           "ref": "C001-ADR-007",
           "summary": "Section 2 says the Microsoft coverage engines have licences not permissive as far as known, but the NuGet metadata of Microsoft.CodeCoverage 18.12.0 declares MIT; no effect on the choice of AltCover (rejected for per-test attribution), only the stated reason is inaccurate",
           "reporter": "C001-T-002",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-014",
+          "ref": "C001-TS-166",
+          "summary": "TS-166 says git's first error line names futureformat, but git 2.34.0 to 2.56.1 print 'fatal: unknown repository extension found:' on line 1 and the name on an indented line 2; T-005 takes the first line with its indented continuation lines",
+          "reporter": "Jerome LACUBE",
           "date": "2026-11-20",
           "status": "open",
           "resolution": null,

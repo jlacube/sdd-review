@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Git access adapter — program check and hardened read-only execution
 milestone: C001-M-01
-status: todo
+status: done
 depends_on: [C001-T-001, C001-T-002, C001-T-003]
 implements: [C001-REQ-125, C001-REQ-120]
 satisfies_ac: [C001-AC-125.1, C001-AC-120.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-165, C001-TS-166, C001-TS-144, C001-TS-145, C001-TS-146, C
 components: [C001-COMP-003]
 risk_refs: [C001-RISK-005, C001-RISK-002, C001-RISK-014]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: c8db8b0, completed_at: 2026-11-20, notes: "Adapter runner/env/program-check/port; 86 unit+integration tests green on 4 runners; hostile-repo and hook-env verified on git 2.34.0, 2.45.1, 2.56.1 locally on Windows only (CI runs PATH git only: SDD_GIT_234/SDD_GIT_LATEST not yet set in CI); TS-165 pending (needs root), TS-144/145/146/166 await intake T-008; D-014 raised; untrackedCache part of G-17 unproven; PR at M-01 merge" }
 ---
 # C001-T-005 — Git access adapter: program check and hardened read-only execution
 
