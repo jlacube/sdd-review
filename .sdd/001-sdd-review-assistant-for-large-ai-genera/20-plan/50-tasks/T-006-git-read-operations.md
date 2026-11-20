@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Git access adapter — read operations and working-tree comparison
 milestone: C001-M-01
-status: todo
+status: done
 depends_on: [C001-T-005]
 implements: [C001-REQ-101, C001-REQ-120]
 satisfies_ac: [C001-AC-101.1, C001-AC-120.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-101, C001-TS-102, C001-TS-103, C001-TS-104]
 components: [C001-COMP-003]
 risk_refs: [C001-RISK-002, C001-RISK-004, C001-RISK-005]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 55d9e79, completed_at: 2026-11-20, notes: "G-01..G-16 + worktree compare; 211 tests green on 4 CI runners (PATH git only; 2.34/latest not run); hidden edits (assume-unchanged, skip-worktree) detected; G-07 0.7s, G-09 ~120ms/file (35s for 300 files, input for T-014); TS-101..104 await T-008/T-010; PR at M-01 merge" }
 ---
 # C001-T-006 — Git access adapter: read operations and working-tree comparison
 
