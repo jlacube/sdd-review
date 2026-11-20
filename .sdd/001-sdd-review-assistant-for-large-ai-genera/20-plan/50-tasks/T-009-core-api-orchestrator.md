@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Core API and orchestrator skeleton
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-007, C001-T-008]
 implements: [C001-REQ-913, C001-NFR-013]
 satisfies_ac: [C001-AC-913.1]
