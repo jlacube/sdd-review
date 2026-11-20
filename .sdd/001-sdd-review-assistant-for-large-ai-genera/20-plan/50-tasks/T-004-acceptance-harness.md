@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Acceptance harness, fixture repository builder and stub provider
 milestone: C001-M-01
-status: todo
+status: done
 depends_on: [C001-T-001, C001-T-003]
 implements: []
 satisfies_ac: [C001-AC-101.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-101, C001-TS-926]
 components: [C001-COMP-001, C001-COMP-002]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 8a10893, completed_at: 2026-11-20, notes: "Harness, fixture builder (labels, --repo base option), stub-llm, headless reader, Playwright driver; 20 unit tests + browser CI job green on 4 runners; TS-101/TS-926 automated and fail until T-008/T-010; PR at M-01 merge" }
 ---
 # C001-T-004 — Acceptance harness, fixture repository builder and stub provider
 
