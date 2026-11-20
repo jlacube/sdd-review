@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: CLI skeleton, headless analysis output and exit codes
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-009, C001-T-004]
 implements: [C001-REQ-912, C001-REQ-914]
 satisfies_ac: [C001-AC-912.1, C001-AC-914.1]

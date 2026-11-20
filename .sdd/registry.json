@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-20T05:05:33Z",
+  "generated_at": "2026-11-20T05:27:59Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -36,7 +36,7 @@
           "total": 116,
           "done": 9,
           "blocked": 0,
-          "in_progress": 0
+          "in_progress": 1
         },
         "last_report": "2026-11-20T00:00:00Z"
       },
@@ -205,6 +205,26 @@
           "id": "D-017",
           "ref": "C001-TS-928",
           "summary": "C001-T-009 Done-when says TS-928 passes, but TS-928 runs analyse and the sign verdict command and needs an intent REQ-012 (SDD workspace fixture); these come with T-010, T-076 to T-082 and T-029; the task cannot close that criterion alone",
+          "reporter": "Jerome LACUBE",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-018",
+          "ref": "C001-IF-008",
+          "summary": "TriageDocument and EvidenceDocument have no member (labels) to state that an analysis has not run yet, and no catalogue code fits a notice; headless output of C001-T-010 writes them valid but unflagged (architecture delta and intent map use labels.reduced)",
+          "reporter": "Jerome LACUBE",
+          "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-019",
+          "ref": "C001-REQ-914",
+          "summary": "No exit code or error is specified for a headless analysis interrupted by Ctrl+C (TS-931 says listed in the catalogue); C001-T-010 uses ERR-CLI-002 / exit 7 (results not written) with cause interrupted",
           "reporter": "Jerome LACUBE",
           "date": "2026-11-20",
           "status": "open",
