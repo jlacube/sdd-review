@@ -2,6 +2,7 @@
 // Generated files are never edited by hand and are not committed.
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 import { compile } from 'json-schema-to-typescript';
 import openapiTS, { astToString } from 'openapi-typescript';
 
@@ -41,7 +42,69 @@ writeFileSync(
     schemas.map(([, name]) => `export type * as ${camel(name)} from './${name}.js';`).join('\n') +
     `\nexport type * as openapi from './openapi.js';\n`,
 );
-console.log(`generated ${schemas.length + 1} interface type files in ${out}`);
+writeApiContract();
+
+console.log(`generated ${schemas.length + 1} interface type files and the API contract in ${out}`);
+
+/**
+ * The contract the UI server enforces at run time (C001-ADR-002 item 4): the routes of
+ * openapi.yaml with the schema of each request body, and the schemas those bodies reference.
+ * The installed package has no .sdd folder, so the contract is compiled in.
+ */
+function writeApiContract() {
+  const doc = parseYaml(readFileSync(`${dir}/openapi.yaml`, 'utf8'));
+  const external = (node) => {
+    if (Array.isArray(node)) return node.map(external);
+    if (node && typeof node === 'object') {
+      return Object.fromEntries(
+        Object.entries(node).map(([k, v]) =>
+          k === '$ref' && typeof v === 'string' && v.startsWith('#/components/')
+            ? [k, `openapi.yaml${v}`]
+            : [k, external(v)],
+        ),
+      );
+    }
+    return node;
+  };
+  const routes = [];
+  for (const [path, item] of Object.entries(doc.paths)) {
+    for (const method of ['get', 'put', 'post', 'delete', 'patch']) {
+      const op = item[method];
+      if (!op) continue;
+      const success = Object.keys(op.responses).find((s) => s.startsWith('2'));
+      const body = op.requestBody?.content?.['application/json']?.schema;
+      routes.push({
+        method: method.toUpperCase(),
+        path,
+        operationId: op.operationId,
+        successStatus: Number(success),
+        bodySchema: body ? external(body) : null,
+        bodyRequired: Boolean(op.requestBody?.required),
+        requiredQuery: (op.parameters ?? [])
+          .filter((p) => p.in === 'query' && p.required)
+          .map((p) => p.name),
+      });
+    }
+  }
+  const results = JSON.parse(readFileSync(`${dir}/analysis-results.schema.json`, 'utf8'));
+  const components = { $id: 'openapi.yaml', components: { schemas: doc.components.schemas } };
+  writeFileSync(
+    `${out}/api-contract.ts`,
+    `${banner}\n/* C001-IF-002: routes and request schemas */\n` +
+      `export interface ApiRoute {\n` +
+      `  readonly method: 'GET' | 'PUT' | 'POST' | 'DELETE' | 'PATCH';\n` +
+      `  readonly path: string;\n` +
+      `  readonly operationId: string;\n` +
+      `  readonly successStatus: number;\n` +
+      `  readonly bodySchema: object | null;\n` +
+      `  readonly bodyRequired: boolean;\n` +
+      `  readonly requiredQuery: readonly string[];\n` +
+      `}\n` +
+      `export const API_ROUTES: readonly ApiRoute[] = ${JSON.stringify(routes, null, 2)};\n` +
+      `export const API_COMPONENTS: object = ${JSON.stringify(components)};\n` +
+      `export const ANALYSIS_RESULTS_SCHEMA: object = ${JSON.stringify(results)};\n`,
+  );
+}
 
 function camel(s) {
   return s.replace(/-(\w)/g, (_, c) => c.toUpperCase());

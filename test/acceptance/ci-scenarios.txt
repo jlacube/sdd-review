@@ -2,6 +2,8 @@
 # One scenario ID per line. Add a scenario here when it passes; never list one that fails.
 #
 # Not listed yet, with the reason:
+#   C001-TS-913  needs the verdict operation of the core and the web client (C001-T-076, C001-T-012)
+#   C001-TS-917  needs the web client and a browser network log (C001-T-012)
 #   C001-TS-930  its third example (sign on an unknown intent) needs the verdict commands (C001-T-082)
 #   C001-TS-928  needs the verdict commands (C001-T-082)
 C001-TS-101
@@ -18,3 +20,7 @@ C001-TS-926
 C001-TS-927
 C001-TS-929
 C001-TS-931
+C001-TS-907
+C001-TS-910
+C001-TS-911
+C001-TS-914

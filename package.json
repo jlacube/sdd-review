@@ -27,12 +27,14 @@
     "acceptance": "node scripts/acceptance.mjs",
     "acceptance:browser": "node scripts/acceptance.mjs --browser"
   },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
   "devDependencies": {
     "@cucumber/cucumber": "13.3.0",
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.5",
-    "ajv": "8.20.0",
-    "ajv-formats": "3.0.1",
     "eslint": "10.15.0",
     "globals": "17.14.0",
     "json-schema-to-typescript": "16.0.0",
@@ -44,7 +46,8 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.73.0",
     "vite": "7.3.8",
-    "vitest": "5.1.1"
+    "vitest": "5.1.1",
+    "yaml": "2.9.1"
   },
   "overrides": {
     "openapi-typescript": {

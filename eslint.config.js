@@ -36,6 +36,26 @@ export default tseslint.config(
     },
   },
   {
+    // C001-CON-09: the UI server reaches the core only through src/core/api, and knows neither
+    // the CLI nor the web client.
+    files: ['src/ui-server/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/core/**', '!**/core/api', '!**/core/api/**'],
+              message: 'The UI server calls the core only through src/core/api (C001-CON-09).',
+            },
+            { group: ['**/cli/**', '**/cli'], message: 'C001-CON-09' },
+            { group: ['**/web/**', '**/web'], message: 'C001-CON-09' },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The CLI reaches the core only through the core API (C001-IF-003, C001-CON-09).
     files: ['src/cli/**/*.ts'],
     rules: {
