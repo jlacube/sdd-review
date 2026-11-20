@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Package scaffold, build, formatters and linters, and hosted CI matrix
 milestone: C001-M-01
-status: blocked
+status: done
 depends_on: []
 implements: [C001-REQ-913, C001-NFR-016]
 satisfies_ac: [C001-AC-913.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-928]
 components: [C001-COMP-001, C001-COMP-002]
 risk_refs: [C001-RISK-017]
 estimate: L
-report: { commit: null, completed_at: null, notes: "blocked: Scaffold committed at 4a9fda3; unverified: lint:cs needs the .NET 10 SDK (only 8.0.300 installed), and CI matrix runs and main branch protection need a GitHub remote (none configured; local branch is master)" }
+report: { commit: 122e5ee, completed_at: 2026-11-20, notes: "Scaffold, linters, CI green on 4 hosted runners (run 44650146468), lint:cs verified on .NET 10, main protected; PR approval deferred to the M-01 milestone merge into main" }
 ---
 # C001-T-001 — Package scaffold, build, formatters and linters, and hosted CI matrix
 

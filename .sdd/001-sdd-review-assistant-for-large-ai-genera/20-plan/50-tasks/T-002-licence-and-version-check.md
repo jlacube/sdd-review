@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Confirm the licence and version facts of the ADRs
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-001]
 implements: []
 satisfies_ac: [C001-AC-505.1, C001-AC-514.1]
