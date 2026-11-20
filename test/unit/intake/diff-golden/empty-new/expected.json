@@ -1,0 +1,9 @@
+[
+  {
+    "oldStart": 1,
+    "oldLines": 2,
+    "newStart": 0,
+    "newLines": 0,
+    "lines": ["-first", "-second"]
+  }
+]

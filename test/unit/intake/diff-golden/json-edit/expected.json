@@ -1,0 +1,16 @@
+[
+  {
+    "oldStart": 3,
+    "oldLines": 1,
+    "newStart": 3,
+    "newLines": 1,
+    "lines": ["-  \"version\": \"1.0.0\",", "+  \"version\": \"1.1.0\","]
+  },
+  {
+    "oldStart": 5,
+    "oldLines": 1,
+    "newStart": 5,
+    "newLines": 2,
+    "lines": ["-    \"a\": \"1\"", "+    \"a\": \"1\",", "+    \"b\": \"2\""]
+  }
+]

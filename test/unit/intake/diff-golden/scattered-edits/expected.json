@@ -1,0 +1,30 @@
+[
+  {
+    "oldStart": 8,
+    "oldLines": 1,
+    "newStart": 8,
+    "newLines": 1,
+    "lines": ["-line 7", "+edited 7"]
+  },
+  {
+    "oldStart": 23,
+    "oldLines": 1,
+    "newStart": 23,
+    "newLines": 1,
+    "lines": ["-line 22", "+edited 22"]
+  },
+  {
+    "oldStart": 38,
+    "oldLines": 1,
+    "newStart": 38,
+    "newLines": 1,
+    "lines": ["-line 37", "+edited 37"]
+  },
+  {
+    "oldStart": 53,
+    "oldLines": 1,
+    "newStart": 53,
+    "newLines": 1,
+    "lines": ["-line 52", "+edited 52"]
+  }
+]

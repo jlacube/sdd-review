@@ -1,0 +1,16 @@
+[
+  {
+    "oldStart": 1,
+    "oldLines": 4,
+    "newStart": 0,
+    "newLines": 0,
+    "lines": ["-function alpha() {", "-  return 1;", "-}", "-"]
+  },
+  {
+    "oldStart": 6,
+    "oldLines": 0,
+    "newStart": 3,
+    "newLines": 4,
+    "lines": ["+}", "+", "+function alpha() {", "+  return 1;"]
+  }
+]

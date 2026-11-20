@@ -1,0 +1,9 @@
+[
+  {
+    "oldStart": 1,
+    "oldLines": 3,
+    "newStart": 1,
+    "newLines": 3,
+    "lines": ["-a = 1", "-b = 2 ", "-c = 3", "+a = 1 ", "+b = 2", "+c = 3\t"]
+  }
+]

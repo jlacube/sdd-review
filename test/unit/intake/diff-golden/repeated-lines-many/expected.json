@@ -1,0 +1,16 @@
+[
+  {
+    "oldStart": 30,
+    "oldLines": 0,
+    "newStart": 31,
+    "newLines": 1,
+    "lines": ["+different"]
+  },
+  {
+    "oldStart": 70,
+    "oldLines": 0,
+    "newStart": 72,
+    "newLines": 1,
+    "lines": ["+other"]
+  }
+]

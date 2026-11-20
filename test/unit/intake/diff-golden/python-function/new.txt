@@ -1,0 +1,6 @@
+def total(items):
+    return sum(items)
+
+
+def mean(items):
+    return total(items) / len(items)

@@ -1,0 +1,9 @@
+[
+  {
+    "oldStart": 3,
+    "oldLines": 0,
+    "newStart": 4,
+    "newLines": 4,
+    "lines": ["+", "+function beta() {", "+  return 2;", "+}"]
+  }
+]

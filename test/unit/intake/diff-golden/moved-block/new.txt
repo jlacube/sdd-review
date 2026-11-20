@@ -1,0 +1,15 @@
+function alpha() {
+  return 1;
+}
+
+function gamma() {
+  return 3;
+}
+
+function delta() {
+  return 4;
+}
+
+function beta() {
+  return 2;
+}

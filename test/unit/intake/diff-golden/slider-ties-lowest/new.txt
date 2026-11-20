@@ -1,0 +1,9 @@
+if (a) {
+  one();
+}
+if (c) {
+  three();
+}
+if (b) {
+  two();
+}

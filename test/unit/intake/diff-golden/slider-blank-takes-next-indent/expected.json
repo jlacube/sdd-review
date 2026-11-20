@@ -1,0 +1,9 @@
+[
+  {
+    "oldStart": 2,
+    "oldLines": 0,
+    "newStart": 3,
+    "newLines": 2,
+    "lines": ["+", "+  z() {}"]
+  }
+]

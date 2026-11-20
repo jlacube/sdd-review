@@ -1,0 +1,5 @@
+export class Cart {
+  add(item: Item) {
+    this.items.push(item);
+  }
+}

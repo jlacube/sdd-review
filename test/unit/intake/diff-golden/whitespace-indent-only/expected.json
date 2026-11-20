@@ -1,0 +1,9 @@
+[
+  {
+    "oldStart": 2,
+    "oldLines": 2,
+    "newStart": 2,
+    "newLines": 2,
+    "lines": ["-  b();", "-  c();", "+\tb();", "+\tc();"]
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "oldStart": 3,
+    "oldLines": 4,
+    "newStart": 2,
+    "newLines": 0,
+    "lines": ["-}", "-", "-function beta() {", "-  return 2;"]
+  },
+  {
+    "oldStart": 15,
+    "oldLines": 0,
+    "newStart": 12,
+    "newLines": 4,
+    "lines": ["+", "+function beta() {", "+  return 2;", "+}"]
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "oldStart": 4,
+    "oldLines": 0,
+    "newStart": 5,
+    "newLines": 3,
+    "lines": ["+  if (c) {", "+    three();", "+  }"]
+  }
+]
