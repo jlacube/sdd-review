@@ -334,6 +334,38 @@ describe('FSEvents backend on recorded events: never silently clean', () => {
     await observer.stop();
   });
 
+  it('the root renamed and renamed back, reported only as a rename of the root, is "observation interrupted" for both parts', async () => {
+    const scope = tree();
+    const api = new FakeFsEvents();
+    const { observer } = await start(scope, api);
+    const run = await observer.beginRun();
+    // Recorded on macOS 15: one event at the root, in the working-tree stream only; no RootChanged.
+    api.queue(0, scope.root, FSE.ItemCreated | FSE.ItemRenamed | FSE.ItemIsDir);
+    expect(await observer.endRun(run)).toEqual({
+      changed: [],
+      incomplete: [
+        {
+          cause: 'observation-interrupted',
+          name: 'observation interrupted',
+          parts: [WHOLE_WT, WHOLE_REPO],
+        },
+      ],
+    });
+    await observer.stop();
+  });
+
+  it('the git directory renamed away and back is "observation interrupted" for the repository part only', async () => {
+    const scope = tree();
+    const api = new FakeFsEvents();
+    const { observer } = await start(scope, api);
+    const run = await observer.beginRun();
+    api.queue(0, scope.gitDir, FSE.ItemRenamed | FSE.ItemIsDir);
+    expect((await observer.endRun(run)).incomplete).toEqual([
+      { cause: 'observation-interrupted', name: 'observation interrupted', parts: [WHOLE_REPO] },
+    ]);
+    await observer.stop();
+  });
+
   it('a root replaced by another directory, without any RootChanged event, is "observation interrupted" at the drain', async () => {
     const scope = tree();
     const api = new FakeFsEvents();

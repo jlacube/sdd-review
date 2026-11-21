@@ -399,6 +399,25 @@ function identityOf(path: string): string | null {
   }
 }
 
+/** `path` is `dir` or lies below it (case-insensitive as a fallback, as in `locate`). */
+function atOrBelow(path: string, dir: string): boolean {
+  for (const [p, d] of [
+    [path, dir],
+    [path.toLowerCase(), dir.toLowerCase()],
+  ] as const) {
+    if (p === d || p.startsWith(d.endsWith(sep) ? d : `${d}${sep}`)) return true;
+  }
+  return false;
+}
+
+/**
+ * The started backends of this process. A directory moved or removed is reported by the stream
+ * that watches its parent, which is not always the stream of the base below it: the git directory
+ * inside the working tree moves with the working-tree root, which only the working-tree stream
+ * sees. Every backend with a base at or below a moved directory is told.
+ */
+const liveBackends = new Set<MacosBackend>();
+
 /** The FSEvents backend of one part, over one or more watch bases. */
 export class MacosBackend implements PartBackend {
   private readonly api: FsEventsApi | null;
@@ -470,6 +489,7 @@ export class MacosBackend implements PartBackend {
       return;
     }
     this.stream = stream;
+    liveBackends.add(this);
     await this.queue.enqueue(async () => {
       // The startup barrier: the replay from `since` ends with HistoryDone.
       const deadline = Date.now() + (this.options.startTimeoutMs ?? 5000);
@@ -515,6 +535,7 @@ export class MacosBackend implements PartBackend {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    liveBackends.delete(this);
     if (this.timer) clearInterval(this.timer);
     await this.queue.idle();
     this.stream?.close();
@@ -569,6 +590,19 @@ export class MacosBackend implements PartBackend {
     stream.pump();
     await this.handleDelivered();
     this.checkRoots();
+  }
+
+  /**
+   * A directory at `path` was moved (renamed away or back) or removed: each base at or below it
+   * was not where it was watched for a while, which FSEvents does not always report with
+   * `RootChanged` (a root renamed and renamed back is reported only as a rename of the root).
+   */
+  private rootMoved(path: string, detail: string): void {
+    for (const state of this.states) {
+      if (state.real === null || state.moved || !atOrBelow(state.real, path)) continue;
+      state.moved = true;
+      this.sink.gap('observation-interrupted', null, `the root ${state.real} was moved: ${detail}`);
+    }
   }
 
   /** A root that is no longer the directory watched from the start interrupts the observation. */
@@ -665,6 +699,13 @@ export class MacosBackend implements PartBackend {
       }
       default:
         break;
+    }
+    if (event.flags & FSE.ItemIsDir && event.flags & (FSE.ItemRenamed | FSE.ItemRemoved)) {
+      let p = event.path;
+      while (p.length > 1 && p.endsWith(sep)) p = p.slice(0, -1);
+      for (const backend of liveBackends) {
+        if (!backend.closed) backend.rootMoved(p, `FSEvents ${flagText}: ${event.path}`);
+      }
     }
     const at = this.locate(event.path);
     if (at === null || at.rel === '') return;
