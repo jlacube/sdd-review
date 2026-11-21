@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-21T12:44:06Z",
+  "generated_at": "2026-11-21T13:05:07Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -306,6 +306,26 @@
           "ref": "C001-IF-006",
           "summary": "IF-006 schema requires paths (minItems 1) on every architecture component, so a neutral file whose components have no path pattern fails validation (ERR-SDD-003, REQ-124) and can never reach ERR-SDD-004 (IF-007 §4 item 4, REQ-223); CAP-02 TS-256 row fx-neutral-nopaths expects ERR-SDD-004 for such a file. T-030 validates against the schema as written (ERR-SDD-003); TS-256 neutral row cannot pass until the spec picks one",
           "reporter": "C001-T-030",
+          "date": "2026-11-21",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-028",
+          "ref": "C001-IF-007",
+          "summary": "IF-007 §6 item 1 does not say what happens when a --sdd-change value names more than one open SDD change (two change folders with the same three-digit number, or an ID equal to another open change's folder number or name); T-031 interim: stops with ERR-SDD-002 listing the open changes rather than guess",
+          "reporter": "C001-T-031",
+          "date": "2026-11-21",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-029",
+          "ref": "C001-TS-304",
+          "summary": "fx-sdd fixture conflict: CAP-03 acceptance states fx-sdd holds four requirements C042-REQ-003 to 006, task C042-T-008 and scenario C042-TS-010, so TS-304 and TS-354 expect 4 intents, but CAP-01 TS-153 asserts fx-sdd holds exactly C042-REQ-003 and C042-REQ-004; one fixture cannot satisfy both. T-031 keeps the 2-requirement fixture; TS-304 and TS-354 fail on the intent count until the spec picks one (and T-044 creates intents)",
+          "reporter": "C001-T-031",
           "date": "2026-11-21",
           "status": "open",
           "resolution": null,
