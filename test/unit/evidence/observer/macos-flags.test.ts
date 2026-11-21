@@ -37,31 +37,39 @@ import { ContextualLog } from '../../../../src/core/log/log.js';
  * Mapping of recorded FSEvents flags to causes (C001-T-018, C001-ADR-006 §9, macOS column):
  * `MustScanSubDirs` (also with `UserDropped` or `KernelDropped`) is "events lost" for the named
  * subtree or the whole part, `RootChanged` is "observation interrupted", the replay barrier and
- * the event-ID window of the drain. No real notification: the stream is scripted; the
+ * the marker barrier of the drain. No real notification: the stream is scripted; the
  * directories walked are real.
  */
 
 class FakeStream implements FsEventsStream {
   /** Batches FSEvents has sent and the run loop has not delivered yet. */
   readonly sent: RawFsEvent[][] = [];
-  /** Events queued in fseventsd that only a flush sends. */
+  /** Events on their way from the file system that only arrive with the next marker. */
   readonly queued: RawFsEvent[] = [];
-  /** When false, a flush sends nothing (FSEvents stopped delivering). */
+  /** When false, nothing arrives any more, the marker neither (FSEvents stopped delivering). */
   delivers = true;
   closed = false;
+  markers = 0;
   constructor(
     readonly paths: readonly string[],
     readonly since: bigint,
     readonly flags: number,
     private readonly deliver: (events: readonly RawFsEvent[]) => void,
+    private readonly nextId: () => bigint,
   ) {}
   pump() {
     while (this.sent.length > 0) this.deliver(this.sent.shift()!);
   }
-  flush() {
-    const last = this.queued.reduce((m, e) => (e.id > m ? e.id : m), 0n);
-    if (this.delivers && this.queued.length > 0) this.sent.push(this.queued.splice(0));
-    return last;
+  mark() {
+    const path = `${MARKER_DIR}${sep}m${++this.markers}`;
+    if (this.delivers) {
+      const marker = { path, flags: FSE.ItemCreated | FSE.ItemRemoved | FILE, id: this.nextId() };
+      this.sent.push([...this.queued.splice(0), marker]);
+    }
+    return { path };
+  }
+  own(path: string) {
+    return path === MARKER_DIR || path.startsWith(`${MARKER_DIR}${sep}`);
   }
   close() {
     this.closed = true;
@@ -86,7 +94,7 @@ class FakeFsEvents implements FsEventsApi {
     deliver: (events: readonly RawFsEvent[]) => void,
   ) {
     if (this.refuse) return this.refuse;
-    const s = new FakeStream(paths, since, flags, deliver);
+    const s = new FakeStream(paths, since, flags, deliver, () => ++this.nextId);
     if (this.historyDone) s.sent.push([{ path: paths[0]!, flags: FSE.HistoryDone, id: 0n }]);
     this.streams.push(s);
     return s;
@@ -100,6 +108,8 @@ class FakeFsEvents implements FsEventsApi {
   }
 }
 
+const MARKER_DIR = join(tmpdir(), 'sddr-fsevents-fake');
+const FILE = FSE.ItemIsFile;
 const dirs: string[] = [];
 afterEach(() => {
   while (dirs.length > 0) rmSync(dirs.pop()!, { recursive: true, force: true });
@@ -141,7 +151,6 @@ async function start(
 
 const WHOLE_WT = { part: 'working-tree', whole: true, count: 0, paths: [] };
 const WHOLE_REPO = { part: 'repository', whole: true, count: 0, paths: [] };
-const FILE = FSE.ItemIsFile;
 
 describe('flag classification (C001-ADR-006 §9, macOS)', () => {
   it('maps drop and rescan flags to "events lost" and RootChanged to "observation interrupted"', () => {
@@ -344,7 +353,7 @@ describe('FSEvents backend on recorded events: never silently clean', () => {
     await observer.stop();
   });
 
-  it('a drain that does not reach the flushed event ID is "events lost" (FSEvents stopped delivering)', async () => {
+  it('a drain whose marker is not delivered is "events lost" (FSEvents stopped delivering)', async () => {
     const scope = tree();
     const api = new FakeFsEvents();
     const { observer } = await start(scope, api, { drainTimeoutMs: 20 });
@@ -354,6 +363,43 @@ describe('FSEvents backend on recorded events: never silently clean', () => {
     const result = await observer.endRun(run);
     expect(result.changed).toEqual([]);
     expect(result.incomplete).toEqual([
+      { cause: 'events-lost', name: 'events lost', parts: [WHOLE_WT] },
+    ]);
+    await observer.stop();
+  });
+
+  it('the drain waits for its marker: events still on their way when it starts are in the run', async () => {
+    const scope = tree();
+    const api = new FakeFsEvents();
+    const { observer } = await start(scope, api);
+    const run = await observer.beginRun();
+    // Nothing has reached the stream yet when the drain starts; the change arrives before the marker.
+    api.queue(0, at(scope, 'src/cart/total.ts'), FSE.ItemModified | FILE);
+    expect(await observer.endRun(run)).toEqual({
+      changed: [{ part: 'working-tree', path: 'src/cart/total.ts' }],
+      incomplete: [],
+    });
+    await observer.stop();
+  });
+
+  it('marker files are never reported; a loss in the marker directory is "events lost" for the part', async () => {
+    const scope = tree();
+    const api = new FakeFsEvents();
+    const { observer } = await start(scope, api);
+    const run = await observer.beginRun();
+    api.streams[0]!.queued.push({
+      path: join(MARKER_DIR, 'm99'),
+      flags: FSE.ItemCreated | FILE,
+      id: ++api.nextId,
+    });
+    expect(await observer.endRun(run)).toEqual({ changed: [], incomplete: [] });
+    const lossy = await observer.beginRun();
+    api.streams[0]!.queued.push({
+      path: MARKER_DIR,
+      flags: FSE.MustScanSubDirs | FSE.UserDropped,
+      id: ++api.nextId,
+    });
+    expect((await observer.endRun(lossy)).incomplete).toEqual([
       { cause: 'events-lost', name: 'events lost', parts: [WHOLE_WT] },
     ]);
     await observer.stop();
