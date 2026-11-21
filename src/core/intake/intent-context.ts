@@ -1,10 +1,18 @@
-import type { IntakeDocument, IntakeSummary, Notice } from '../../generated/analysis-results.js';
+import type {
+  IntakeDocument,
+  IntakeSummary,
+  NamedFile,
+  Notice,
+} from '../../generated/analysis-results.js';
 import type { FileMode, GitAccessPort } from '../git/port.js';
 import type { ContextualLog } from '../log/log.js';
 import { NEUTRAL_FILE, readNeutralFile } from '../intent-sources/neutral-file.js';
 import { NoticeCollector } from '../intent-sources/notices.js';
 import { readSddIntentSources, type SddIntentSources } from '../intent-sources/sdd-workspace.js';
 import type { SourceTree } from '../intent-sources/tree.js';
+import { FileMentions } from '../intent-sources/mentions.js';
+import { planItemsOf } from '../intent-sources/plan-items.js';
+import { recordedRunsOf } from '../intent-sources/transcripts.js';
 import { fail, type ChangeFile } from './change.js';
 import { isReviewError } from '../errors/review-error.js';
 
@@ -109,6 +117,7 @@ export async function readIntakeIntentSources(
     base: baseTree,
     sink,
     neutral,
+    changedPaths: files.map(({ file }) => file.path),
     ...(sddChange !== undefined ? { sddChange } : {}),
   }).catch(stopIntake(log));
   const documented = sdd.architecture.documented;
@@ -124,5 +133,25 @@ export async function readIntakeIntentSources(
       documentedArchitecture: documented?.origin ?? 'none',
     },
     notices: sink.notices,
+  };
+}
+
+/**
+ * The plan items of the named agent plans (C001-IF-007 §8, C001-REQ-314) and the recorded runs of
+ * the named plans and transcripts (§9 item 2, C001-REQ-510), in the order the files were named,
+ * each with the changed files it names (§10). The pull-request text holds neither.
+ */
+export function namedFileSources(
+  namedFiles: readonly NamedFile[],
+  files: readonly ChangeFile[],
+): Pick<IntakeDocument['intentContext'], 'planItems' | 'recordedRuns'> {
+  const mentions = new FileMentions(files.map(({ file }) => file.path));
+  return {
+    planItems: namedFiles
+      .filter((f) => f.role === 'agent-plan')
+      .flatMap((f) => planItemsOf(f, mentions)),
+    recordedRuns: namedFiles
+      .filter((f) => f.role === 'agent-plan' || f.role === 'agent-transcript')
+      .flatMap((f) => recordedRunsOf(f)),
   };
 }

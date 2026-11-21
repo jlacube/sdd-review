@@ -434,6 +434,27 @@ describe('readSddIntentSources: intent context and lines read on both sides', ()
     expect(result.specItemLines.has('CHG-041')).toBe(false);
   });
 
+  it('lists the changed files each task names (§3 row Task, §10 item 2; C001-T-032)', async () => {
+    const files = wellFormed();
+    const read = (changedPaths?: string[]) =>
+      readSddIntentSources({
+        snapshot: treeOf(files),
+        base: treeOf(files),
+        sink: new NoticeCollector(),
+        ...(changedPaths ? { changedPaths } : {}),
+      });
+    const taskOf = (r: Awaited<ReturnType<typeof read>>) =>
+      r.sddChanges[0]!.items.find((i) => i.id === 'C042-T-007')!;
+    const result = await read(['src/cart/total.ts', 'src/other.ts']);
+    expect(taskOf(result).files).toEqual(['src/cart/total.ts']);
+    expect(result.selected!.items.find((i) => i.id === 'C042-T-007')!.files).toEqual([
+      'src/cart/total.ts',
+    ]);
+    // Only tasks name files; without changed files no task names one.
+    expect(result.sddChanges[0]!.items.filter((i) => i.files.length > 0)).toHaveLength(1);
+    expect(taskOf(await read()).files).toEqual([]);
+  });
+
   it('reads the base side by change ID, also when the folder was renamed', async () => {
     const base = wellFormed();
     const snapshot: Record<string, string> = {};

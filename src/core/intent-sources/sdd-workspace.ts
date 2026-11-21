@@ -22,6 +22,7 @@ import {
 } from './text.js';
 import type { NeutralReading } from './neutral-file.js';
 import { selectSddChange } from './select-change.js';
+import { FileMentions } from './mentions.js';
 import { type LinesOnBothSides, type LinesRead, type SourceTree } from './tree.js';
 
 /**
@@ -118,7 +119,7 @@ function specItem(
     text,
     textHash: textHash(text),
     links,
-    // The files a task names are found by the mention rules of §10 (C001-T-032).
+    // The changed files a task names are found by the mention rules of §10 (`withTaskFiles`).
     files: [],
     location: { path, line },
   } as SpecItem;
@@ -493,6 +494,11 @@ export interface ReadSddOptions {
    * SDD change is selected.
    */
   readonly sddChange?: string;
+  /**
+   * The repository-relative paths of the changed files of the snapshot: the files a `.sdd/` task
+   * names are found among them (§3 row Task, §10 item 2).
+   */
+  readonly changedPaths?: readonly string[];
   /** The neutral file of each side, read and validated by `readNeutralFile` (§5). */
   readonly neutral?: {
     readonly snapshot: NeutralReading | null;
@@ -513,6 +519,22 @@ export function pairLines(
     if (!out.has(id)) out.set(id, { snapshot: null, base: lines });
   }
   return out;
+}
+
+/**
+ * The `.sdd/` changes with the changed files each task names in its text (§3 row Task, §10 item
+ * 2; link signal "task names the file"). The tasks of the neutral file keep the files it lists.
+ */
+function withTaskFiles(
+  changes: readonly WorkspaceChange[],
+  mentions: FileMentions,
+): WorkspaceChange[] {
+  return changes.map((change) => ({
+    ...change,
+    items: change.items.map((item) =>
+      item.kind === 'task' ? { ...item, files: mentions.names(item.text) } : item,
+    ),
+  }));
 }
 
 const NEUTRAL_PREFIX = 'neutral:';
@@ -559,8 +581,9 @@ export async function readSddIntentSources(options: ReadSddOptions): Promise<Sdd
   const neutralBefore = options.neutral?.base ?? null;
   const snapshot = await readSddWorkspace(options.snapshot, options.sink);
   const base = await readSddWorkspace(options.base, null);
-  const changes = withNeutral(snapshot.changes, neutralNow);
-  const baseChanges = withNeutral(base.changes, neutralBefore);
+  const mentions = new FileMentions(options.changedPaths ?? []);
+  const changes = withNeutral(withTaskFiles(snapshot.changes, mentions), neutralNow);
+  const baseChanges = withNeutral(withTaskFiles(base.changes, mentions), neutralBefore);
   // The base side reads the SDD change with the same ID from the same source.
   const baseOf = (change: WorkspaceChange) =>
     baseChanges.find((c) => c.origin === change.origin && sourceId(c) === sourceId(change)) ?? null;
