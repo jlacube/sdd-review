@@ -150,6 +150,7 @@ describe('the gateway with the egress policy', () => {
         code: 'ERR-MODEL-001',
         message:
           'Model provider "stub" was not used: its endpoint "llm.loopback.test" is not on this machine and the cloud opt-in setting is missing. 5 items were produced in model-free mode.',
+        count: 5,
       },
     ]);
     expect(connect).not.toHaveBeenCalled();
@@ -207,6 +208,7 @@ describe('the gateway with the egress policy', () => {
         code: 'ERR-MODEL-002',
         message:
           'Model provider "stub" was not used for 3 items on model-excluded paths; they were produced in model-free mode.',
+        count: 3,
       },
     ]);
   });

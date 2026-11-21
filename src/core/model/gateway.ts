@@ -12,14 +12,25 @@ import {
   type EffectiveProvider,
   type EffectiveSettings,
 } from '../config/effective.js';
-import { lookupError } from '../errors/catalogue.js';
-import { fillMessage } from '../errors/review-error.js';
 import type { ContextualLog } from '../log/log.js';
 import { CloudUseAnnouncer } from './announce.js';
+import { batchesFor, firstLinesOf, ordered, withTimeout, type Batch } from './batching.js';
 import { excludeModelPaths, excludedCount, type ExcludedItems, type Exclusion } from './egress.js';
+import {
+  failureNotice,
+  keyNotFound,
+  mergeModelNotices,
+  modelFree,
+  modelNotice,
+  renderNotice,
+  unusableOutput,
+  type ModelNotice,
+} from './failures.js';
 import type { KeyLookup } from './keys/key-source.js';
-import { reducedLabels, type ModelFreeCause, type ModelTask } from './labels.js';
+import type { ModelFreeCause, ModelTask } from './labels.js';
 import { classifyEndpoint } from './locality.js';
+import { markItems, modelOutputMarker, type MarkedItem } from './marker.js';
+import { validateOutput } from './validate.js';
 
 /**
  * The model gateway (C001-COMP-015, C001-IF-010 §1): the single egress to model providers
@@ -43,8 +54,14 @@ import { classifyEndpoint } from './locality.js';
  * - `keys` (C001-T-086, `keys/key-source.ts`): the key lookup of §7, run when a request is
  *   prepared, never cached and never logged (C001-CON-21). Without it no key is found. A required
  *   key that is not found sends no request (ERR-MODEL-006).
- * - `validate` (C001-T-089): C001-IF-011 and the ID checks; batching, the provider timeout, the
- *   marker and the failure mapping of §7 are refined there.
+ * - `validate` (C001-T-089, `validate.ts`): C001-IF-011 and the ID checks. Without it the gateway
+ *   uses `validateOutput`; a test may pass its own.
+ *
+ * The rest of C001-T-089 is not a seam: batching and the provider timeout of §3 (`batching.ts`),
+ * the marker of accepted output with confidence low (`marker.ts`) and the failure fallback of §7,
+ * one notice code per cause and model-free items (`failures.ts`). The gateway holds no review
+ * store, so a request, failed or not, never changes verdicts, read marks or hunk moves
+ * (C001-REQ-818).
  *
  * §6 check 4, the model-excluded paths (C001-REQ-814, C001-REQ-815), is not a seam: the gateway
  * runs it before every request (`egress.ts › excludeModelPaths`), and the input that leaves holds
@@ -64,6 +81,11 @@ export interface ModelHunk {
    * Matched against the model-excluded paths with `path` (C001-REQ-814: both paths); never sent.
    */
   readonly basePath?: string | null;
+  /**
+   * The first changed line of the hunk, when known: with `path`, the order in which hunks are
+   * split into batches (§3 item 3). Never sent.
+   */
+  readonly firstLine?: number | null;
   /** The changed lines with up to 3 lines of context on each side, as unified-diff text. */
   readonly text: string;
 }
@@ -133,19 +155,40 @@ export function itemCount<T extends ModelTask>(task: T, input: TaskInputs[T]): n
   }
 }
 
-/** Accepted model output, marked (C001-REQ-810, C001-REQ-811). */
+/**
+ * Accepted model output, marked (C001-REQ-810, C001-REQ-811). When the request was split into
+ * batches (§3 item 3), `output` merges the accepted batches in batch order and `failed` names the
+ * items of the batches that failed, which the caller produces in model-free mode.
+ */
 export interface AcceptedResult<T extends ModelTask> {
   readonly status: 'accepted';
   readonly task: T;
   readonly output: TaskOutputs[T];
   readonly labels: Labels & { readonly modelOutput: ModelOutputMarker };
-  /** ERR-MODEL-002 when items of the request lay on model-excluded paths. */
+  /** Each item of `output` with its mark and the confidence level low. */
+  readonly marked: ReadonlyArray<MarkedItem<T>>;
+  /**
+   * ERR-MODEL-002 when items of the request lay on model-excluded paths, and the notice of each
+   * cause of a failed batch (C001-REQ-817), one per code.
+   */
   readonly notices: readonly Notice[];
+  /** The notices of `notices` with their parameters, to merge per review (`mergeModelNotices`). */
+  readonly reports: readonly ModelNotice[];
   /**
    * The items removed from the request as lying on model-excluded paths (§6 check 4), when any:
    * the caller produces them in model-free mode, labelled reduced (C001-REQ-815).
    */
   readonly excluded?: ExcludedItems;
+  /** The items of failed batches, when any, to be produced in model-free mode, labelled reduced. */
+  readonly failed?: FailedItems;
+}
+
+/** The items of the failed batches of a request (§3 item 3: a failure affects only its items). */
+export interface FailedItems {
+  /** The number of items produced in model-free mode (`<n>` of their notices). */
+  readonly items: number;
+  readonly hunkIds: readonly string[];
+  readonly componentNames: readonly string[];
 }
 
 /** The items of the request, to be produced without a model, labelled reduced. */
@@ -157,6 +200,8 @@ export interface ModelFreeResult<T extends ModelTask> {
   readonly labels: Labels & { readonly reduced: string[] };
   /** The notice of the cause, when the catalogue has one (C001-REQ-817). */
   readonly notices: readonly Notice[];
+  /** The model notices of `notices` with their parameters, to merge per review. */
+  readonly reports: readonly ModelNotice[];
   /** The number of items produced in model-free mode. */
   readonly items: number;
   /** The items that lay on model-excluded paths (§6 check 4), when any. */
@@ -273,19 +318,6 @@ export const MODEL_FREE_STATUS: ProviderStatus = {
   contentSentOffMachine: false,
 };
 
-/** A placeholder that holds placeholders: a choice of wording, filled whole from `location`. */
-const NESTED_PLACEHOLDER = /<[^<>]*<[^>]*>[^<>]*(?:<[^>]*>[^<>]*)*>/;
-
-function notice(code: string, params: Readonly<Record<string, unknown>>): Notice {
-  let template = lookupError(code).message;
-  // ERR-MODEL-006: `<environment variable "<keyEnv>" or credential-store entry "<service>/<account>">`
-  // names the sources the lookup tried (KeyLookup.location).
-  if (typeof params.location === 'string') {
-    template = template.replace(NESTED_PLACEHOLDER, () => params.location as string);
-  }
-  return { code, message: fillMessage(template, params) };
-}
-
 /** The configuration loader's notice of an unreadable configuration (ERR-CFG-001, ERR-CFG-004). */
 function unreadableNotices(configuration: EffectiveConfiguration): Notice[] {
   if (configuration.readable) return [];
@@ -347,10 +379,21 @@ export class ModelGateway {
     return decideModelUse(await this.deps.configuration(), this.deps);
   }
 
-  /** The provider status of the session (C001-IF-002 `ProviderStatus`). */
+  /**
+   * The provider status of the session (C001-IF-002 `ProviderStatus`). A provider whose required
+   * key none of the lookups finds is sent nothing (ERR-MODEL-006, C001-REQ-816), so the review
+   * runs in model-free mode (C001-TS-853); the key itself is dropped at once (C001-CON-21).
+   */
   async status(): Promise<ProviderStatus> {
     try {
-      return providerStatusOf(await this.decide());
+      const decision = await this.decide();
+      if (decision.use && this.deps.keys) {
+        const found = await this.deps.keys(decision.provider);
+        if (typeof found === 'object' && found !== null && found.required && found.key === null) {
+          return MODEL_FREE_STATUS;
+        }
+      }
+      return providerStatusOf(decision);
     } catch {
       return MODEL_FREE_STATUS;
     }
@@ -373,11 +416,11 @@ export class ModelGateway {
     }
     if (!decision.use) {
       const { refusal, provider } = decision;
-      const notices = [...decision.notices];
+      const reports: ModelNotice[] = [];
       if (refusal && provider) {
-        notices.push(notice(refusal.code, { ...refusal.params, name: provider.name, n: items }));
+        reports.push(modelNotice(refusal.code, provider.name, items, refusal.params));
       }
-      return modelFree(task, decision.cause, notices, items);
+      return modelFree(task, decision.cause, reports, items, decision.notices);
     }
     return this.send(task, input, decision, items);
   }
@@ -404,26 +447,29 @@ export class ModelGateway {
     }
     const excluded = exclusion.excluded;
     const excludedItems = excludedCount(excluded);
-    const excludedNotices: Notice[] = [];
+    const excludedReports: ModelNotice[] = [];
     if (excludedItems > 0) {
-      const params = { name: provider.name, n: String(excludedItems) };
+      const report = modelNotice('ERR-MODEL-002', provider.name, excludedItems);
       this.deps.log?.record('ERR-MODEL-002', {
         operation: OPERATION,
         inputs: { ...inputs, hunkIds: excluded.hunkIds, namedFiles: excluded.namedFiles },
-        params,
+        params: { name: provider.name, n: String(excludedItems) },
         cause: 'content on model-excluded paths',
       });
-      excludedNotices.push(notice('ERR-MODEL-002', params));
+      excludedReports.push(report);
     }
     if (!exclusion.send) {
-      return { ...modelFree(task, 'model-excluded-path', excludedNotices, givenItems), excluded };
+      return { ...modelFree(task, 'model-excluded-path', excludedReports, givenItems), excluded };
     }
-    const input = exclusion.input;
+    // §3 item 3: what is sent, with its hunks in path order, then first changed line.
+    const input = ordered(task, exclusion.input, firstLinesOf(task, given));
     const items = itemCount(task, input);
-    const withExcluded = <R extends TaskResult<T>>(result: R): R =>
-      excludedItems > 0
-        ? { ...result, notices: [...excludedNotices, ...result.notices], excluded }
-        : result;
+    const withExcluded = <R extends TaskResult<T>>(result: R): R => {
+      if (excludedItems === 0) return result;
+      const reports = mergeModelNotices([...excludedReports, ...result.reports]);
+      const others = result.notices.filter((n) => !n.code.startsWith('ERR-MODEL-'));
+      return { ...result, notices: [...others, ...reports.map(renderNotice)], reports, excluded };
+    };
 
     try {
       // Read at each request preparation, held only for this request (§7, C001-CON-21).
@@ -432,12 +478,16 @@ export class ModelGateway {
       const key: string | null = lookup ? lookup.key : typeof found === 'string' ? found : null;
       if (key === null && lookup?.required) {
         // A required key that none of the lookups finds: no request is sent (ERR-MODEL-006).
-        const failure: ProviderFailure = {
-          code: 'ERR-MODEL-006',
-          params: { location: lookup.location },
-          cause: lookup.cause,
-        };
-        return withExcluded(this.failed(task, provider, failure, items));
+        const failure = keyNotFound(lookup);
+        this.logFailure(task, provider, failure, items);
+        return withExcluded(
+          modelFree(
+            task,
+            'provider-failure',
+            [failureNotice(provider.name, failure, items)],
+            items,
+          ),
+        );
       }
       if (decision.locality === 'cloud') {
         // §6 check 5: the cloud-use event, before the first request of the process (C001-REQ-808).
@@ -446,37 +496,15 @@ export class ModelGateway {
           (error) => this.deps.log?.recordError(error, OPERATION, inputs),
         );
       }
-      const answer = await adapter.send({
+      const request = {
         provider,
         task,
-        input,
         key,
         timeoutSeconds: settings.timeoutSeconds,
         maxRequestBytes: settings.maxRequestBytes,
-      });
-      if (!answer.ok) return withExcluded(this.failed(task, provider, answer.failure, items));
-      const check = this.deps.validate?.(task, answer.output, input) ?? { ok: true };
-      if (!check.ok) {
-        const failure: ProviderFailure = {
-          code: 'ERR-MODEL-005',
-          params: { reason: check.reason },
-          cause: check.reason,
-        };
-        return withExcluded(this.failed(task, provider, failure, items));
-      }
-      return withExcluded<AcceptedResult<T>>({
-        status: 'accepted',
-        task,
-        output: answer.output as TaskOutputs[T],
-        labels: {
-          modelOutput: {
-            provider: provider.name,
-            model: answer.model ?? provider.model,
-            confidence: 'low',
-          },
-        },
-        notices: [],
-      });
+      };
+      const batches = batchesFor(request, input);
+      return withExcluded(await this.sendBatches(adapter, request, batches, items));
     } catch (error) {
       // An adapter or key lookup that throws is a defect of the review assistant, not of the
       // provider: logged as an internal error; the items are still produced without a model.
@@ -485,35 +513,125 @@ export class ModelGateway {
     }
   }
 
-  private failed<T extends ModelTask>(
-    task: T,
+  /**
+   * Sends the batches of one request one after the other, each once (§3 items 3 and 4), and
+   * validates each answer against the batch it answers. A task whose output is one item (the
+   * intent list of intent extraction, the account of one intent) is model-free as soon as one of
+   * its batches fails, and sends no further batch; the other tasks keep the output of the batches
+   * that succeeded, and the items of the failed ones are produced in model-free mode.
+   */
+  private async sendBatches<T extends ModelTask>(
+    adapter: ProviderAdapter,
+    request: Omit<AdapterRequest<T>, 'input'>,
+    batches: ReadonlyArray<Batch<T>>,
+    items: number,
+  ): Promise<TaskResult<T>> {
+    const { provider, task } = request;
+    const validate = this.deps.validate ?? validateOutput;
+    const single = task === 'intent-extraction' || task === 'walkthrough-account';
+    const accepted: Array<{ output: TaskOutputs[T]; model: string | null }> = [];
+    const reports: ModelNotice[] = [];
+    const failedHunks: string[] = [];
+    const failedComponents: string[] = [];
+    let failedItems = 0;
+
+    for (const batch of batches) {
+      const batchItems = single ? items : itemCount(task, batch.input);
+      const answer = await withTimeout(
+        adapter.send({ ...request, input: batch.input } as AdapterRequest),
+        request.timeoutSeconds,
+      );
+      let failure: ProviderFailure | null = null;
+      if (!answer.ok) {
+        failure = answer.failure;
+      } else {
+        const check = validate(task, answer.output, batch.input);
+        if (check.ok) {
+          accepted.push({ output: answer.output as TaskOutputs[T], model: answer.model });
+        } else {
+          failure = unusableOutput(check.reason);
+        }
+      }
+      if (failure === null) continue;
+      this.logFailure(task, provider, failure, batchItems);
+      reports.push(failureNotice(provider.name, failure, batchItems));
+      if (single) return modelFree(task, 'provider-failure', reports, items);
+      failedItems += batchItems;
+      failedHunks.push(...batch.hunkIds);
+      for (const name of batch.componentNames) {
+        if (!failedComponents.includes(name)) failedComponents.push(name);
+      }
+    }
+    if (accepted.length === 0) return modelFree(task, 'provider-failure', reports, items);
+
+    const output = mergeOutputs(
+      task,
+      accepted.map((a) => a.output),
+    );
+    const marker = modelOutputMarker(provider, accepted[0]!.model);
+    const merged = mergeModelNotices(reports);
+    const failed: FailedItems | null =
+      failedItems > 0
+        ? { items: failedItems, hunkIds: failedHunks, componentNames: failedComponents }
+        : null;
+    return {
+      status: 'accepted',
+      task,
+      output,
+      labels: { modelOutput: marker },
+      marked: markItems(task, output, marker),
+      notices: merged.map(renderNotice),
+      reports: merged,
+      ...(failed ? { failed } : {}),
+    };
+  }
+
+  /** The log entry of a failed request (NFR-D-04): code, provider, task, cause; never a body. */
+  private logFailure(
+    task: ModelTask,
     provider: EffectiveProvider,
     failure: ProviderFailure,
     items: number,
-  ): ModelFreeResult<T> {
-    const params = { ...failure.params, name: provider.name, n: String(items) };
+  ): void {
     this.deps.log?.record(failure.code, {
       operation: OPERATION,
       inputs: { provider: provider.name, api: provider.api, task },
-      params,
+      params: { ...failure.params, name: provider.name, n: String(items) },
       cause: failure.cause,
     });
-    return modelFree(task, 'provider-failure', [notice(failure.code, params)], items);
   }
 }
 
-function modelFree<T extends ModelTask>(
+/** The output of a request from the outputs of its accepted batches, in batch order. */
+function mergeOutputs<T extends ModelTask>(
   task: T,
-  cause: ModelFreeCause,
-  notices: readonly Notice[],
-  items: number,
-): ModelFreeResult<T> {
-  return {
-    status: 'model-free',
-    task,
-    cause,
-    labels: reducedLabels(task) as Labels & { reduced: string[] },
-    notices,
-    items,
-  };
+  outputs: ReadonlyArray<TaskOutputs[T]>,
+): TaskOutputs[T] {
+  if (outputs.length === 1) return outputs[0]!;
+  switch (task) {
+    case 'intent-extraction':
+      return {
+        task,
+        intents: outputs.flatMap((o) => (o as TaskOutputs['intent-extraction']).intents),
+      } as unknown as TaskOutputs[T];
+    case 'hunk-linking':
+      return {
+        task,
+        links: outputs.flatMap((o) => (o as TaskOutputs['hunk-linking']).links),
+      } as unknown as TaskOutputs[T];
+    case 'design-critique':
+      return {
+        task,
+        findings: outputs.flatMap((o) => (o as TaskOutputs['design-critique']).findings),
+      } as unknown as TaskOutputs[T];
+    default: {
+      // The account of one intent written in parts, one per batch, in intent order.
+      const accounts = outputs as ReadonlyArray<TaskOutputs['walkthrough-account']>;
+      return {
+        task,
+        intentId: accounts[0]!.intentId,
+        account: accounts.map((a) => a.account).join('\n\n'),
+      } as unknown as TaskOutputs[T];
+    }
+  }
 }

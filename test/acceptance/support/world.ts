@@ -110,6 +110,34 @@ export class AcceptanceWorld extends World {
   }
 
   /**
+   * Runs the built CLI like `cli`, without blocking this process, so that a stub provider of the
+   * scenario can answer the model requests the CLI makes while it runs (C001-T-089).
+   */
+  cliAsync(args: string[], cwd = this.repo?.dir): Promise<CliResult> {
+    return new Promise((resolveRun, reject) => {
+      const child = spawn(process.execPath, ['--import', LISTEN_SPY, CLI, ...args], {
+        cwd,
+        env: this.cliEnv(),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString('utf8')));
+      child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
+      const timer = setTimeout(() => child.kill('SIGKILL'), 110_000);
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.on('close', (status, signal) => {
+        clearTimeout(timer);
+        this.lastRun = { status, stdout, stderr, signal };
+        resolveRun(this.lastRun);
+      });
+    });
+  }
+
+  /**
    * Runs the built CLI and interrupts it (SIGINT, the signal of Ctrl+C) as soon as it has printed
    * its first line of progress, that is, once it is running and before it can have ended. On
    * Windows Node cannot deliver SIGINT to a handler, so `interrupt-hook.mjs` raises the signal

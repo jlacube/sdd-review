@@ -32,6 +32,10 @@ export type ScriptedAnswer = (
 export class StubLlm {
   readonly requests: RecordedRequest[] = [];
   private readonly script: ScriptedAnswer[] = [];
+  /** Answers queued for the requests of one task (`enqueueFor`), before the common queue. */
+  private readonly byTask = new Map<string, ScriptedAnswer[]>();
+  /** The answer to every request that no queue answers (C001-TS-854: every request fails). */
+  always: ScriptedAnswer | undefined;
   private server: Server | undefined;
   private readonly open = new Set<ServerResponse>();
   /**
@@ -43,10 +47,27 @@ export class StubLlm {
   /** The loopback address `start` listens on (C001-TS-816: 127.255.255.254, ::1). */
   private host = '127.0.0.1';
 
-  /** Queues the answer for the next request; with an empty queue the answer is `{}`. */
+  /**
+   * Queues the answer for the next request. With every queue empty and no `always` answer, the
+   * answer is the empty output of the request's task (no intent, link or finding; the account
+   * "Stub account." of the intent sent), or `{}` when the task is not known.
+   */
   enqueue(answer: ScriptedAnswer): this {
     this.script.push(answer);
     return this;
+  }
+
+  /** Queues the answer for the next request of `task` (C001-IF-010 §2), e.g. `design-critique`. */
+  enqueueFor(task: string, answer: ScriptedAnswer): this {
+    const queue = this.byTask.get(task) ?? [];
+    queue.push(answer);
+    this.byTask.set(task, queue);
+    return this;
+  }
+
+  /** The recorded requests of `task`. */
+  requestsFor(task: string): RecordedRequest[] {
+    return this.requests.filter((r) => taskOfBody(r.body) === task);
   }
 
   async start(port = 0, host = '127.0.0.1'): Promise<string> {
@@ -102,7 +123,10 @@ export class StubLlm {
     this.requests.push(recorded);
     await this.onRequest?.(recorded);
 
-    const answer = this.script.shift() ?? { output: {} };
+    const task = taskOfBody(body);
+    const answer = (task !== null ? this.byTask.get(task)?.shift() : undefined) ??
+      this.script.shift() ??
+      this.always ?? { output: emptyOutput(task, body) };
     if ('hang' in answer) {
       this.open.add(res);
       return;
@@ -155,5 +179,45 @@ export class StubLlm {
       res.writeHead(404);
       res.end('{}');
     }
+  }
+}
+
+/** The task of a request body, from its system instruction (C001-IF-010 §3 item 1). */
+export function taskOfBody(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const b = body as { system?: unknown; messages?: Array<{ role?: string; content?: unknown }> };
+  const system =
+    typeof b.system === 'string' ? b.system : b.messages?.find((m) => m.role === 'system')?.content;
+  return typeof system === 'string' ? (/Task "([a-z-]+)"/.exec(system)?.[1] ?? null) : null;
+}
+
+/** The input a request sends: its one user message, parsed (C001-IF-010 §3 item 2). */
+export function inputOfBody(body: unknown): Record<string, unknown> | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const messages = (body as { messages?: Array<{ role?: string; content?: unknown }> }).messages;
+  const content = messages?.find((m) => m.role === 'user')?.content;
+  if (typeof content !== 'string') return null;
+  try {
+    return JSON.parse(content) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** A valid output of `task` (C001-IF-011) that adds nothing. */
+function emptyOutput(task: string | null, body: unknown): unknown {
+  switch (task) {
+    case 'intent-extraction':
+      return { task, intents: [] };
+    case 'hunk-linking':
+      return { task, links: [] };
+    case 'design-critique':
+      return { task, findings: [] };
+    case 'walkthrough-account': {
+      const intent = inputOfBody(body)?.intent as { intentId?: unknown } | undefined;
+      return { task, intentId: intent?.intentId, account: 'Stub account.' };
+    }
+    default:
+      return {};
   }
 }

@@ -279,6 +279,7 @@ describe('the gateway with the key source (ERR-MODEL-006, C001-CON-21)', () => {
           code: 'ERR-MODEL-006',
           message:
             'Model provider "team-model" was not used: no key found in environment variable "TEAM_LLM_KEY" or credential-store entry "sdd-review/team-model". 1 items were produced in model-free mode.',
+          count: 1,
         },
       ]);
       const entry = JSON.parse(log().trim()) as { code: string; cause: string; inputs: object };

@@ -144,20 +144,24 @@ Given(
   },
 );
 
-/** Starts a review of the working-tree change headless: intake, the jobs, the results written. */
-function startReview(world: AcceptanceWorld): void {
+/**
+ * Starts a review of the working-tree change headless: intake, the jobs, the results written. The
+ * CLI runs as a process that does not block this one, so that the stubs of this process can answer
+ * the model requests it makes (C001-T-089).
+ */
+async function startReview(world: AcceptanceWorld): Promise<void> {
   const out = join(world.tempDir('sddout-'), 'results');
-  world.cli(['analyse', '--headless', '--out', out]);
+  await world.cliAsync(['analyse', '--headless', '--out', out]);
   assert.equal(world.lastRun?.status, 0, world.lastRun?.stderr);
   world.headless = new HeadlessOutput(out);
 }
 
-When('the developer starts a review of the change', function (this: AcceptanceWorld) {
-  startReview(this);
+When('the developer starts a review of the change', async function (this: AcceptanceWorld) {
+  await startReview(this);
 });
 
-When('the analysis of the snapshot completes', function (this: AcceptanceWorld) {
-  startReview(this);
+When('the analysis of the snapshot completes', async function (this: AcceptanceWorld) {
+  await startReview(this);
 });
 
 Then('the local stub receives no request', function (this: AcceptanceWorld) {

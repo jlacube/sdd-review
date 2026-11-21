@@ -1,5 +1,11 @@
 import { request as httpRequest, type ClientRequest, type IncomingMessage } from 'node:http';
 import { request as httpsRequest, type RequestOptions } from 'node:https';
+import {
+  statusFailure as statusFailureOf,
+  timedOut,
+  unreachable,
+  unusableOutput,
+} from '../failures.js';
 import type { AdapterAnswer, ProviderFailure } from '../gateway.js';
 
 /**
@@ -97,25 +103,19 @@ export function connectionCause(error: NodeJS.ErrnoException): string {
   return `connection failed (${code || error.name})`;
 }
 
-const failure = (
-  code: ProviderFailure['code'],
-  params: Record<string, string>,
-  cause: string,
-): { ok: false; failure: ProviderFailure } => ({ ok: false, failure: { code, params, cause } });
+const failed = (f: ProviderFailure): { ok: false; failure: ProviderFailure } => ({
+  ok: false,
+  failure: f,
+});
 
-/** The failure of a status other than 200 (§7); the answer body is not read. */
+/** The failure of a status other than 200 (§7, `failures.ts`); the answer body is not read. */
 export function statusFailure(status: number): { ok: false; failure: ProviderFailure } {
-  const params = { status: String(status) };
-  const cause = `HTTP ${status}`;
-  if (status === 401 || status === 403) return failure('ERR-MODEL-007', params, cause);
-  if (status === 429) return failure('ERR-MODEL-008', params, cause);
-  if (status >= 500 && status <= 599) return failure('ERR-MODEL-009', params, cause);
-  return failure('ERR-MODEL-010', params, cause);
+  return failed(statusFailureOf(status));
 }
 
 /** ERR-MODEL-005: an HTTP 200 answer that the adapter cannot use (§4, §5). */
 export function unusable(reason: string): { ok: false; failure: ProviderFailure } {
-  return failure('ERR-MODEL-005', { reason }, reason);
+  return failed(unusableOutput(reason));
 }
 
 /**
@@ -127,9 +127,8 @@ export function postJson(req: PostRequest): Promise<PostOutcome> {
   return new Promise<PostOutcome>((resolve) => {
     let settled = false;
     let current: ClientRequest | undefined;
-    const seconds = String(req.timeoutSeconds);
     const timer = setTimeout(() => {
-      finish(failure('ERR-MODEL-004', { s: seconds }, `no complete answer within ${seconds} s`));
+      finish(failed(timedOut(req.timeoutSeconds)));
     }, req.timeoutSeconds * 1000);
 
     function finish(outcome: PostOutcome): void {
@@ -172,7 +171,7 @@ export function postJson(req: PostRequest): Promise<PostOutcome> {
           onRefused();
           return;
         }
-        finish(failure('ERR-MODEL-003', { cause: connectionCause(error) }, connectionCause(error)));
+        finish(failed(unreachable(connectionCause(error))));
       });
       r.end(req.body);
     };

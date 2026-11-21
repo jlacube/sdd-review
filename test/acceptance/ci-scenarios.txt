@@ -15,6 +15,9 @@
 #   C001-TS-816, 848, 837, 849, 812, 813, 825, 826, 858, 862  no model request is made before the model tasks (C001-T-090)
 #   C001-TS-822, 823, 835, 838, 850  also need the cloud stub reachable by its host name (C001-T-095)
 #   C001-TS-839, 840, 851  need the intent map's orphan code and links (C001-T-044, C001-T-090)
+#   C001-TS-841, 842, 843, 852, 844, 854, 855, 845  no model request is made before the model tasks (C001-T-090);
+#                844's cloud rows also need the cloud stub reachable by its host name (C001-T-095)
+#   C001-TS-829  needs the deterministic account (C001-T-046) and the model tasks (C001-T-090)
 #   C001-TS-131  its first example has a root commit as base, whose subject the port cannot read: defect D-016
 #   C001-TS-136, 137  open a hunk in the review UI: the hunk view (C001-T-056), defect D-030
 #   C001-TS-150  asks for the decision status: the status command (C001-T-082), defect D-030
@@ -120,3 +123,9 @@ C001-TS-139
 C001-TS-140
 C001-TS-177
 C001-TS-188
+C001-TS-828
+C001-TS-830
+C001-TS-831
+C001-TS-846
+C001-TS-847
+C001-TS-853

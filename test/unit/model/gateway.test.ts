@@ -340,6 +340,7 @@ describe('ModelGateway.runTask', () => {
         code: 'ERR-MODEL-009',
         message:
           'Model provider "local-stub" failed with a server error (HTTP 503). 1 items were produced in model-free mode.',
+        count: 1,
       },
     ]);
     expect(record).toHaveBeenCalledWith(
