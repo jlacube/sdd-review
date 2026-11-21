@@ -1,0 +1,46 @@
+{
+  "schema": "sdd-review-benchmark-environment/1",
+  "benchId": "bench-py",
+  "ecosystem": "python",
+  "repository": "faker",
+  "workingTreeInstall": {
+    "description": "A virtual environment .venv/ in the working tree (excluded by the repository's .gitignore) holds the third-party test dependencies only. Faker itself is NOT installed in it: neither as a regular copy (no `pip install .`) nor in editable mode (no `pip install -e .`).",
+    "workingDirectory": ".",
+    "commands": [
+      "python -m venv .venv",
+      ".venv/bin/python -m pip install tzdata freezegun \"pytest>=6.0.1\" \"python-stdnum>=1.20\" \"ukpostcodeparser>=1.1.1\" \"validators>=0.13.0\" pillow xmltodict   (Windows: .venv\\Scripts\\python.exe)"
+    ],
+    "ignoredPaths": [".venv/"],
+    "projectItselfInstalled": "no: `pip list` of the virtual environment holds no faker distribution, and `import faker` fails outside the repository root"
+  },
+  "evidenceWorkspace": {
+    "description": "The virtual environment stays where it is (C001-ADR-006 table, Python row): third-party distributions come from the environment the developer's environment selects. The project loads from the evidence workspace because the test command is `python -m pytest`, which puts the current directory (the workspace root) first on sys.path, and faker/ is a package at the repository root (flat layout). The project's pytest plugin (the `pytest11` entry point of an installed Faker) is loaded explicitly with `-p faker.contrib.pytest.plugin`, so no installation is needed.",
+    "ignoredPathsMadeAvailable": [
+      {
+        "path": ".venv/",
+        "means": "stays in the working tree and is selected through the active environment (VIRTUAL_ENV, PATH); not copied"
+      }
+    ],
+    "preparationCommands": []
+  },
+  "activeEnvironment": {
+    "description": "The virtual environment <checkout>/.venv is active, as after `source .venv/bin/activate` (Windows: `.venv\\Scripts\\Activate.ps1`): VIRTUAL_ENV is the .venv path and its bin directory (Windows: Scripts) is first on PATH, so `python` is the venv interpreter. The review is started from this shell in the repository root.",
+    "workingDirectory": ".",
+    "virtualEnvironment": ".venv",
+    "variables": {
+      "set": {
+        "VIRTUAL_ENV": "<checkout>/.venv",
+        "PATH": "<checkout>/.venv/bin (Windows: .venv\\Scripts) first"
+      },
+      "mustBeUnset": ["PYTHONPATH", "PYTHONHOME", "PYTEST_ADDOPTS", "PYTEST_PLUGINS"]
+    },
+    "toolVersions": { "python": "3.13.9", "pytest": "9.2.0" }
+  },
+  "testCommand": "python -m pytest -q -p no:cacheprovider -p faker.contrib.pytest.plugin --deselect tests/pytest/test_unique_clear.py::test_unique_clears",
+  "testCommandNotes": "tests/pytest/test_unique_clear.py::test_unique_clears starts an inner pytest session (pytester) that needs the faker pytest plugin registered by an installed distribution; it cannot pass without installing the project, which the environment forbids, so it is deselected (1 test; all others pass). The project's tox runs a second invocation (`--exclusive-faker-session tests/pytest/session_overrides`); it is not part of the test command.",
+  "isolationRules": {
+    "projectInstalledEditableFromWorkingTree": false,
+    "projectInstalledAsCopy": false,
+    "workingTreePathOnImportPath": false
+  }
+}

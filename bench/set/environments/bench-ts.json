@@ -1,0 +1,39 @@
+{
+  "schema": "sdd-review-benchmark-environment/1",
+  "benchId": "bench-ts",
+  "ecosystem": "typescript",
+  "repository": "class-validator",
+  "workingTreeInstall": {
+    "description": "Dependencies are installed with npm from the committed package-lock.json into node_modules/ of the working tree, as a developer has them. The repository's .gitignore excludes node_modules/.",
+    "workingDirectory": ".",
+    "commands": ["npm ci"],
+    "ignoredPaths": ["node_modules/"],
+    "projectItselfInstalled": "no: class-validator is the project under test, not a dependency of itself; no npm link, no file: or link: dependency and no workspace link in node_modules/"
+  },
+  "evidenceWorkspace": {
+    "description": "node_modules/ is copied into each evidence workspace (C001-ADR-006 table, TypeScript/JavaScript row, item 3.1). The tests import the project from src/ through ts-jest with relative paths, so every project file loads from the workspace.",
+    "ignoredPathsMadeAvailable": [
+      {
+        "path": "node_modules/",
+        "means": "copied (node_modules/.cache/ left out, per C001-ADR-006)"
+      }
+    ],
+    "preparationCommands": []
+  },
+  "activeEnvironment": {
+    "description": "Any shell with Node.js >= 22 on PATH, started in the repository root; nothing is activated.",
+    "workingDirectory": ".",
+    "variables": {
+      "set": {},
+      "mustBeUnset": ["NODE_PATH", "NODE_OPTIONS"]
+    },
+    "toolVersions": { "node": "22.13.0", "npm": "10.9.2" }
+  },
+  "testCommand": "npx jest --coverage=false",
+  "testCommandNotes": "The project's own `npm test` is `jest --coverage --verbose`; the review collects its own per-test coverage, so the coverage flag is turned off in the command given to it. jest.config.js (preset ts-jest, tsconfig.spec.json) is the project's test configuration; no path of the working tree is put on an import path.",
+  "isolationRules": {
+    "projectInstalledEditableFromWorkingTree": false,
+    "projectInstalledAsCopy": false,
+    "workingTreePathOnImportPath": false
+  }
+}

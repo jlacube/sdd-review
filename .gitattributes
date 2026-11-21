@@ -2,3 +2,4 @@
 
 # Golden diff corpus (C001-ADR-009): the same bytes on every operating system.
 test/unit/intake/diff-golden/** text eol=lf
+*.bundle binary

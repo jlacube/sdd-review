@@ -1,0 +1,260 @@
+{
+  "schema": "sdd-review-benchmark-set/1",
+  "frozen": true,
+  "frozenAt": "2026-11-21",
+  "status": "FROZEN: fixed before any measurement (C001-T-013); do not change after the first measurement of C001-T-014 or C001-T-021",
+  "fixedBeforeMeasurement": "The set is fixed before any measurement and is not chosen for how much of it can be cleared (nfr.md section 0). While frozen is false it is a draft.",
+  "benchRoot": "Directory holding the reference checkouts: ../sdd-bench next to this repository, or SDD_BENCH_ROOT. Every `localCheckout` and `changeLocation.checkout` is relative to it.",
+  "references": {
+    "typescript": {
+      "name": "class-validator",
+      "language": "TypeScript",
+      "repository": "https://github.com/typestack/class-validator.git",
+      "commit": "2e1a5c27dbd65b80e27fe96b49bd6e6641fa3603",
+      "commitDate": "2026-02-26",
+      "licence": "MIT",
+      "licenceFile": "LICENSE",
+      "localCheckout": "ref/class-validator",
+      "lineCount": {
+        "totalLines": 16572,
+        "sourceLines": 14488,
+        "files": 204,
+        "method": "bench/harness/loc.ts: lines of the files `git ls-files` lists, minus lock files, minified, binary and vendored paths; sourceLines counts code extensions only"
+      },
+      "testCommand": "npx jest --coverage=false",
+      "testWorkingDirectory": ".",
+      "testFramework": "jest (ts-jest)",
+      "testDurationSeconds": 10.0,
+      "testsPassed": 806,
+      "testsSkipped": 0,
+      "testTiming": "wall-clock of the command by bench/harness (npm run bench), warm second run on the reference machine, 15 suites; first run 10.04 s",
+      "benchId": "bench-ts",
+      "hasSddWorkspace": true,
+      "environmentFile": "bench/set/environments/bench-ts.json"
+    },
+    "python": {
+      "name": "faker",
+      "language": "Python",
+      "repository": "https://github.com/joke2k/faker.git",
+      "commit": "affa2c5aada23fc5c00127298a8e904375d32832",
+      "commitDate": "2026-11-10",
+      "licence": "MIT",
+      "licenceFile": "LICENSE.txt",
+      "localCheckout": "ref/faker",
+      "lineCount": {
+        "totalLines": 383516,
+        "sourceLines": 372897,
+        "files": 863,
+        "method": "bench/harness/loc.ts: lines of the files `git ls-files` lists, minus lock files, minified, binary and vendored paths; sourceLines counts code extensions only"
+      },
+      "testCommand": "python -m pytest -q -p no:cacheprovider -p faker.contrib.pytest.plugin --deselect tests/pytest/test_unique_clear.py::test_unique_clears",
+      "testWorkingDirectory": ".",
+      "testFramework": "pytest",
+      "testDurationSeconds": 49.8,
+      "testsPassed": 2458,
+      "testsSkipped": 11,
+      "testTiming": "wall-clock of the command by bench/harness (npm run bench), warm second run, virtual environment active; first run 51.5 s",
+      "benchId": "bench-py",
+      "hasSddWorkspace": false,
+      "environmentFile": "bench/set/environments/bench-py.json"
+    },
+    "csharp": {
+      "name": "FluentValidation",
+      "language": "C#",
+      "repository": "https://github.com/FluentValidation/FluentValidation.git",
+      "commit": "5903fa65863ec66dabf10646b9c09b33130a03e8",
+      "commitDate": "2026-11-13",
+      "licence": "Apache-2.0",
+      "licenceFile": "License.txt",
+      "localCheckout": "ref/FluentValidation",
+      "lineCount": {
+        "totalLines": 32540,
+        "sourceLines": 27063,
+        "files": 290,
+        "method": "bench/harness/loc.ts: lines of the files `git ls-files` lists, minus lock files, minified, binary and vendored paths; sourceLines counts code extensions only"
+      },
+      "testCommand": "dotnet test src/FluentValidation.Tests/FluentValidation.Tests.csproj -f net10.0",
+      "testWorkingDirectory": ".",
+      "testFramework": "xUnit",
+      "testDurationSeconds": 8.2,
+      "testsPassed": 894,
+      "testsSkipped": 1,
+      "testTiming": "wall-clock of the command by bench/harness (npm run bench), second run with an up-to-date build (build included, 3 s of tests); first run after restore 21 s",
+      "benchId": "bench-cs",
+      "hasSddWorkspace": false,
+      "environmentFile": "bench/set/environments/bench-cs.json"
+    }
+  },
+  "outsideDeepEcosystems": {
+    "name": "fd",
+    "language": "Rust",
+    "repository": "https://github.com/sharkdp/fd.git",
+    "commit": "b80cd53e65615060a62a5ea349a0d78b65d7029e",
+    "commitDate": "2026-11-18",
+    "licence": "MIT OR Apache-2.0",
+    "licenceFile": "LICENSE-MIT",
+    "localCheckout": "ref/fd",
+    "purpose": "C001-NFR-008: a repository in a language outside the deep ecosystems",
+    "lineCount": {
+      "totalLines": 13264,
+      "sourceLines": 9623,
+      "files": 57,
+      "method": "bench/harness/loc.ts: lines of the files `git ls-files` lists, minus lock files, minified, binary and vendored paths; sourceLines counts code extensions only"
+    },
+    "testCommand": "cargo test",
+    "testWorkingDirectory": ".",
+    "testFramework": "cargo test (built-in)",
+    "testDurationSeconds": 5.6,
+    "testsPassed": 266,
+    "testsSkipped": 0,
+    "testTiming": "wall-clock of the command by bench/harness (npm run bench), second run with a built target/ directory; first build and run 44 s"
+  },
+  "benchmarkChanges": [
+    {
+      "id": "bench-ts",
+      "ecosystem": "typescript",
+      "hasSddWorkspace": true,
+      "sddChange": {
+        "id": "CHG-042",
+        "path": ".sdd/042-domain-validator-families"
+      },
+      "sddChangeBrief": "Produced from an SDD change held in the repository (its .sdd/ workspace); the change-producing agent creates it. Reviewed with that SDD change held in the snapshot (C001-REQ-111).",
+      "baseCommit": "2e1a5c27dbd65b80e27fe96b49bd6e6641fa3603",
+      "headCommit": "a1840cc7790d0ae9eec3cdb09ff8eaae96b28152",
+      "agentCommits": [
+        "c0cf23d74700b1564c1127a83117cdb08b55dc5c",
+        "713d1c94bde0a4820b88fbe47c2dfe70632553de",
+        "db6673a0b0b8f435624b641bcd5e01e4d4f42537",
+        "2e430761e25b5f34fb934bb4fc0d179d837853ce",
+        "417af398db9c0f4cd37e897f20064b98c73663fe",
+        "8488511afdc7301a7acca003383472f229747ba3",
+        "e8ab43f6843d6928d36de89102cc369f1cd5556c",
+        "a41d0b0a10f2457606b37e873dea6983723a3c30",
+        "e83762f84916a7b49bec5437d8f0bebdc19e9c77",
+        "d4e3da7d7ca0df0710f66db55ef4d987b5a2abbb",
+        "1488de7c024962f1d5bc88cc6d0ced6c6bd8c595",
+        "a1840cc7790d0ae9eec3cdb09ff8eaae96b28152"
+      ],
+      "changeLocation": {
+        "checkout": "ref/class-validator",
+        "ref": "bench/bench-ts"
+      },
+      "changedLines": 9884,
+      "changedFiles": 264,
+      "taskDescriptionFile": "bench/set/tasks/bench-ts-task.md",
+      "namedFiles": [
+        {
+          "role": "pull-request-text",
+          "path": "bench/set/tasks/bench-ts-task.md"
+        }
+      ],
+      "intake": {
+        "reviewArguments": [
+          "--base",
+          "2e1a5c27dbd65b80e27fe96b49bd6e6641fa3603",
+          "--sdd-change",
+          "CHG-042",
+          "--pr-text",
+          "C:\\Sandbox\\ClaudeCode\\sdd-review\\bench\\set\\tasks\\bench-ts-task.md",
+          "--test-command",
+          "npx jest --coverage=false"
+        ]
+      }
+    },
+    {
+      "id": "bench-py",
+      "ecosystem": "python",
+      "hasSddWorkspace": false,
+      "sddChange": null,
+      "baseCommit": "affa2c5aada23fc5c00127298a8e904375d32832",
+      "headCommit": "64834eca5998b9d8f3596c0d24605342de418d02",
+      "agentCommits": [
+        "45b7aacc904a2f38baf36d9ce6f8b61624dc7bd0",
+        "692ddf115e90484fdafdf84ebf05c46cd525a130",
+        "6a351695103e9fe6239b28d064caec3e9e5012b3",
+        "84f0117fb2b61f57d3d878e29df59c4d794eeef5",
+        "2c72a54d40e443ba6a7c4c1fbdf11f4265102ae1",
+        "db5e0e44863496ff8195544e91f1c201b04d0210",
+        "2fa96779218ae42c88b5bee23b2df8108e5e84c6",
+        "33edc8daab0e6cddbe48b938e479d3b62133daf9",
+        "a85b881690e6b5a4fb2b715dc9d36c7e8b101b35",
+        "c61da0f277feb7142fa680555228fb32dede9e4a",
+        "71f0eb686ae9cf48544c6f7ae3e17e1fcfc6e57f",
+        "1a82b3b6a9daf8f6ba561df07761ec40e2d1c542",
+        "64834eca5998b9d8f3596c0d24605342de418d02"
+      ],
+      "changeLocation": {
+        "checkout": "ref/faker",
+        "ref": "bench/bench-py"
+      },
+      "changedLines": 9117,
+      "changedFiles": 273,
+      "taskDescriptionFile": "bench/set/tasks/bench-py-task.md",
+      "namedFiles": [
+        {
+          "role": "pull-request-text",
+          "path": "bench/set/tasks/bench-py-task.md"
+        }
+      ],
+      "intake": {
+        "reviewArguments": [
+          "--base",
+          "affa2c5aada23fc5c00127298a8e904375d32832",
+          "--pr-text",
+          "C:\\Sandbox\\ClaudeCode\\sdd-review\\bench\\set\\tasks\\bench-py-task.md",
+          "--test-command",
+          ".venv\\Scripts\\python.exe -m pytest -q -p no:cacheprovider -p faker.contrib.pytest.plugin --deselect tests/pytest/test_unique_clear.py::test_unique_clears"
+        ]
+      }
+    },
+    {
+      "id": "bench-cs",
+      "ecosystem": "csharp",
+      "hasSddWorkspace": false,
+      "sddChange": null,
+      "baseCommit": "5903fa65863ec66dabf10646b9c09b33130a03e8",
+      "headCommit": "8154ea0f1861d588890a034c82c1da60581a9748",
+      "agentCommits": [
+        "08674e94e721c1e0d64821b65658a7dd99ef5f6c",
+        "4da0ffe5a01d9b9bd4a2298b7327e22856016244",
+        "6d5dc51a154c8014f630cdce7a1ca209089c6e87",
+        "6f28cc5c5955ce39ec3df2adabf2ff3765f5f214",
+        "b5a447acb7b483f4796bfad50f69c35da901cf12",
+        "0edf5f049e9d09f9073f692e68f36385ecfe3abf",
+        "cc4d868c3f6c5faf8c05a2b05ce6d2752ebfcd83",
+        "f5cd01930fbe8239f6abf38bab66749e0419a931",
+        "b4ab7716407e65e8f2c9795f74cdfe432c239ae9",
+        "e6680ac6b7c465c6d236664696ce494d1693f227",
+        "061b609c9ec56397df0f17a6459b9d806f760d14",
+        "ab511911808e836af4e9850a8db4f9321b0cbd9d",
+        "b6f92a38f36034fe2b7dc7842ac669a3eae8da99",
+        "d8ea787f2b2afe4f1b3c8801e81111ab4a3791b2",
+        "a1fece34cd365ff2af30cee71d059fb9ca676d32",
+        "8154ea0f1861d588890a034c82c1da60581a9748"
+      ],
+      "changeLocation": {
+        "checkout": "ref/FluentValidation",
+        "ref": "bench/bench-cs"
+      },
+      "changedLines": 9822,
+      "changedFiles": 255,
+      "taskDescriptionFile": "bench/set/tasks/bench-cs-task.md",
+      "namedFiles": [
+        {
+          "role": "pull-request-text",
+          "path": "bench/set/tasks/bench-cs-task.md"
+        }
+      ],
+      "intake": {
+        "reviewArguments": [
+          "--base",
+          "5903fa65863ec66dabf10646b9c09b33130a03e8",
+          "--pr-text",
+          "C:\\Sandbox\\ClaudeCode\\sdd-review\\bench\\set\\tasks\\bench-cs-task.md",
+          "--test-command",
+          "dotnet test src/FluentValidation.Tests/FluentValidation.Tests.csproj -f net10.0"
+        ]
+      }
+    }
+  ]
+}

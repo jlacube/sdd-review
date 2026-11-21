@@ -15,7 +15,7 @@
     "runtime/"
   ],
   "scripts": {
-    "build": "node scripts/generate-types.mjs && tsc -p tsconfig.json && tsc -p tsconfig.web.json && vite build --config web/vite.config.ts",
+    "build": "node scripts/generate-types.mjs && tsc -p tsconfig.json && tsc -p tsconfig.web.json && tsc -p tsconfig.bench.json && vite build --config web/vite.config.ts",
     "lint": "npm run lint:ts && npm run lint:py && npm run lint:cs",
     "lint:ts": "eslint . && prettier --check .",
     "lint:py": "ruff check runtime/python && ruff format --check runtime/python",
@@ -24,6 +24,7 @@
     "audit": "npm audit --audit-level=high",
     "secret-scan": "node scripts/secret-scan.mjs",
     "test": "vitest run",
+    "bench": "tsx bench/harness/cli.ts",
     "acceptance": "node scripts/acceptance.mjs",
     "acceptance:browser": "node scripts/acceptance.mjs --browser"
   },

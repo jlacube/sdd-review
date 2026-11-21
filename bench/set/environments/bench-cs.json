@@ -1,0 +1,34 @@
+{
+  "schema": "sdd-review-benchmark-environment/1",
+  "benchId": "bench-cs",
+  "ecosystem": "csharp",
+  "repository": "FluentValidation",
+  "workingTreeInstall": {
+    "description": "Packages are restored with the .NET SDK into the NuGet global packages folder of the user profile (outside the working tree); the restore writes obj/ (project.assets.json) in the working tree and a build writes bin/, both excluded by the repository's .gitignore. nuget.config of the repository names only nuget.org and places no packages folder under the working tree.",
+    "workingDirectory": ".",
+    "commands": ["dotnet restore FluentValidation.sln"],
+    "ignoredPaths": ["src/*/obj/", "src/*/bin/"],
+    "projectItselfInstalled": "no: the test project reaches the library through a ProjectReference inside the repository; no package of the project is restored from a feed or a local folder"
+  },
+  "evidenceWorkspace": {
+    "description": "Packages come from the NuGet global packages folder in the user profile; the test command's implicit restore produces obj/ in the workspace, and the workspace is built cold (C001-ADR-006 table, C#/.NET row). bin/ and obj/ are never copied from the working tree.",
+    "ignoredPathsMadeAvailable": [],
+    "preparationCommands": []
+  },
+  "activeEnvironment": {
+    "description": "Any shell with the .NET SDK 10.0.x on PATH (global.json requires 10.0.0 with rollForward latestFeature), started in the repository root; nothing is activated. The test project targets net8.0, net9.0 and net10.0; the test command selects net10.0.",
+    "workingDirectory": ".",
+    "variables": {
+      "set": { "DOTNET_CLI_UI_LANGUAGE": "en" },
+      "mustBeUnset": []
+    },
+    "toolVersions": { "dotnet-sdk": "10.0.404", "dotnet-runtime": "10.0.15" }
+  },
+  "testCommand": "dotnet test src/FluentValidation.Tests/FluentValidation.Tests.csproj -f net10.0",
+  "testCommandNotes": "xUnit; builds the library and the test project, then runs 895 tests (894 pass, 1 skipped benchmark).",
+  "isolationRules": {
+    "projectInstalledEditableFromWorkingTree": false,
+    "projectInstalledAsCopy": false,
+    "workingTreePathOnImportPath": false
+  }
+}
