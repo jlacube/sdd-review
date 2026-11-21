@@ -110,6 +110,9 @@ export class FixtureRepo {
       env: this.env(),
     });
     this.git('checkout', '-q', '-B', this.options.initialBranch ?? 'main', base.commit);
+    // The clone's remote would give the fixture a default branch of the remote and an upstream
+    // branch that its scenarios do not state (C001-REQ-103, C001-REQ-104): it is removed.
+    this.git('remote', 'remove', 'origin');
   }
 
   env(extra: Record<string, string> = {}): NodeJS.ProcessEnv {

@@ -5,8 +5,7 @@ import type { ChangedFile as PortFile, GitAccessPort } from '../git/port.js';
 
 /**
  * The change of a review: every difference between the base commit and the working tree (C001-REQ-101),
- * as the git access port reports it (C001-IF-012 G-07), and the base commit named by the developer
- * (C001-REQ-102). The default base rules are C001-T-025.
+ * as the git access port reports it (C001-IF-012 G-07). The base commit is chosen in `base.ts`.
  */
 
 /** Records a ReviewError in the log and throws it; a failing log never hides the error. */
@@ -17,37 +16,6 @@ export function fail(log: ContextualLog | undefined, error: ReviewError): never 
     /* the error itself is what matters */
   }
   throw error;
-}
-
-export interface ResolvedBase {
-  /** The base commit: the merge base of the named commit and HEAD. */
-  readonly base: string;
-  readonly head: string;
-}
-
-/**
- * C001-REQ-102: the merge base of the named commit and HEAD. ERR-INTAKE-003 (from the port) when the
- * value names no commit, ERR-INTAKE-004 when the commit has no common ancestor with HEAD.
- */
-export async function resolveNamedBase(
-  git: GitAccessPort,
-  value: string,
-  log?: ContextualLog,
-): Promise<ResolvedBase> {
-  const head = (await git.head()).commit;
-  const named = await git.resolveCommit(value);
-  const base = await git.mergeBase(named, head);
-  if (base === null) {
-    fail(
-      log,
-      new ReviewError('ERR-INTAKE-004', {
-        operation: 'intake',
-        inputs: { value },
-        params: { value },
-      }),
-    );
-  }
-  return { base, head };
 }
 
 /** One changed file with the hash that names its snapshot-side content. */
