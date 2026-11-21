@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-21T11:28:48Z",
+  "generated_at": "2026-11-21T12:05:53Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -296,6 +296,16 @@
           "ref": "C001-TS-142",
           "summary": "C001-T-034 Done-when says TS-142 passes, but TS-142 configures stub-llm as the model provider and counts its requests; provider configuration and the stub wiring come with T-035, T-085 and T-087, which are not dependencies of T-034; T-034 binds every other step of TS-142 (passes with the three stub-llm steps stubbed locally) and leaves those three undefined",
           "reporter": "Jerome LACUBE",
+          "date": "2026-11-21",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-027",
+          "ref": "C001-IF-006",
+          "summary": "IF-006 schema requires paths (minItems 1) on every architecture component, so a neutral file whose components have no path pattern fails validation (ERR-SDD-003, REQ-124) and can never reach ERR-SDD-004 (IF-007 §4 item 4, REQ-223); CAP-02 TS-256 row fx-neutral-nopaths expects ERR-SDD-004 for such a file. T-030 validates against the schema as written (ERR-SDD-003); TS-256 neutral row cannot pass until the spec picks one",
+          "reporter": "C001-T-030",
           "date": "2026-11-21",
           "status": "open",
           "resolution": null,
