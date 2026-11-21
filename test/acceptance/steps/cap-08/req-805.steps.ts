@@ -113,7 +113,7 @@ Given(
 );
 
 /** The task a recorded request asks for, from its system instruction (C001-IF-010 §3 item 1). */
-function taskOf(
+export function taskOf(
   request: RecordedRequest,
   api: 'openai-chat' | 'anthropic-messages',
 ): string | null {

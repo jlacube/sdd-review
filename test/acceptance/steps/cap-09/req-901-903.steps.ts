@@ -36,7 +36,7 @@ const names = new WeakMap<AcceptanceWorld, Map<string, string>>();
 const failingLauncher = new WeakSet<AcceptanceWorld>();
 
 const runsOf = (world: AcceptanceWorld) => runs.get(world) ?? [];
-const lastRun = (world: AcceptanceWorld): ReviewRun => {
+export const lastRun = (world: AcceptanceWorld): ReviewRun => {
   const run = runsOf(world).at(-1);
   assert.ok(run, 'the review command was not run');
   return run;

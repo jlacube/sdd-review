@@ -34,6 +34,14 @@ export class StubLlm {
   private readonly script: ScriptedAnswer[] = [];
   private server: Server | undefined;
   private readonly open = new Set<ServerResponse>();
+  /**
+   * Called once a request is recorded and before it is answered; the answer waits for it. The
+   * client is then blocked on the answer, so a check here sees what it did before it sent the
+   * request (C001-TS-822: the announcement precedes the first request).
+   */
+  onRequest: ((request: RecordedRequest) => void | Promise<void>) | undefined;
+  /** The loopback address `start` listens on (C001-TS-816: 127.255.255.254, ::1). */
+  private host = '127.0.0.1';
 
   /** Queues the answer for the next request; with an empty queue the answer is `{}`. */
   enqueue(answer: ScriptedAnswer): this {
@@ -41,8 +49,9 @@ export class StubLlm {
     return this;
   }
 
-  async start(port = 0): Promise<string> {
-    await this.listen((server, done) => server.listen(port, '127.0.0.1', done));
+  async start(port = 0, host = '127.0.0.1'): Promise<string> {
+    this.host = host;
+    await this.listen((server, done) => server.listen(port, host, done));
     return this.endpoint;
   }
 
@@ -64,7 +73,7 @@ export class StubLlm {
   }
 
   get endpoint(): string {
-    return `http://127.0.0.1:${this.port}`;
+    return `http://${this.host.includes(':') ? `[${this.host}]` : this.host}:${this.port}`;
   }
 
   async stop(): Promise<void> {
@@ -89,7 +98,9 @@ export class StubLlm {
       /* keep the raw text */
     }
     const path = req.url ?? '';
-    this.requests.push({ method: req.method ?? '', path, headers: req.headers, body });
+    const recorded = { method: req.method ?? '', path, headers: req.headers, body };
+    this.requests.push(recorded);
+    await this.onRequest?.(recorded);
 
     const answer = this.script.shift() ?? { output: {} };
     if ('hang' in answer) {

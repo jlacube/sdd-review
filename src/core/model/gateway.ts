@@ -15,8 +15,11 @@ import {
 import { lookupError } from '../errors/catalogue.js';
 import { fillMessage } from '../errors/review-error.js';
 import type { ContextualLog } from '../log/log.js';
+import { CloudUseAnnouncer } from './announce.js';
+import { excludeModelPaths, excludedCount, type ExcludedItems, type Exclusion } from './egress.js';
 import type { KeyLookup } from './keys/key-source.js';
 import { reducedLabels, type ModelFreeCause, type ModelTask } from './labels.js';
+import { classifyEndpoint } from './locality.js';
 
 /**
  * The model gateway (C001-COMP-015, C001-IF-010 §1): the single egress to model providers
@@ -30,8 +33,11 @@ import { reducedLabels, type ModelFreeCause, type ModelTask } from './labels.js'
  * The port never throws to its caller (§1): every failure becomes a model-free result.
  *
  * Seams for the tasks that complete the gateway; each is fail-safe when absent:
- * - `egress` (C001-T-088): §6 checks 2 and 3, endpoint locality and the cloud opt-in, later the
- *   model-excluded paths and the cloud announcement. Without it nothing is sent.
+ * - `egress` (C001-T-088, `egress.ts`): §6 checks 2 and 3, endpoint locality from the endpoint text
+ *   (`locality.ts`) and the cloud opt-in. Without it nothing is sent.
+ * - `cloudUse` (C001-T-088, `announce.ts`): §6 check 5, the cloud-use event emitted before the
+ *   first request of a process to a cloud provider. Without it the gateway uses an announcer of
+ *   its own, so the event is still emitted (to no listener).
  * - `adapters` (C001-T-087): one adapter per provider API (§4, §5). Without the adapter of the
  *   configured API nothing is sent.
  * - `keys` (C001-T-086, `keys/key-source.ts`): the key lookup of §7, run when a request is
@@ -39,6 +45,10 @@ import { reducedLabels, type ModelFreeCause, type ModelTask } from './labels.js'
  *   key that is not found sends no request (ERR-MODEL-006).
  * - `validate` (C001-T-089): C001-IF-011 and the ID checks; batching, the provider timeout, the
  *   marker and the failure mapping of §7 are refined there.
+ *
+ * §6 check 4, the model-excluded paths (C001-REQ-814, C001-REQ-815), is not a seam: the gateway
+ * runs it before every request (`egress.ts › excludeModelPaths`), and the input that leaves holds
+ * only the fields of §2.
  */
 
 type Schemas = components['schemas'];
@@ -47,7 +57,13 @@ export type ProviderStatus = Schemas['ProviderStatus'];
 /** A hunk as a model task sends it: ID, path, changed lines with 3 context lines (§2). */
 export interface ModelHunk {
   readonly hunkId: string;
+  /** The file's path in the snapshot. */
   readonly path: string;
+  /**
+   * The file's path at the base commit when it differs (a renamed file), else null or absent.
+   * Matched against the model-excluded paths with `path` (C001-REQ-814: both paths); never sent.
+   */
+  readonly basePath?: string | null;
   /** The changed lines with up to 3 lines of context on each side, as unified-diff text. */
   readonly text: string;
 }
@@ -71,6 +87,11 @@ export interface TaskInputs {
     readonly namedFiles: ReadonlyArray<{
       readonly role: 'pull-request-text' | 'agent-plan' | 'agent-transcript';
       readonly path: string;
+      /**
+       * The path relative to the repository root when the file lies inside the repository, else
+       * null or absent. Matched against the model-excluded paths (§6 check 4); never sent.
+       */
+      readonly repositoryPath?: string | null;
       readonly lines: readonly string[];
     }>;
   };
@@ -118,7 +139,13 @@ export interface AcceptedResult<T extends ModelTask> {
   readonly task: T;
   readonly output: TaskOutputs[T];
   readonly labels: Labels & { readonly modelOutput: ModelOutputMarker };
+  /** ERR-MODEL-002 when items of the request lay on model-excluded paths. */
   readonly notices: readonly Notice[];
+  /**
+   * The items removed from the request as lying on model-excluded paths (§6 check 4), when any:
+   * the caller produces them in model-free mode, labelled reduced (C001-REQ-815).
+   */
+  readonly excluded?: ExcludedItems;
 }
 
 /** The items of the request, to be produced without a model, labelled reduced. */
@@ -132,6 +159,8 @@ export interface ModelFreeResult<T extends ModelTask> {
   readonly notices: readonly Notice[];
   /** The number of items produced in model-free mode. */
   readonly items: number;
+  /** The items that lay on model-excluded paths (§6 check 4), when any. */
+  readonly excluded?: ExcludedItems;
 }
 
 export type TaskResult<T extends ModelTask> = AcceptedResult<T> | ModelFreeResult<T>;
@@ -226,6 +255,8 @@ export interface ModelGatewayDeps {
    * a provider whose key is optional.
    */
   readonly keys?: (provider: EffectiveProvider) => Promise<KeyLookup | string | null>;
+  /** §6 check 5: the cloud-use state of the process (`announce.ts`). */
+  readonly cloudUse?: CloudUseAnnouncer;
   readonly validate?: <T extends ModelTask>(
     task: T,
     output: unknown,
@@ -305,7 +336,11 @@ export function providerStatusOf(decision: ModelUseDecision): ProviderStatus {
 }
 
 export class ModelGateway {
-  constructor(private readonly deps: ModelGatewayDeps) {}
+  private readonly cloudUse: CloudUseAnnouncer;
+
+  constructor(private readonly deps: ModelGatewayDeps) {
+    this.cloudUse = deps.cloudUse ?? new CloudUseAnnouncer();
+  }
 
   /** The use decision for a request made now (§6); opens no connection. */
   async decide(): Promise<ModelUseDecision> {
@@ -349,14 +384,47 @@ export class ModelGateway {
 
   private async send<T extends ModelTask>(
     task: T,
-    input: TaskInputs[T],
+    given: TaskInputs[T],
     decision: Extract<ModelUseDecision, { use: true }>,
-    items: number,
+    givenItems: number,
   ): Promise<TaskResult<T>> {
     const { provider, settings } = decision;
     const adapter = this.deps.adapters?.[provider.api];
-    if (!adapter) return modelFree(task, 'gateway-incomplete', [], items);
+    if (!adapter) return modelFree(task, 'gateway-incomplete', [], givenItems);
     const inputs = { provider: provider.name, api: provider.api, task };
+
+    // §6 check 4: content on model-excluded paths never leaves the machine (C001-REQ-814).
+    let exclusion: Exclusion<T>;
+    try {
+      exclusion = excludeModelPaths(task, given, settings.excludedPaths);
+    } catch (error) {
+      // The loader validates the patterns; one that still does not compile sends nothing.
+      this.deps.log?.recordError(error, OPERATION, inputs);
+      return modelFree(task, 'model-excluded-path', [], givenItems);
+    }
+    const excluded = exclusion.excluded;
+    const excludedItems = excludedCount(excluded);
+    const excludedNotices: Notice[] = [];
+    if (excludedItems > 0) {
+      const params = { name: provider.name, n: String(excludedItems) };
+      this.deps.log?.record('ERR-MODEL-002', {
+        operation: OPERATION,
+        inputs: { ...inputs, hunkIds: excluded.hunkIds, namedFiles: excluded.namedFiles },
+        params,
+        cause: 'content on model-excluded paths',
+      });
+      excludedNotices.push(notice('ERR-MODEL-002', params));
+    }
+    if (!exclusion.send) {
+      return { ...modelFree(task, 'model-excluded-path', excludedNotices, givenItems), excluded };
+    }
+    const input = exclusion.input;
+    const items = itemCount(task, input);
+    const withExcluded = <R extends TaskResult<T>>(result: R): R =>
+      excludedItems > 0
+        ? { ...result, notices: [...excludedNotices, ...result.notices], excluded }
+        : result;
+
     try {
       // Read at each request preparation, held only for this request (§7, C001-CON-21).
       const found = await this.deps.keys?.(provider);
@@ -369,7 +437,14 @@ export class ModelGateway {
           params: { location: lookup.location },
           cause: lookup.cause,
         };
-        return this.failed(task, provider, failure, items);
+        return withExcluded(this.failed(task, provider, failure, items));
+      }
+      if (decision.locality === 'cloud') {
+        // §6 check 5: the cloud-use event, before the first request of the process (C001-REQ-808).
+        this.cloudUse.announce(
+          { provider: provider.name, host: classifyEndpoint(provider.endpoint).host },
+          (error) => this.deps.log?.recordError(error, OPERATION, inputs),
+        );
       }
       const answer = await adapter.send({
         provider,
@@ -379,7 +454,7 @@ export class ModelGateway {
         timeoutSeconds: settings.timeoutSeconds,
         maxRequestBytes: settings.maxRequestBytes,
       });
-      if (!answer.ok) return this.failed(task, provider, answer.failure, items);
+      if (!answer.ok) return withExcluded(this.failed(task, provider, answer.failure, items));
       const check = this.deps.validate?.(task, answer.output, input) ?? { ok: true };
       if (!check.ok) {
         const failure: ProviderFailure = {
@@ -387,9 +462,9 @@ export class ModelGateway {
           params: { reason: check.reason },
           cause: check.reason,
         };
-        return this.failed(task, provider, failure, items);
+        return withExcluded(this.failed(task, provider, failure, items));
       }
-      return {
+      return withExcluded<AcceptedResult<T>>({
         status: 'accepted',
         task,
         output: answer.output as TaskOutputs[T],
@@ -401,12 +476,12 @@ export class ModelGateway {
           },
         },
         notices: [],
-      };
+      });
     } catch (error) {
       // An adapter or key lookup that throws is a defect of the review assistant, not of the
       // provider: logged as an internal error; the items are still produced without a model.
       this.deps.log?.recordError(error, OPERATION, inputs);
-      return modelFree(task, 'provider-failure', [], items);
+      return withExcluded(modelFree(task, 'provider-failure', [], items));
     }
   }
 
