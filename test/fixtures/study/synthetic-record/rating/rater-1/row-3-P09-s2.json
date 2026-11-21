@@ -1,0 +1,32 @@
+{
+  "session": "row-3/P09-s2",
+  "change": "A",
+  "rater": "rater-1",
+  "completedAt": "2027-02-19T17:00:00+01:00",
+  "matches": [
+    {
+      "finding": "F1",
+      "defect": "A-01"
+    },
+    {
+      "finding": "F2",
+      "defect": "A-02"
+    },
+    {
+      "finding": "F3",
+      "defect": "A-03"
+    },
+    {
+      "finding": "F4",
+      "defect": "A-04"
+    },
+    {
+      "finding": "F5",
+      "defect": "A-05"
+    },
+    {
+      "finding": "F6",
+      "defect": "A-06"
+    }
+  ]
+}

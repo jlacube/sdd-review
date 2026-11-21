@@ -1,0 +1,10 @@
+{
+  "session": "row-<n>/<participant code>-s<k>",
+  "change": "<A|B|C|D>",
+  "rater": "<rater-1|rater-2|settled>",
+  "completedAt": "<ISO 8601 time with offset, e.g. 2027-03-01T16:00:00+01:00>",
+  "matches": [
+    { "finding": "F1", "defect": "<seeded defect ID, e.g. A-03>", "note": "" },
+    { "finding": "F2", "defect": "outside", "note": "<optional>" }
+  ]
+}

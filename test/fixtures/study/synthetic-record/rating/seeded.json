@@ -1,0 +1,152 @@
+{
+  "changes": {
+    "A": {
+      "openedAt": "2027-02-15T10:00:00+01:00",
+      "defects": [
+        {
+          "id": "A-01",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "A-02",
+          "kind": "unrequested-behaviour"
+        },
+        {
+          "id": "A-03",
+          "kind": "requested-behaviour-missing"
+        },
+        {
+          "id": "A-04",
+          "kind": "architecture-violation"
+        },
+        {
+          "id": "A-05",
+          "kind": "test-not-checking-subject"
+        },
+        {
+          "id": "A-06",
+          "kind": "security-weakness"
+        },
+        {
+          "id": "A-07",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "A-08",
+          "kind": "unrequested-behaviour"
+        }
+      ]
+    },
+    "B": {
+      "openedAt": "2027-02-15T10:00:00+01:00",
+      "defects": [
+        {
+          "id": "B-01",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "B-02",
+          "kind": "unrequested-behaviour"
+        },
+        {
+          "id": "B-03",
+          "kind": "requested-behaviour-missing"
+        },
+        {
+          "id": "B-04",
+          "kind": "architecture-violation"
+        },
+        {
+          "id": "B-05",
+          "kind": "test-not-checking-subject"
+        },
+        {
+          "id": "B-06",
+          "kind": "security-weakness"
+        },
+        {
+          "id": "B-07",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "B-08",
+          "kind": "unrequested-behaviour"
+        }
+      ]
+    },
+    "C": {
+      "openedAt": "2027-02-15T10:00:00+01:00",
+      "defects": [
+        {
+          "id": "C-01",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "C-02",
+          "kind": "unrequested-behaviour"
+        },
+        {
+          "id": "C-03",
+          "kind": "requested-behaviour-missing"
+        },
+        {
+          "id": "C-04",
+          "kind": "architecture-violation"
+        },
+        {
+          "id": "C-05",
+          "kind": "test-not-checking-subject"
+        },
+        {
+          "id": "C-06",
+          "kind": "security-weakness"
+        },
+        {
+          "id": "C-07",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "C-08",
+          "kind": "unrequested-behaviour"
+        }
+      ]
+    },
+    "D": {
+      "openedAt": "2027-02-15T10:00:00+01:00",
+      "defects": [
+        {
+          "id": "D-01",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "D-02",
+          "kind": "unrequested-behaviour"
+        },
+        {
+          "id": "D-03",
+          "kind": "requested-behaviour-missing"
+        },
+        {
+          "id": "D-04",
+          "kind": "architecture-violation"
+        },
+        {
+          "id": "D-05",
+          "kind": "test-not-checking-subject"
+        },
+        {
+          "id": "D-06",
+          "kind": "security-weakness"
+        },
+        {
+          "id": "D-07",
+          "kind": "wrong-logic"
+        },
+        {
+          "id": "D-08",
+          "kind": "unrequested-behaviour"
+        }
+      ]
+    }
+  }
+}

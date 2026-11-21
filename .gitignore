@@ -9,3 +9,6 @@ __pycache__
 .ruff_cache
 src/generated
 test/acceptance/.features
+# G-8 study: plaintext sealed lists and personal data never enter the repository
+study/g8/**/*.plain.json
+study/g8/private/

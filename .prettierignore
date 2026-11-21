@@ -9,3 +9,7 @@ package-lock.json
 .claude
 src/generated
 test/acceptance/.features
+# G-8 study records and results: data written by people and by `npm run study`, kept verbatim
+study/g8/record
+study/g8/RESULTS.md
+test/fixtures/study/synthetic-record

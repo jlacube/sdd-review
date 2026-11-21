@@ -1,0 +1,19 @@
+{
+  "participant": "P02",
+  "row": 6,
+  "session": 1,
+  "change": "D",
+  "method": "diff",
+  "rcVersion": "1.0.0-rc.1",
+  "tutorialDone": null,
+  "opened": "2027-02-07T09:00:00+01:00",
+  "lastDecision": "2027-02-07T12:30:00+01:00",
+  "breaks": [
+    {
+      "start": "2027-02-07T09:30:00+01:00",
+      "end": "2027-02-07T10:00:00+01:00"
+    }
+  ],
+  "capped": true,
+  "notes": ""
+}

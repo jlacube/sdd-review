@@ -1,0 +1,28 @@
+{
+  "session": "row-8/P05-s1",
+  "change": "C",
+  "rater": "rater-2",
+  "completedAt": "2027-02-20T12:00:00+01:00",
+  "matches": [
+    {
+      "finding": "F1",
+      "defect": "C-01"
+    },
+    {
+      "finding": "F2",
+      "defect": "C-02"
+    },
+    {
+      "finding": "F3",
+      "defect": "C-03"
+    },
+    {
+      "finding": "F4",
+      "defect": "C-04"
+    },
+    {
+      "finding": "F5",
+      "defect": "C-05"
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "study": "G-8",
+  "algorithm": "g8-assign-v1: sha256-ctr Fisher-Yates over sorted participant codes",
+  "seed": "synthetic-record",
+  "drawnAt": "2027-01-11T10:00:00+01:00",
+  "participants": [
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "P05",
+    "P06",
+    "P07",
+    "P08"
+  ],
+  "reserves": [
+    "P09",
+    "P10"
+  ],
+  "draw": [
+    {
+      "row": 1,
+      "participant": "P03"
+    },
+    {
+      "row": 2,
+      "participant": "P01"
+    },
+    {
+      "row": 3,
+      "participant": "P08"
+    },
+    {
+      "row": 4,
+      "participant": "P06"
+    },
+    {
+      "row": 5,
+      "participant": "P07"
+    },
+    {
+      "row": 6,
+      "participant": "P02"
+    },
+    {
+      "row": 7,
+      "participant": "P04"
+    },
+    {
+      "row": 8,
+      "participant": "P05"
+    }
+  ],
+  "replacements": [
+    {
+      "row": 3,
+      "dropped": "P08",
+      "reserve": "P09",
+      "recordedAt": "2027-02-02T18:00:00+01:00"
+    }
+  ],
+  "dates": [
+    {
+      "row": 1,
+      "session1": "2027-02-02",
+      "session2": "2027-02-04"
+    },
+    {
+      "row": 2,
+      "session1": "2027-02-03",
+      "session2": "2027-02-05"
+    },
+    {
+      "row": 3,
+      "session1": "2027-02-04",
+      "session2": "2027-02-06"
+    },
+    {
+      "row": 4,
+      "session1": "2027-02-05",
+      "session2": "2027-02-07"
+    },
+    {
+      "row": 5,
+      "session1": "2027-02-06",
+      "session2": "2027-02-08"
+    },
+    {
+      "row": 6,
+      "session1": "2027-02-07",
+      "session2": "2027-02-09"
+    },
+    {
+      "row": 7,
+      "session1": "2027-02-08",
+      "session2": "2027-02-10"
+    },
+    {
+      "row": 8,
+      "session1": "2027-02-09",
+      "session2": "2027-02-11"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "participant": "P04",
+  "row": 7,
+  "session": 1,
+  "change": "D",
+  "method": "assistant",
+  "rcVersion": "1.0.0-rc.1",
+  "tutorialDone": true,
+  "opened": "2027-02-08T09:00:00+01:00",
+  "lastDecision": "2027-02-08T10:30:00+01:00",
+  "breaks": [],
+  "capped": false,
+  "notes": ""
+}

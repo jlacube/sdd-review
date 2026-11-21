@@ -1,0 +1,13 @@
+{
+  "change": "<A|B|C|D>",
+  "seededHead": "<full commit hash of the seeded HEAD in the private study repository>",
+  "defects": [
+    {
+      "id": "<change>-01",
+      "kind": "<wrong-logic | unrequested-behaviour | requested-behaviour-missing | architecture-violation | test-not-checking-subject | security-weakness>",
+      "file": "<path in the change>",
+      "lines": "<line or range, e.g. 120-134>",
+      "description": "<what is wrong, in one or two sentences>"
+    }
+  ]
+}
