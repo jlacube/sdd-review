@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intake summary, snapshot content and the moved-on notice
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-012, C001-T-025]
 implements: [C001-REQ-114, C001-REQ-116, C001-REQ-117]
 satisfies_ac: [C001-AC-114.1, C001-AC-116.1, C001-AC-117.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-130, C001-TS-131, C001-TS-132, C001-TS-136, C001-TS-137, C
 components: [C001-COMP-004, C001-COMP-001, C001-COMP-019]
 risk_refs: [C001-RISK-004]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: e1a8eb7, completed_at: 2026-11-21, notes: "Intake summary (HEAD warning, config source, test command), getFileContent, moved-on notice in open/UI; TS-130/132/139/140/160/177/188 pass; TS-131 ex.1 per D-016, TS-150/136/137 per D-030; D-031; combined tree verified (1,757 tests, 144 CI scenarios); CI green on 4 runners at a0451f8; shared wiring in 50d7148; PR at M-02 merge" }
 ---
 # C001-T-033 — Intake summary, snapshot content and the moved-on notice
 

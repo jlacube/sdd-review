@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intent mapper — intents from requirements, commits and plan items
 milestone: C001-M-03
-status: in-progress
+status: done
 depends_on: [C001-T-031, C001-T-032, C001-T-027]
 implements: [C001-REQ-302, C001-REQ-305, C001-REQ-313, C001-REQ-314]
 satisfies_ac: [C001-AC-302.1, C001-AC-305.1, C001-AC-313.1, C001-AC-314.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-303, C001-TS-307, C001-TS-308, C001-TS-327, C001-TS-328, C
 components: [C001-COMP-009]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: fa620dc, completed_at: 2026-11-21, notes: "Intents from requirements / commits / plan items in the headless intent map; 19 unit tests; TS-303/305/308/327..331 pass; TS-304/307/354 per D-029; combined tree verified (1,757 tests, 144 CI scenarios); CI green on 4 runners at a0451f8; shared wiring in 50d7148; PR at M-02 merge" }
 ---
 # C001-T-044 — Intent mapper: intents from requirements, commits and plan items
 

@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Gateway egress rules — locality, cloud opt-in, excluded paths and announcement
 milestone: C001-M-06
-status: in-progress
+status: done
 depends_on: [C001-T-086, C001-T-087]
 implements: [C001-REQ-806, C001-REQ-808, C001-REQ-814, C001-REQ-815, C001-NFR-011, C001-NFR-012]
 satisfies_ac: [C001-AC-806.1, C001-AC-808.1, C001-AC-814.1, C001-AC-815.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-814, C001-TS-815, C001-TS-816, C001-TS-817, C001-TS-818, C
 components: [C001-COMP-015, C001-COMP-001]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: df6b8a0, completed_at: 2026-11-21, notes: "Egress: locality without DNS, cloud opt-in, model-excluded paths, one announcement; registered in production; TS-814/815/817/818/824/836 pass, rest await T-090/T-095; combined tree verified (1,757 tests, 144 CI scenarios); CI green on 4 runners at a0451f8; shared wiring in 50d7148; PR at M-02 merge" }
 ---
 # C001-T-088 — Gateway egress rules: locality, cloud opt-in, excluded paths and announcement
 
