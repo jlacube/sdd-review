@@ -20,6 +20,9 @@ import type { SddIntentSources } from '../intent-sources/sdd-workspace.js';
 import { namedFileSources, readIntakeIntentSources } from './intent-context.js';
 import { isReviewError } from '../errors/review-error.js';
 import { readNamedFiles, type NamedFileRequest } from '../intent-sources/named-files.js';
+import { loadReviewConfiguration } from '../config/load.js';
+import type { EffectiveConfiguration } from '../config/effective.js';
+import { buildIntakeSummary, testCommandOf } from './summary.js';
 
 /** JSON with object keys in code-unit order and no white space: one text per value. */
 export function canonicalJson(value: unknown): string {
@@ -94,6 +97,8 @@ export interface IntakeOptions {
   readonly namedFiles?: readonly NamedFileRequest[];
   /** The SDD change named at intake (`--sdd-change`, C001-IF-007 §6, C001-T-031). */
   readonly sddChange?: string;
+  /** The test command given for the review (`--test-command`, C001-REQ-505, C001-REQ-114). */
+  readonly testCommand?: string;
 }
 
 export type IntakeResult =
@@ -103,6 +108,8 @@ export type IntakeResult =
       readonly intake: IntakeDocument;
       /** The `.sdd/` reading with the lines read on both sides (C001-REQ-222, C001-REQ-328). */
       readonly intentSources: SddIntentSources;
+      /** The effective configuration of the base commit, read for the summary (C001-REQ-426). */
+      readonly configuration: EffectiveConfiguration;
     }
   | {
       /** The snapshot exists already: the orchestrator reopens it (C001-T-034); nothing was written. */
@@ -185,6 +192,9 @@ export async function takeInChange(
   const commits = await readChangeCommits(git, base, head); // C001-T-027
   const attributed = await attributeHunks(git, { base, head, commits, files, hunks }, log);
   const createdAt = (deps.now?.() ?? new Date()).toISOString();
+  // The review configuration of the base commit (C001-REQ-426): its source goes into the snapshot,
+  // its test command into the summary unless the developer gave one (C001-REQ-114).
+  const configuration = await loadReviewConfiguration({ git, log }, base);
 
   const snapshot: Snapshot = {
     snapshotId,
@@ -196,7 +206,7 @@ export async function takeInChange(
     changedFiles: changedFiles as Snapshot['changedFiles'],
     changedLines,
     sizeWarning: size.exceeded,
-    configurationSource: { default: true }, // C001-T-035
+    configurationSource: configuration.source,
     createdAt,
   } as Snapshot;
   const intake: IntakeDocument = {
@@ -204,20 +214,19 @@ export async function takeInChange(
     formatVersion: 1,
     snapshot,
     hunks: attributed,
-    intakeSummary: {
+    intakeSummary: buildIntakeSummary({
       baseCommit,
       baseChoice: chosen.baseChoice,
       baseRef: chosen.baseRef,
       changedFiles: changedFiles.length,
       changedLines,
-      // The intent context is read by C001-T-029 to C001-T-033.
-      intentContext: {
-        ...sources.summary,
-        commits: commits.length,
-        namedFiles: namedFiles.map(({ role, path }) => ({ role, path })),
-      },
+      sddChanges: sources.summary.sddChanges,
+      documentedArchitecture: sources.summary.documentedArchitecture,
+      commits: commits.length,
+      namedFiles,
+      testCommand: testCommandOf(options.testCommand, configuration),
       sizeWarning: warning,
-    },
+    }),
     intentContext: {
       ...sources.intentContext,
       commits,
@@ -233,5 +242,5 @@ export async function takeInChange(
     return bytes ? [bytes] : [];
   });
   await store.createSnapshot(intake, contents, deps.repositoryRoot);
-  return { status: 'created', snapshotId, intake, intentSources: sources.sdd };
+  return { status: 'created', snapshotId, intake, intentSources: sources.sdd, configuration };
 }

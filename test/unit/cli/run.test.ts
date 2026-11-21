@@ -335,7 +335,10 @@ describe('CLI commands over a fixture repository', () => {
         expect(status, stderr).toBe(0);
         expect(stdout).toContain(`Snapshot: ${review!.snapshotId}`);
         expect(stdout).toMatch(/Review address: http:\/\/127\.0\.0\.1:\d+\//);
-        expect(stderr).not.toMatch(/ERR-/);
+        // The edit after the review raises the moved-on notice when it is resumed (C001-REQ-117).
+        expect(stderr).toContain(
+          `ERR-INTAKE-007: The working tree has moved on since snapshot ${review!.snapshotId}: 1 files differ (src/order.ts).`,
+        );
         const after = JSON.parse(
           (await cli(['reviews', '--format', 'json'], repo.dir)).stdout,
         ) as Array<{

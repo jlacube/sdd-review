@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import type { CoreApi, StartReviewOptions } from '../../core/api/index.js';
 import { ReviewError } from '../../core/api/index.js';
+import { cloudAnnouncement, type CloudUseEvent } from '../../core/api/open.js';
 import { noticeLine } from '../exit-codes.js';
 import { intakeSummaryText } from '../format.js';
 import type { CliIo } from '../io.js';
@@ -32,6 +33,17 @@ export function startOptionsOf(intake: IntakeOptions, cwd: string): StartReviewO
     ...(intake.sddChange !== undefined ? { sddChange: intake.sddChange } : {}),
     namedFiles: namedFilesOf(intake, cwd),
     ...(intake.testCommand !== undefined ? { testCommand: intake.testCommand } : {}),
+  };
+}
+
+/**
+ * The cloud provider announcement of C001-IF-001 §Output (C001-REQ-808), shared by `analyse` and
+ * `review` (and every command that opens the core): the core calls it right before its first
+ * request to a cloud provider, so the line is on standard error before the request is sent.
+ */
+export function announceCloudUse(io: Pick<CliIo, 'stderr'>): (event: CloudUseEvent) => void {
+  return (event) => {
+    io.stderr.write(`${cloudAnnouncement(event)}\n`);
   };
 }
 
@@ -93,7 +105,9 @@ export async function analyse(
   if (global.format === 'json') {
     io.stdout.write(`${JSON.stringify(started.intakeSummary, null, 2)}\n`);
   } else {
-    io.stdout.write(intakeSummaryText(started.intakeSummary, command.intake.base));
+    io.stdout.write(
+      intakeSummaryText(started.intakeSummary, command.intake.base, started.headCommit),
+    );
     io.stdout.write(`Snapshot: ${started.snapshotId}\nResults written to ${command.out}\n`);
   }
   return exitOk;

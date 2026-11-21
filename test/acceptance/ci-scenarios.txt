@@ -12,9 +12,15 @@
 #   C001-TS-147, 148  their last step needs the architecture delta view (C001-T-043)
 #   C001-TS-149  its last steps need component placement (C001-T-039) and intent grouping (C001-T-045)
 #   C001-TS-801, 802, 857  their last steps need the model tasks and their reduced labels (C001-T-090; 857 also C001-T-087, C001-T-088)
-#   C001-TS-177, 188  resume a review and expect the moved-on notice: the moved-on check (C001-T-033)
+#   C001-TS-816, 848, 837, 849, 812, 813, 825, 826, 858, 862  no model request is made before the model tasks (C001-T-090)
+#   C001-TS-822, 823, 835, 838, 850  also need the cloud stub reachable by its host name (C001-T-095)
+#   C001-TS-839, 840, 851  need the intent map's orphan code and links (C001-T-044, C001-T-090)
+#   C001-TS-131  its first example has a root commit as base, whose subject the port cannot read: defect D-016
+#   C001-TS-136, 137  open a hunk in the review UI: the hunk view (C001-T-056), defect D-030
+#   C001-TS-150  asks for the decision status: the status command (C001-T-082), defect D-030
 #   C001-TS-183, 186  each example states its operating system and is skipped on the others, which
 #                the run summary reports as FAILED although Cucumber exits with 0 (C001-T-028)
+#   C001-TS-304, 307, 354  expect the 4 requirements of the CAP-03 `fx-sdd`; the fixture follows CAP-01 (2): defect D-029
 C001-TS-101
 C001-TS-102
 C001-TS-103
@@ -75,6 +81,12 @@ C001-TS-116
 C001-TS-117
 C001-TS-827
 C001-TS-860
+C001-TS-814
+C001-TS-815
+C001-TS-817
+C001-TS-818
+C001-TS-824
+C001-TS-836
 C001-TS-167
 C001-TS-168
 C001-TS-169
@@ -93,3 +105,18 @@ C001-TS-174
 C001-TS-175
 C001-TS-185
 C001-TS-187
+C001-TS-303
+C001-TS-305
+C001-TS-308
+C001-TS-327
+C001-TS-328
+C001-TS-329
+C001-TS-330
+C001-TS-331
+C001-TS-130
+C001-TS-132
+C001-TS-160
+C001-TS-139
+C001-TS-140
+C001-TS-177
+C001-TS-188

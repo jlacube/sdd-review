@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { openCore, type OpenedCore } from '../core/api/open.js';
-import { analyse } from './commands/analyse.js';
+import { analyse, announceCloudUse } from './commands/analyse.js';
 import { open } from './commands/open.js';
 import { review } from './commands/review.js';
 import { reviews } from './commands/reviews.js';
@@ -52,7 +52,10 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
     // `config validate` reads a file of the working tree, no git data; every other command reads
     // git data, so the git program check (C001-IF-012 §6) is its first step.
     if (command.name === 'config-validate') return configValidate(command, global, io);
-    opened = await openCore(resolve(io.cwd, global.repo ?? '.'), { env: io.env });
+    opened = await openCore(resolve(io.cwd, global.repo ?? '.'), {
+      env: io.env,
+      onCloudUse: announceCloudUse(io),
+    });
     switch (command.name) {
       case 'analyse':
         return await analyse(command, global, opened.core.api, io, EXIT.ok);

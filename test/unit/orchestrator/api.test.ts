@@ -199,7 +199,6 @@ describe('core API over a fixture repository', () => {
     const SNAPSHOT = `s-${'a'.repeat(64)}`;
     const calls: Array<[keyof CoreApi, (api: CoreApi) => Promise<unknown>]> = [
       ['runStaticAnalysis', (a) => a.runStaticAnalysis(SNAPSHOT)],
-      ['checkMovedOn', (a) => a.checkMovedOn(SNAPSHOT)],
       ['getArchitectureDelta', (a) => a.getArchitectureDelta(SNAPSHOT)],
       ['getComponent', (a) => a.getComponent(SNAPSHOT, 'c')],
       ['getIntentMap', (a) => a.getIntentMap(SNAPSHOT)],
@@ -207,7 +206,6 @@ describe('core API over a fixture repository', () => {
       ['getWalkthrough', (a) => a.getWalkthrough(SNAPSHOT, 'i')],
       ['getEvidenceBundle', (a) => a.getEvidenceBundle(SNAPSHOT, 'i')],
       ['getHunk', (a) => a.getHunk(SNAPSHOT, 'h')],
-      ['getFileContent', (a) => a.getFileContent(SNAPSHOT, 'p', 'base')],
       ['getReadingQueue', (a) => a.getReadingQueue(SNAPSHOT)],
       ['getCoverageStatement', (a) => a.getCoverageStatement(SNAPSHOT)],
       ['getDecisionStatus', (a) => a.getDecisionStatus(SNAPSHOT)],
@@ -237,6 +235,8 @@ describe('core API over a fixture repository', () => {
         'openReview',
         'getSession',
         'getIntakeSummary',
+        'checkMovedOn', // C001-T-033
+        'getFileContent', // C001-T-033
         'exportResults',
         'validateConfiguration',
       ];

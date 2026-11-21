@@ -5,6 +5,7 @@ import { buildFxCrypt, buildFxLfs } from './fx-lfs.js';
 import { buildFxLocal } from './fx-local.js';
 import { buildFxNeutral } from './fx-neutral.js';
 import { buildFxSdd, buildFxSddArchived } from './fx-sdd.js';
+import { buildFxNosdd, buildFxSddEmpty } from './fx-nosdd.js';
 import { buildFxSize } from './fx-size.js';
 import { buildFxUpstream } from './fx-upstream.js';
 
@@ -35,6 +36,8 @@ export const NAMED_FIXTURES: Record<string, (options?: FixtureOptions) => Fixtur
   'fx-local': buildFxLocal,
   'fx-sdd': buildFxSdd,
   'fx-sdd-archived': buildFxSddArchived,
+  'fx-sdd-empty': buildFxSddEmpty,
+  'fx-nosdd': buildFxNosdd,
   'fx-neutral': buildFxNeutral,
   'fx-size': buildFxSize,
   'fx-lfs': buildFxLfs,

@@ -116,7 +116,11 @@ export async function review(
       port: command.port,
       noBrowser: command.noBrowser,
       json: { snapshotId: started.snapshotId, intakeSummary: started.intakeSummary },
-      text: intakeSummaryText(started.intakeSummary, command.intake.base ?? 'HEAD'),
+      text: intakeSummaryText(
+        started.intakeSummary,
+        command.intake.base ?? 'HEAD',
+        started.headCommit,
+      ),
       label: 'review',
     },
     global,

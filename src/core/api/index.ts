@@ -14,6 +14,7 @@ import { loadReviewConfiguration, validateConfigurationFile } from '../config/lo
 import type { EffectiveConfiguration } from '../config/effective.js';
 import { ModelGateway, type ModelGatewayDeps } from '../model/gateway.js';
 import { takeInChange } from '../intake/snapshot.js';
+import { MovedOnChecker } from '../intake/moved-on.js';
 import { SnapshotEventLoop, SnapshotLoops } from '../orchestrator/event-loop.js';
 import { JobScheduler } from '../orchestrator/jobs.js';
 import type { StoreContext } from '../store/fsutil.js';
@@ -34,7 +35,9 @@ export { mostRecentlyOpened } from '../store/reviews-index.js';
  * This task (C001-T-009) implements `startReview`, `getSession`, `getIntakeSummary`, `listReviews`
  * and the job operations, C001-T-010 adds `exportResults` (the headless output), C001-T-034 the
  * reopen of an existing snapshot (`startReview`, `openReview`) and the record path of
- * `listReviews`; every other operation rejects with `NotImplementedError` until its task.
+ * `listReviews`, C001-T-033 the moved-on check (`checkMovedOn`, run by `openReview`, shown by
+ * `getSession`) and `getFileContent`; every other operation rejects with `NotImplementedError` until
+ * its task.
  */
 
 type Schemas = components['schemas'];
@@ -62,6 +65,11 @@ export interface StartReviewOptions {
 export interface StartReviewResult {
   readonly snapshotId: string;
   readonly intakeSummary: IntakeSummary;
+  /**
+   * The HEAD commit of the snapshot, so that a surface can warn whenever the base commit is HEAD
+   * itself, however it was chosen (C001-REQ-114, C001-IF-001 Output).
+   */
+  readonly headCommit: string;
   /** True when a review of the same snapshot existed and was reopened, not recomputed. */
   readonly reopened: boolean;
   readonly notices: readonly Notice[];
@@ -290,6 +298,26 @@ export function createCore(deps: CoreDeps): Core {
     }
     return loaded;
   }
+  /**
+   * The moved-on check (C001-REQ-117, C001-T-033): run when a review is resumed, when the surface
+   * asks for it and before recorded actions; the session view shows the result of the last check.
+   */
+  let objectFormat: Promise<'sha1' | 'sha256'> | undefined;
+  const movedOn = new MovedOnChecker({
+    git,
+    readContent: (snapshotId, sha256) => store.readBlob(snapshotId, sha256),
+    objectFormat: () => {
+      objectFormat ??= git.discover(deps.repositoryRoot).then((location) => location.objectFormat);
+      objectFormat.catch(() => (objectFormat = undefined));
+      return objectFormat;
+    },
+    log: ctx.log,
+  });
+  async function checkMovedOn(snapshotId: string) {
+    const intake = await store.readSnapshot(snapshotId); // ERR-STORE-004
+    return movedOn.check(intake);
+  }
+
   const gateway = (snapshotId: string) =>
     new ModelGateway({
       ...deps.model,
@@ -346,10 +374,54 @@ export function createCore(deps: CoreDeps): Core {
       revision: revision?.revision ?? 0,
       staticAnalysisComplete: Array.isArray(delta?.components) && delta.components.length > 0,
       providerStatus: await gateway(snapshotId).status(),
-      movedOn: null, // checkMovedOn is C001-REQ-117's task
+      // The last moved-on check of this process (C001-REQ-117): run when the review was resumed
+      // and before recorded actions, not at each poll of the session view.
+      movedOn: movedOn.lastResult(snapshotId),
       sizeWarning: (intake.intakeSummary.sizeWarning ?? null) as SessionInfo['sizeWarning'],
       notices: intake.notices as SessionInfo['notices'],
       jobs: await jobs.list(snapshotId),
+    };
+  }
+
+  /**
+   * A whole changed file from the snapshot or the base commit (C001-REQ-116, C001-REQ-909): the
+   * snapshot side always from the content stored with the snapshot, never from the working tree,
+   * so an edit or deletion after intake does not reach a view; the base side from the base commit
+   * (at the previous path of a renamed file). A side the file does not have (the base side of an
+   * added file, the snapshot side of a deleted one) has no text. A path the change does not hold
+   * is refused with ERR-ACT-004.
+   */
+  async function getFileContent(
+    snapshotId: string,
+    path: string,
+    side: 'base' | 'snapshot',
+  ): Promise<Schemas['FileContent']> {
+    const intake = await store.readSnapshot(snapshotId); // ERR-STORE-004
+    const file = intake.snapshot.changedFiles.find((f) => f.path === path);
+    if (!file) {
+      const error = new ReviewError('ERR-ACT-004', {
+        operation: 'getFileContent',
+        inputs: { snapshotId, path, side },
+        params: { kind: 'changed file', value: path, 'snapshot-id': snapshotId },
+        cause: 'the snapshot holds no changed file at this path',
+      });
+      ctx.log.recordError(error, 'getFileContent', { snapshotId, path, side });
+      throw error;
+    }
+    let bytes: Buffer | null;
+    if (side === 'snapshot') {
+      bytes = file.contentHash ? await store.readBlob(snapshotId, file.contentHash) : null;
+    } else {
+      bytes =
+        file.changeType === 'added'
+          ? null
+          : await git.readBlob(intake.snapshot.baseCommit.hash, file.oldPath ?? path);
+    }
+    return {
+      path,
+      side,
+      binary: file.binary,
+      text: bytes === null || file.binary ? null : bytes.toString('utf8'),
     };
   }
 
@@ -370,6 +442,7 @@ export function createCore(deps: CoreDeps): Core {
           ...(options.namedBase !== undefined ? { namedBase: options.namedBase } : {}),
           ...(options.namedFiles !== undefined ? { namedFiles: options.namedFiles } : {}),
           ...(options.sddChange !== undefined ? { sddChange: options.sddChange } : {}),
+          ...(options.testCommand !== undefined ? { testCommand: options.testCommand } : {}),
         },
       );
       const { snapshotId } = result;
@@ -381,15 +454,19 @@ export function createCore(deps: CoreDeps): Core {
         return {
           snapshotId,
           intakeSummary: intake.intakeSummary,
+          headCommit: intake.snapshot.headCommit,
           reopened: true,
           notices: [...intake.notices, ...(await modelFreeNotices(snapshotId))],
         };
       }
       const { intake } = result;
+      // Intake read the configuration of the base commit already: the gateway reuses it.
+      configurations.set(snapshotId, Promise.resolve(result.configuration));
       await ensureFirstRevision(snapshotId);
       return {
         snapshotId,
         intakeSummary: intake.intakeSummary,
+        headCommit: intake.snapshot.headCommit,
         reopened: false,
         notices: [...intake.notices, ...(await modelFreeNotices(snapshotId))],
       };
@@ -406,6 +483,8 @@ export function createCore(deps: CoreDeps): Core {
     async openReview(snapshotId) {
       store.requireReview(snapshotId); // ERR-STORE-004
       await reopen(snapshotId);
+      // Resuming a review runs the moved-on check (C001-REQ-117); the session carries its notice.
+      await checkMovedOn(snapshotId);
       return getSession(snapshotId);
     },
     async startJobs(snapshotId) {
@@ -424,12 +503,13 @@ export function createCore(deps: CoreDeps): Core {
         intake,
         revision: revision?.documents ?? null,
         recordBytes: completeRecordBytes(record.file),
+        repositoryRoot: deps.repositoryRoot,
       });
       return { files: writeExport(directory, contents) }; // ERR-CLI-002
     },
 
     runStaticAnalysis: later('runStaticAnalysis'),
-    checkMovedOn: later('checkMovedOn'),
+    checkMovedOn,
     getArchitectureDelta: later('getArchitectureDelta'),
     getComponent: later('getComponent'),
     getIntentMap: later('getIntentMap'),
@@ -437,7 +517,7 @@ export function createCore(deps: CoreDeps): Core {
     getWalkthrough: later('getWalkthrough'),
     getEvidenceBundle: later('getEvidenceBundle'),
     getHunk: later('getHunk'),
-    getFileContent: later('getFileContent'),
+    getFileContent,
     getReadingQueue: later('getReadingQueue'),
     getCoverageStatement: later('getCoverageStatement'),
     getDecisionStatus: later('getDecisionStatus'),
