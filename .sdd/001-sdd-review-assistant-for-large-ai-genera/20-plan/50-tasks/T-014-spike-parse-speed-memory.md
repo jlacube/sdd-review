@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Spike — parsing speed and memory at the supported size
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-006, C001-T-013]
 implements: [C001-NFR-001, C001-NFR-004]
 satisfies_ac: [C001-AC-201.1]

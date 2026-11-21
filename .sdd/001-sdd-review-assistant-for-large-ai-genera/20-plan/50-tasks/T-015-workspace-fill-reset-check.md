@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Evidence workspace — location, fill, reset, check and lifetime
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-006, C001-T-007, C001-T-008]
 implements: [C001-REQ-509, C001-REQ-521, C001-REQ-522]
 satisfies_ac: [C001-AC-509.1, C001-AC-521.1, C001-AC-522.1]

@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-21T04:31:55Z",
+  "generated_at": "2026-11-21T05:07:32Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -36,7 +36,7 @@
           "total": 116,
           "done": 14,
           "blocked": 0,
-          "in_progress": 1
+          "in_progress": 3
         },
         "last_report": "2026-11-21T00:00:00Z"
       },
@@ -247,6 +247,16 @@
           "summary": "No operation of the HTTP API or core API lists the changed file paths of a snapshot (IntakeSummary holds only counts; getIntentMap and getReadingQueue are later tasks), so the web client's changed-files view of C001-T-012 can show the file and line counts only",
           "reporter": "Jerome LACUBE",
           "date": "2026-11-20",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-022",
+          "ref": "C001-IF-012",
+          "summary": "No port operation gives the repository settings that C001-ADR-006 §2 needs to fill and check an evidence workspace: core.autocrlf and core.eol (checkout end-of-line conversion), info/attributes and core.attributesFile, and the ignore sources info/exclude and core.excludesFile (ADR: read once at intake through C001-COMP-003); C001-T-015 takes them as inputs",
+          "reporter": "Jerome LACUBE",
+          "date": "2026-11-21",
           "status": "open",
           "resolution": null,
           "closed_at": null
