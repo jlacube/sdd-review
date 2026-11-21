@@ -9,7 +9,10 @@ import {
   type CorpusChange,
   type OtherChange,
 } from '../../../bench/harness/calibration.js';
-import { repoRoot } from '../../../bench/harness/cli.js';
+import { fileURLToPath } from 'node:url';
+
+// Not imported from bench/harness/cli.ts: importing it runs the CLI.
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
 const h = (c: string) => c.repeat(40);
 
