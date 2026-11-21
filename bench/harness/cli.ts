@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runCalibrationCheck } from './calibration.js';
 import { countRepositoryLines } from './loc.js';
 import { formatBytes, formatDuration, writeReport } from './report.js';
 import { runCommand } from './run.js';
@@ -16,6 +17,8 @@ const USAGE = `usage: npm run bench -- <suite> [args]
 suites:
   harness-selftest             run the harness on a small fixture (wall-clock and peak memory)
   validate-set                 validate bench/set/benchmark-set.json (draft or frozen)
+  calibration --check-overlap  validate bench/calibration/corpus.json and check it does not overlap the
+                               benchmark set or the G-8 pool (study/g8/pool.json once it exists)
   count-lines <dir>            count the lines of the files a git repository tracks
   measure <name> -- <cmd...>   run a command, write bench/results/<name>-<time>.json and .md
 `;
@@ -40,6 +43,20 @@ async function main(argv: string[]): Promise<number> {
       console.log(
         `validate-set: ${result.errors.length === 0 ? 'ok' : 'FAILED'} ` +
           `(${result.frozen ? 'frozen' : 'draft'}, ${result.errors.length} errors)`,
+      );
+      return result.errors.length === 0 ? 0 : 1;
+    }
+    case 'calibration': {
+      if (rest[0] !== '--check-overlap') {
+        console.error(USAGE);
+        return 2;
+      }
+      const result = runCalibrationCheck(repoRoot);
+      for (const e of result.errors) console.log(`error: ${e}`);
+      console.log(
+        `calibration --check-overlap: ${result.errors.length === 0 ? 'ok' : 'FAILED'} ` +
+          `(${result.changes} changes against ${result.checkedAgainst} others; G-8 pool ` +
+          `${result.poolPresent ? 'checked' : 'not yet recorded'})`,
       );
       return result.errors.length === 0 ? 0 : 1;
     }

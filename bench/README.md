@@ -124,3 +124,16 @@ The agent commits of each benchmark change are also kept as a git bundle in `ben
 machine: clone the reference repository at its `commit` (`references` in `benchmark-set.json`), then
 `git fetch <path>/bench/set/bundles/<bench-id>.bundle bench/<bench-id>:bench/<bench-id>`. The head
 must equal the `headCommit` recorded in the set.
+
+## Calibration corpus
+
+`bench/calibration/corpus.json` holds the 12 agent changes of the calibration corpus of
+C001-ADR-009 §4 (C001-T-106): 4 per deep ecosystem, 2,000 to 10,000 changed lines each, each from
+an older release tag of a reference repository than its benchmark change, with 15–25% of changed
+lines in files that exist at the base. Each change has its task description in
+`bench/calibration/tasks/`, its environment in `bench/calibration/environments/` (based on the
+benchmark recipe of the same repository) and its agent commits as a bundle in
+`bench/calibration/bundles/` (restore as for the benchmark changes, branch `calib/<eco>-<n>`).
+`npm run bench -- calibration --check-overlap` validates the corpus and fails when a change shares a
+commit range or a task description with the benchmark set or with the G-8 pool
+(`study/g8/pool.json`, once C001-T-110 writes it). Seeded defects follow in C001-T-107 and C001-T-108.

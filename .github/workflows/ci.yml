@@ -33,6 +33,7 @@ jobs:
       - run: npm test
       - run: npm run bench -- harness-selftest
       - run: npm run bench -- validate-set
+      - run: npm run bench -- calibration --check-overlap
       - run: npm run acceptance -- --scenarios-file test/acceptance/ci-scenarios.txt
       - run: npm run licence-check
       - run: npm run audit
@@ -98,6 +99,7 @@ jobs:
       - run: npm test
       - run: npm run bench -- harness-selftest
       - run: npm run bench -- validate-set
+      - run: npm run bench -- calibration --check-overlap
       - run: npm run acceptance -- --scenarios-file test/acceptance/ci-scenarios.txt
       - name: Browser scenarios (Edge)
         env:

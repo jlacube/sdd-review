@@ -1,0 +1,8 @@
+{
+  "id": "calib-py-1",
+  "basedOn": "bench/set/environments/bench-py.json",
+  "localCheckout": "ref/faker",
+  "baseCommit": "1879c986b303c7ed9f2979727dd218a47c47119f",
+  "testCommand": ".venv\\Scripts\\python.exe -m pytest -q -p no:cacheprovider -p faker.contrib.pytest.plugin --deselect tests/pytest/test_unique_clear.py::test_unique_clears",
+  "recipe": "Reference clone ref/faker (git worktree of it during the build). A virtual environment .venv/ in ref/faker holds the third-party test dependencies only, as in bench/set/environments/bench-py.json: python -m venv .venv && .venv\\Scripts\\python.exe -m pip install tzdata freezegun \"pytest>=6.0.1\" \"python-stdnum>=1.20\" \"ukpostcodeparser>=1.1.1\" \"validators>=0.13.0\" pillow xmltodict (Python 3.13.9, pytest 9.2.0). Faker itself is NOT installed (neither regular nor editable); it loads from the repository root because the test command is python -m pytest. PYTHONPATH, PYTHONHOME, PYTEST_ADDOPTS and PYTEST_PLUGINS unset. Linters were run from a separate virtual environment outside the repository: flake8 7.5.0 + flake8-comprehensions 3.17.0, isort 9.0.2, black 24.4.0, mypy 1.15.0 (commands of tox.ini; PYTHONUTF8=1 for isort on Windows)."
+}

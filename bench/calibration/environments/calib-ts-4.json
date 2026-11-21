@@ -1,0 +1,8 @@
+{
+  "id": "calib-ts-4",
+  "basedOn": "bench/set/environments/bench-ts.json",
+  "localCheckout": "ref/class-validator",
+  "baseCommit": "794f148d0792661f88001bb850d475a9b181b443",
+  "testCommand": "npx jest --coverage=false",
+  "recipe": "Same recipe as bench/set/environments/bench-ts.json, at this change's base (tag v0.14.4): Node.js 22.13.0 / npm 10.9.2, `npm ci` from the base's committed package-lock.json into node_modules/ of the working tree (ignored path node_modules/); the project itself is not installed (tests import src/ through ts-jest); NODE_PATH and NODE_OPTIONS unset; nothing activated."
+}

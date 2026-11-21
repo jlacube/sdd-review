@@ -1,0 +1,8 @@
+{
+  "id": "calib-cs-3",
+  "basedOn": "bench/set/environments/bench-cs.json",
+  "localCheckout": "ref/FluentValidation",
+  "baseCommit": "b4a67e7d20ae071c19cceeb5d49f3ee1e4ed0c36",
+  "testCommand": "dotnet test src/FluentValidation.Tests/FluentValidation.Tests.csproj -f net8.0",
+  "recipe": "Base is tag 11.10.0. Packages are restored with `dotnet restore FluentValidation.sln` into the NuGet global packages folder of the user profile (outside the working tree); restore writes obj/ and a build writes bin/, both ignored by the repository's .gitignore; the test project reaches the library through a ProjectReference, the project is never installed as a package. global.json requests SDK 8.0.100 with rollForward latestFeature, so SDK 8.0.300 is selected (SDK 10.0.404 is also installed but not selected); runtime Microsoft.NETCore.App 8.0.5. Any shell started in the repository root with DOTNET_CLI_UI_LANGUAGE=en; nothing is activated. The test project targets net6.0, net7.0 and net8.0; the test command selects net8.0 (the only one of the three whose runtime is installed). No evidence-workspace preparation beyond the implicit restore of the test command."
+}

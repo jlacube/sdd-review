@@ -1,0 +1,8 @@
+{
+  "id": "calib-cs-1",
+  "basedOn": "bench/set/environments/bench-cs.json",
+  "localCheckout": "ref/FluentValidation",
+  "baseCommit": "299ef377bde844af7d28b7aa21786a6853f930e3",
+  "testCommand": "dotnet test src/FluentValidation.Tests/FluentValidation.Tests.csproj -f net10.0",
+  "recipe": "Base is tag 12.2.0 (the same environment as bench/set/environments/bench-cs.json). Packages are restored with `dotnet restore FluentValidation.sln` into the NuGet global packages folder of the user profile (outside the working tree); restore writes src/*/obj/ and a build writes src/*/bin/, both ignored by the repository's .gitignore; the test project reaches the library through a ProjectReference, the project itself is never installed from a feed. global.json requires SDK 10.0.0 with rollForward latestFeature, so SDK 10.0.404 is selected; runtime Microsoft.NETCore.App 10.0.15. Any shell with dotnet on PATH, started in the repository root, with DOTNET_CLI_UI_LANGUAGE=en; nothing is activated. The test project targets net8.0, net9.0 and net10.0; the test command selects net10.0. No ignored paths need to be made available in an evidence workspace; the test command's implicit restore and build run cold."
+}
