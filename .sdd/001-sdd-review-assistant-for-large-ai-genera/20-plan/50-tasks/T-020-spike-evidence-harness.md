@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Spike — coverage and mutation harness for the workspace measurements
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-016, C001-T-019, C001-T-017, C001-T-013]
 implements: [C001-NFR-018]
 satisfies_ac: [C001-AC-506.1, C001-AC-514.1, C001-AC-512.1]
