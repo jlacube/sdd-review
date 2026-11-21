@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Plan items, transcript passages, recorded runs and mentions
 milestone: C001-M-02
-status: todo
+status: done
 depends_on: [C001-T-030]
 implements: [C001-REQ-314, C001-REQ-510]
 satisfies_ac: [C001-AC-314.1, C001-AC-510.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-331, C001-TS-526]
 components: [C001-COMP-005]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: d8a1a28, completed_at: 2026-11-21, notes: "Plan items, transcript passages, recorded runs, ID/file mentions; 287 unit tests; TS-331 awaits T-044, TS-526 T-065; combined tree verified (1,651 tests, 117 CI scenarios); CI green on 4 runners incl. first real POSIX acceptance at 2f889af; shared wiring in f04891a; PR at M-02 merge" }
 ---
 # C001-T-032 — Plan items, transcript passages, recorded runs and mentions
 

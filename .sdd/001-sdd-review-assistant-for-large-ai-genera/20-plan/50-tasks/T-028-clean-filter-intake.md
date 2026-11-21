@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Files under a clean filter at intake — Git LFS pointers and other filters
 milestone: C001-M-02
-status: todo
+status: done
 depends_on: [C001-T-006, C001-T-008]
 implements: [C001-REQ-126, C001-REQ-127, C001-REQ-128]
 satisfies_ac: [C001-AC-126.1, C001-AC-127.1, C001-AC-128.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-167, C001-TS-168, C001-TS-169, C001-TS-170, C001-TS-172, C
 components: [C001-COMP-003, C001-COMP-004]
 risk_refs: [C001-RISK-003, C001-RISK-008]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 6a2a196, completed_at: 2026-11-21, notes: "Clean-filter files: LFS by pointer, other filters by index blob, ERR-INTAKE-009, no filter run; 18 CI scenarios (Windows+Linux); TS-177/188 await T-033; combined tree verified (1,651 tests, 117 CI scenarios); CI green on 4 runners incl. first real POSIX acceptance at 2f889af; shared wiring in f04891a; PR at M-02 merge" }
 ---
 # C001-T-028 — Files under a clean filter at intake
 

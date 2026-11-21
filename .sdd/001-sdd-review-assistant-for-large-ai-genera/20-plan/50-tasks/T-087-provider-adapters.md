@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: OpenAI-compatible chat and Anthropic Messages adapters
 milestone: C001-M-06
-status: todo
+status: done
 depends_on: [C001-T-085]
 implements: [C001-REQ-805]
 satisfies_ac: [C001-AC-805.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-812, C001-TS-813]
 components: [C001-COMP-016, C001-COMP-017]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: f5f5a24, completed_at: 2026-11-21, notes: "OpenAI chat + Anthropic Messages adapters (HTTP, local socket, deadline, no retry, ERR-MODEL-003..010); 93 tests; TS-812/813 bound, await T-088/T-090; fail-safe until egress; combined tree verified (1,651 tests, 117 CI scenarios); CI green on 4 runners incl. first real POSIX acceptance at 2f889af; shared wiring in f04891a; PR at M-02 merge" }
 ---
 # C001-T-087 — OpenAI-compatible chat and Anthropic Messages adapters
 
