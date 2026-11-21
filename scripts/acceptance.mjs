@@ -3,7 +3,7 @@
 // Runs Cucumber.js over the Gherkin of the acceptance files, selected by scenario ID, and prints
 // one line per scenario: passed, failed or undefined.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { extractFeatures } from './extract-features.mjs';
 
 /** The scenario IDs of a file: one per line, blank lines and `#` comments ignored (CI list). */
@@ -59,13 +59,16 @@ export function statusOf(featuresJson) {
 
 if (import.meta.url === new URL(`file:///${process.argv[1]?.replace(/\\/g, '/')}`).href) {
   const opts = parseArgs(process.argv.slice(2));
-  const written = extractFeatures();
+  // Each run extracts into its own folder, so runs started at the same time do not delete or
+  // overwrite each other's feature files and report.
+  const runDir = `test/acceptance/.features/run-${process.pid}-${Date.now()}`;
+  const written = extractFeatures(runDir);
   const total = written.reduce((n, w) => n + w.scenarios, 0);
   console.log(`acceptance: ${total} Gherkin blocks from ${written.length} acceptance files`);
-  const report = 'test/acceptance/.features/report.json';
+  const report = `${runDir}/report.json`;
   const args = [
     'node_modules/@cucumber/cucumber/bin/cucumber.js',
-    'test/acceptance/.features/*.feature',
+    `${runDir}/*.feature`,
     '--import',
     'test/acceptance/support/**/*.ts',
     '--import',
@@ -90,5 +93,6 @@ if (import.meta.url === new URL(`file:///${process.argv[1]?.replace(/\\/g, '/')}
     const json = JSON.parse(readFileSync(report, 'utf8'));
     for (const s of statusOf(json)) console.log(`${s.status.toUpperCase().padEnd(10)} ${s.name}`);
   }
+  rmSync(runDir, { recursive: true, force: true });
   process.exit(r.status ?? 1);
 }
