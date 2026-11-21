@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Working-tree observer — common model and Linux implementation
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-003]
 implements: [C001-REQ-523, C001-REQ-524]
 satisfies_ac: [C001-AC-523.1, C001-AC-524.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-568, C001-TS-569, C001-TS-575, C001-TS-576, C001-TC-551]
 components: [C001-COMP-011]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 5499a13, completed_at: 2026-11-21, notes: "Observer model + Linux inotify via koffi 3.3.8; 28 unit + 12 Linux integration tests green on WSL and ubuntu CI (user-namespace sysctl step added) at 2a241e0; statfs network-fs cause untested; wiring in T-069; PR at M-01 merge" }
 ---
 # C001-T-017 — Working-tree observer: common model and Linux implementation
 

@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Copier, ignored paths made available, link retargeting and mutation copy
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-015]
 implements: [C001-REQ-509, C001-REQ-516]
 satisfies_ac: [C001-AC-509.1, C001-AC-516.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-525, C001-TS-545, C001-TS-580, C001-TS-585, C001-TC-554]
 components: [C001-COMP-011]
 risk_refs: [C001-RISK-012]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 2a241e0, completed_at: 2026-11-21, notes: "Copier (clone or byte copy, no hard links), made-available paths, link retargeting, mutation copy; 61 tests; CI green on 4 runners at 2a241e0; macOS runners byte-copy (clone probe), cost for W1/W3 in T-021; acceptance via T-019/T-062-064; PR at M-01 merge" }
 ---
 # C001-T-016 — Copier, ignored paths made available, link retargeting and mutation copy
 

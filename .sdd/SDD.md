@@ -29,5 +29,5 @@ Read `NNN-slug/20-plan/handoff.md` and report progress with
 <!-- sdd:status:begin -->
 | Change | Title | Phase | Status | Tasks done | Open defects | Updated |
 |---|---|---|---|---|---|---|
-| 001 | SDD review assistant for large AI-generated changes | 20-plan | approved | 17/116 | 15 | 2026-11-21 |
+| 001 | SDD review assistant for large AI-generated changes | 20-plan | approved | 19/116 | 15 | 2026-11-21 |
 <!-- sdd:status:end -->

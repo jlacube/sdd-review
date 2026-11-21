@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Working-tree observer — macOS and Windows implementations
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-017]
 implements: [C001-REQ-523, C001-REQ-524, C001-NFR-016]
 satisfies_ac: [C001-AC-523.1, C001-AC-524.1]
