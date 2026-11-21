@@ -395,6 +395,8 @@ export interface WorkspaceWatcher {
 }
 
 export interface WatchOptions {
+  /** Operating system to act for; the process's own by default (tests set it). */
+  readonly platform?: NodeJS.Platform;
   /** How long `stop` waits for its drain marker; default 2 s. */
   readonly drainTimeoutMs?: number;
   /** Test seam: replaces `fs.watch`. */
@@ -415,6 +417,14 @@ export function watchWorkspace(root: string, options: WatchOptions = {}): Worksp
   let barrierName: string | null = null;
   let barrierSeen: (() => void) | null = null;
   let watcher: FSWatcher | null = null;
+  if ((options.platform ?? process.platform) === 'darwin') {
+    // FSEvents behind fs.watch can miss changes made right after the watch starts while still
+    // delivering the later drain marker, so a loss would go unnoticed. Until the native observer
+    // of C001-T-018 replaces this watcher, macOS always takes the full walk.
+    const cause =
+      'fs.watch on macOS (FSEvents) can miss events unnoticed; full walk until C001-T-018';
+    return { stop: async () => ({ paths: touched, lost: true, cause }) };
+  }
   try {
     watcher = (options.watchFn ?? watch)(root, { recursive: true, persistent: false });
     watcher.on('change', (_event, filename) => {

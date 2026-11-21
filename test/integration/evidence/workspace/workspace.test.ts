@@ -263,7 +263,7 @@ describe('check, watcher and reset', () => {
     if (touched.lost) console.warn(`workspace watcher lost events: ${touched.cause}`);
     expect(result.clean).toBe(false);
     expect(result.differences).toEqual(expected);
-    expect(touched.paths.size).toBeGreaterThan(0);
+    if (!touched.lost) expect(touched.paths.size).toBeGreaterThan(0);
     for (const p of touched.paths) expect(p.startsWith('.sddr-drain-')).toBe(false);
 
     const logFile = join(tempDir('sddr-log-'), 'log.jsonl');
@@ -309,6 +309,18 @@ describe('check, watcher and reset', () => {
     expect((await ws.prepared.index.check({ kind: 'full' }, { ignore: ws.ignore })).clean).toBe(
       true,
     );
+  });
+
+  it('on macOS the watcher always reports lost events, so the check takes the full walk', async () => {
+    const watcher = watchWorkspace(root(), { platform: 'darwin' });
+    writeFileSync(at('src/mac.ts'), 'changed during the run\n');
+    const touched = await watcher.stop();
+    expect(touched.lost).toBe(true);
+    expect(touched.cause).toContain('C001-T-018');
+    const result = await checkAfterRun(ws.prepared.index, touched, { ignore: ws.ignore });
+    expect(result.scope).toBe('full');
+    expect(result.differences).toContainEqual({ path: 'src/mac.ts', kind: 'added' });
+    await ws.prepared.index.reset(result.differences, ws.prepared.rewrite);
   });
 
   it('a run that replaces a snapshot directory by a file is found and reset', async () => {
