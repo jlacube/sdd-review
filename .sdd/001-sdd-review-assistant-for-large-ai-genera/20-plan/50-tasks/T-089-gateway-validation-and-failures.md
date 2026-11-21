@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Gateway output validation, model-output marking and failure fallback
 milestone: C001-M-06
-status: todo
+status: in-progress
 depends_on: [C001-T-088]
 implements: [C001-REQ-810, C001-REQ-811, C001-REQ-816, C001-REQ-817, C001-REQ-818, C001-NFR-002]
 satisfies_ac: [C001-AC-810.1, C001-AC-811.1, C001-AC-816.1, C001-AC-817.1, C001-AC-818.1]

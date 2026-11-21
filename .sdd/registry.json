@@ -1,6 +1,6 @@
 {
   "sdd_version": 1,
-  "generated_at": "2026-11-21T17:12:16Z",
+  "generated_at": "2026-11-21T17:51:06Z",
   "changes": [
     {
       "id": "CHG-001",
@@ -36,7 +36,7 @@
           "total": 116,
           "done": 37,
           "blocked": 4,
-          "in_progress": 1
+          "in_progress": 2
         },
         "last_report": "2026-11-21T00:00:00Z"
       },
@@ -345,6 +345,16 @@
           "id": "D-031",
           "ref": "C001-REQ-114",
           "summary": "IntakeSummary (IF-008) and SessionInfo (IF-002) carry no HEAD commit or base-is-HEAD flag, so the review UI cannot show the warning 'only uncommitted edits are reviewed' when a named or merge-base base commit is HEAD itself; T-033 shows it in the UI only for baseChoice head (the CLI shows it in every case)",
+          "reporter": "Jerome LACUBE",
+          "date": "2026-11-21",
+          "status": "open",
+          "resolution": null,
+          "closed_at": null
+        },
+        {
+          "id": "D-032",
+          "ref": "C001-IF-010",
+          "summary": "IF-010 §3 item 3 says a request body is at most maxRequestBytes but gives no rule when one element cannot be split further (a single hunk, commit or named file, or intents already cut to empty, larger than the limit) nor a split rule for intent-extraction inputs; T-089 interim: such an element goes alone in its own batch (the provider may refuse it, ERR-MODEL-010), intent-extraction is split by whole commit and named file",
           "reporter": "Jerome LACUBE",
           "date": "2026-11-21",
           "status": "open",
