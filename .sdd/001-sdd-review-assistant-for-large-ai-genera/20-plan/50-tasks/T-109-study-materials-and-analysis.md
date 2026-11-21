@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Comparison study — materials, record layout, assignment and analysis commands
 milestone: C001-M-07
-status: todo
+status: in-progress
 depends_on: [C001-T-002]
 implements: []
 satisfies_ac: [C001-AC-610.1, C001-AC-301.1]

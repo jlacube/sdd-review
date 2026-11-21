@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Calibration corpus — seed and label defects in changes 1 to 6
 milestone: C001-M-07
-status: todo
+status: in-progress
 depends_on: [C001-T-106]
 implements: []
 satisfies_ac: [C001-AC-401.1]

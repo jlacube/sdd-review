@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Spike — parsing speed and memory at the supported size
 milestone: C001-M-01
-status: in-progress
+status: blocked
 depends_on: [C001-T-006, C001-T-013]
 implements: [C001-NFR-001, C001-NFR-004]
 satisfies_ac: [C001-AC-201.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-201]
 components: [C001-COMP-007, C001-COMP-003]
 risk_refs: [C001-RISK-009]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: null, completed_at: null, notes: "blocked: Harness built at fa193a7 (CI green); measurement waits for the owner's go-ahead to keep the reference machine idle (npm run bench -- spike-parse all)" }
 ---
 # C001-T-014 — Spike: parsing speed and memory at the supported size
 
