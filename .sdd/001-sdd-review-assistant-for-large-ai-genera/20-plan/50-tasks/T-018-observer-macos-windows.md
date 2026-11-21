@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Working-tree observer — macOS and Windows implementations
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-017]
 implements: [C001-REQ-523, C001-REQ-524, C001-NFR-016]
 satisfies_ac: [C001-AC-523.1, C001-AC-524.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-570, C001-TS-571, C001-TS-577, C001-TS-578, C001-TC-552]
 components: [C001-COMP-011]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: "94e1018", completed_at: 2026-11-21, notes: "Windows (ReadDirectoryChangesW) and macOS (FSEvents) observers + platform switch; macOS fixed with marker-barrier drains and moved-dir detection (debug/t018-macos); all observer suites green on 4 CI runners at 1723d6b; gap: ancestor of an external git dir renamed and back within a run; workspace watcher macOS fallback still to move to native observer; PR at M-01 merge" }
 ---
 # C001-T-018 — Working-tree observer: macOS and Windows implementations
 
