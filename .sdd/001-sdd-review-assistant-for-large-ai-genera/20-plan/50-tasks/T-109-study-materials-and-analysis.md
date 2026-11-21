@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Comparison study — materials, record layout, assignment and analysis commands
 milestone: C001-M-07
-status: in-progress
+status: blocked
 depends_on: [C001-T-002]
 implements: []
 satisfies_ac: [C001-AC-610.1, C001-AC-301.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TC-007]
 components: [C001-COMP-019, C001-COMP-001]
 risk_refs: [C001-RISK-015]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: null, completed_at: null, notes: "blocked: Materials and commands done at 5adbf02 (50 unit tests); waits for P-01 to appoint moderator, study seeder, two raters and T-102 owner, and for the moderator to check the forms (owner chose to defer people)" }
 ---
 # C001-T-109 — Comparison study: materials, record layout, assignment and analysis commands
 
