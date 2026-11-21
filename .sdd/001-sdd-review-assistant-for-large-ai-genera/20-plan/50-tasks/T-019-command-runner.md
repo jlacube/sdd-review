@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Command runner for evidence commands
 milestone: C001-M-01
-status: in-progress
+status: done
 depends_on: [C001-T-015]
 implements: [C001-REQ-525, C001-REQ-521]
 satisfies_ac: [C001-AC-525.1, C001-AC-521.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-586, C001-TS-587, C001-TS-588, C001-TS-560, C001-TC-555]
 components: [C001-COMP-011]
 risk_refs: [C001-RISK-005]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: a2b1e11, completed_at: 2026-11-21, notes: "Command runner: workspace-only, cleaned env + ceiling, low priority, bounded output, process-tree kill on cancel/timeout; 80 tests on Windows and WSL; CI green on 4 runners at a2b1e11; notices left to T-060/T-062/T-065, observer wiring to T-069; PR at M-01 merge" }
 ---
 # C001-T-019 — Command runner for evidence commands
 
