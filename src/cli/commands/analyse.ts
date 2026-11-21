@@ -7,12 +7,6 @@ import type { Command, GlobalOptions, IntakeOptions } from '../parser.js';
 
 type AnalyseCommand = Extract<Command, { name: 'analyse' }>;
 
-/**
- * The base of a run that names none. Until C001-T-025 (default base commit) gives the upstream and
- * default-branch rules, HEAD is the base, which reviews the uncommitted edits.
- */
-const DEFAULT_BASE = 'HEAD';
-
 /** The named files of the intake options, by role (C001-IF-003 §3 `startReview`). */
 function namedFilesOf(intake: IntakeOptions): NonNullable<StartReviewOptions['namedFiles']> {
   return [
@@ -27,7 +21,7 @@ function namedFilesOf(intake: IntakeOptions): NonNullable<StartReviewOptions['na
 /** The core's intake options from the command's (shared by `review` and `analyse`). */
 export function startOptionsOf(intake: IntakeOptions): StartReviewOptions {
   return {
-    namedBase: intake.base ?? DEFAULT_BASE,
+    ...(intake.base !== undefined ? { namedBase: intake.base } : {}),
     ...(intake.sddChange !== undefined ? { sddChange: intake.sddChange } : {}),
     namedFiles: namedFilesOf(intake),
     ...(intake.testCommand !== undefined ? { testCommand: intake.testCommand } : {}),
@@ -92,7 +86,7 @@ export async function analyse(
   if (global.format === 'json') {
     io.stdout.write(`${JSON.stringify(started.intakeSummary, null, 2)}\n`);
   } else {
-    io.stdout.write(intakeSummaryText(started.intakeSummary, command.intake.base ?? DEFAULT_BASE));
+    io.stdout.write(intakeSummaryText(started.intakeSummary, command.intake.base));
     io.stdout.write(`Snapshot: ${started.snapshotId}\nResults written to ${command.out}\n`);
   }
   return exitOk;

@@ -7,15 +7,36 @@
 #                views of C001-T-044 and later; the client has only the change list so far
 #   C001-TS-930  its third example (sign on an unknown intent) needs the verdict commands (C001-T-082)
 #   C001-TS-928  needs the verdict commands (C001-T-082)
+#   C001-TS-152  expects ERR-SDD-005 on line 1 for a frontmatter block that is not YAML: defect D-025
+#   C001-TS-108  its last step needs the commits of the intent context (C001-T-027)
+#   C001-TS-142  its `stub-llm` steps need the provider configuration and the model gateway (C001-T-085, C001-T-087)
 C001-TS-101
 C001-TS-102
 C001-TS-103
 C001-TS-105
+C001-TS-106
+C001-TS-107
+C001-TS-109
+C001-TS-110
+C001-TS-111
+C001-TS-112
+C001-TS-113
+C001-TS-114
 C001-TS-133
 C001-TS-135
+C001-TS-141
+C001-TS-143
 C001-TS-144
 C001-TS-145
 C001-TS-146
+C001-TS-124
+C001-TS-126
+C001-TS-151
+C001-TS-153
+C001-TS-156
+C001-TS-157
+C001-TS-158
+C001-TS-159
 C001-TS-166
 C001-TS-926
 C001-TS-927
@@ -25,3 +46,4 @@ C001-TS-907
 C001-TS-910
 C001-TS-911
 C001-TS-914
+C001-TS-861

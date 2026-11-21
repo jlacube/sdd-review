@@ -143,19 +143,29 @@ describe('CLI commands over a fixture repository', () => {
   describe('exit codes of real commands', () => {
     it('1: a command whose operation is built by a later task says which task', async () => {
       for (const [args, task] of [
-        [['reviews'], 'C001-T-034'],
         [['status'], 'C001-T-082'],
         [['intents'], 'C001-T-082'],
         [['sign', 'REQ-1'], 'C001-T-082'],
         [['reject', 'REQ-1', '--reason', 'x'], 'C001-T-082'],
         [['defer', 'REQ-1', '--note', 'x'], 'C001-T-082'],
-        [['open'], 'C001-T-034'],
-        [['config', 'validate'], 'C001-T-035'],
       ] as const) {
         const r = await cli([...args], fx.dir);
         expect(r.status, args.join(' ')).toBe(1);
         expect(r.stderr).toContain(task);
       }
+    });
+
+    it('5: open of an unknown snapshot, or with no review to default to (ERR-STORE-004)', async () => {
+      const unknown = `s-${'f'.repeat(64)}`;
+      const named = await cli(['open', unknown, '--no-browser'], fx.dir);
+      expect(named.status).toBe(5);
+      expect(named.stderr).toContain(
+        `ERR-STORE-004: No review of snapshot "${unknown}" in this repository.`,
+      );
+      const none = await cli(['open', '--no-browser'], clean.dir);
+      expect(none.status).toBe(5);
+      expect(none.stderr).toMatch(/^ERR-STORE-004: /m);
+      expect(named.stdout + none.stdout).toBe('');
     });
 
     it('2: an unknown command, an unknown option and a missing argument', async () => {
@@ -245,6 +255,98 @@ describe('CLI commands over a fixture repository', () => {
       expect(result.status).toBe(7);
       expect(result.stderr).toContain('interrupted');
       expect(existsSync(out)).toBe(false);
+    });
+  });
+
+  describe('reviews and open (C001-T-034)', () => {
+    it('reviews lists every review with base, HEAD, times and record path; earlier snapshots stay', async () => {
+      const empty = await cli(['reviews'], clean.dir);
+      expect(empty).toMatchObject({ status: 0, stdout: 'No reviews in this repository.\n' });
+      expect(JSON.parse((await cli(['reviews', '--format', 'json'], clean.dir)).stdout)).toEqual(
+        [],
+      );
+
+      const repo = buildFxIntake();
+      try {
+        repo.write('src/util.ts', `${repo.read('src/util.ts')}// one\n`);
+        expect((await cli(['analyse', '--headless', '--out', temp('o1')], repo.dir)).status).toBe(
+          0,
+        );
+        repo.write('src/util.ts', `${repo.read('src/util.ts')}// two\n`);
+        expect((await cli(['analyse', '--headless', '--out', temp('o2')], repo.dir)).status).toBe(
+          0,
+        );
+        const json = await cli(['reviews', '--format', 'json'], repo.dir);
+        expect(json.status).toBe(0);
+        const listed = JSON.parse(json.stdout) as Array<Record<string, string | null>>;
+        expect(listed).toHaveLength(2);
+        const head = repo.git('rev-parse', 'HEAD').trim();
+        for (const review of listed) {
+          expect(review).toMatchObject({
+            baseCommit: head,
+            headCommit: head,
+            decisionStatus: null,
+          });
+          expect(review.snapshotId).toMatch(/^s-[0-9a-f]{64}$/);
+          expect(existsSync(review.recordFile as string)).toBe(true);
+          expect(readFileSync(review.recordFile as string, 'utf8')).toContain(review.snapshotId);
+        }
+        const text = await cli(['reviews'], repo.dir);
+        expect(text.status).toBe(0);
+        for (const review of listed) {
+          expect(text.stdout).toContain(`Snapshot: ${review.snapshotId}`);
+          expect(text.stdout).toContain(`Review record: ${review.recordFile}`);
+        }
+        expect(text.stderr).toBe('');
+      } finally {
+        repo.dispose();
+      }
+    });
+
+    it('open reopens the most recent review without intake, serves it and exits 0 when stopped', async () => {
+      const repo = buildFxIntake();
+      try {
+        repo.write('src/order.ts', `${repo.read('src/order.ts')}// open\n`);
+        expect((await cli(['analyse', '--headless', '--out', temp('o')], repo.dir)).status).toBe(0);
+        const [review] = JSON.parse(
+          (await cli(['reviews', '--format', 'json'], repo.dir)).stdout,
+        ) as Array<{
+          snapshotId: string;
+          lastOpenedAt: string;
+        }>;
+        // An edit after the review: `open` takes nothing in, so the snapshot stays the same.
+        repo.write('src/order.ts', `${repo.read('src/order.ts')}// later\n`);
+        const controller = new AbortController();
+        let stdout = '';
+        let stderr = '';
+        const io: CliIo = {
+          stdout: {
+            write: (t) => {
+              stdout += t;
+              if (stdout.includes('Review address:')) controller.abort();
+            },
+          },
+          stderr: { write: (t) => (stderr += t) },
+          cwd: repo.dir,
+          env: process.env,
+          signal: controller.signal,
+        };
+        const status = await run(['open', '--no-browser'], io);
+        expect(status, stderr).toBe(0);
+        expect(stdout).toContain(`Snapshot: ${review!.snapshotId}`);
+        expect(stdout).toMatch(/Review address: http:\/\/127\.0\.0\.1:\d+\//);
+        expect(stderr).not.toMatch(/ERR-/);
+        const after = JSON.parse(
+          (await cli(['reviews', '--format', 'json'], repo.dir)).stdout,
+        ) as Array<{
+          snapshotId: string;
+          lastOpenedAt: string;
+        }>;
+        expect(after.map((r) => r.snapshotId)).toEqual([review!.snapshotId]);
+        expect(after[0]!.lastOpenedAt >= review!.lastOpenedAt).toBe(true);
+      } finally {
+        repo.dispose();
+      }
     });
   });
 

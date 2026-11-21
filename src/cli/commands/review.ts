@@ -110,37 +110,81 @@ export async function review(
     throw error;
   }
 
+  await serveReview(
+    {
+      snapshotId: started.snapshotId,
+      port: command.port,
+      noBrowser: command.noBrowser,
+      json: { snapshotId: started.snapshotId, intakeSummary: started.intakeSummary },
+      text: intakeSummaryText(started.intakeSummary, command.intake.base ?? 'HEAD'),
+      label: 'review',
+    },
+    global,
+    api,
+    io,
+    deps,
+  );
+  return exitOk;
+}
+
+/** What `serveReview` serves and prints before the review address. */
+export interface ServeRequest {
+  readonly snapshotId: string;
+  readonly port: number | undefined;
+  readonly noBrowser: boolean;
+  /** The fields of the JSON document printed with `--format json`; the address is added. */
+  readonly json: Readonly<Record<string, unknown>>;
+  /** The text printed before the snapshot and address lines. */
+  readonly text: string;
+  /** The command name of the progress line. */
+  readonly label: string;
+}
+
+/**
+ * Serves one review (shared by `review` and `open`): the UI server on 127.0.0.1, the address on
+ * standard output, the review in the default browser (ERR-UI-003 when none opens), until the
+ * developer stops it; then the server is closed.
+ */
+export async function serveReview(
+  request: ServeRequest,
+  global: GlobalOptions,
+  api: CoreApi,
+  io: CliIo,
+  deps: ReviewDeps = {},
+): Promise<void> {
   // Loaded here and nowhere else: no other command loads the UI server (C001-CON-09).
   const { startUiServer } = await import('../../ui-server/server.js');
   const server = await startUiServer({
     core: api,
-    snapshotId: started.snapshotId,
-    ...(command.port !== undefined ? { port: command.port } : {}),
+    snapshotId: request.snapshotId,
+    ...(request.port !== undefined ? { port: request.port } : {}),
     staticDir: deps.staticDir ?? defaultStaticDir(),
   });
   try {
     if (global.format === 'json') {
-      io.stdout.write(
-        `${JSON.stringify({ snapshotId: started.snapshotId, intakeSummary: started.intakeSummary, address: server.url }, null, 2)}\n`,
-      );
+      io.stdout.write(`${JSON.stringify({ ...request.json, address: server.url }, null, 2)}
+`);
     } else {
-      io.stdout.write(intakeSummaryText(started.intakeSummary, command.intake.base ?? 'HEAD'));
-      io.stdout.write(`Snapshot: ${started.snapshotId}\nReview address: ${server.url}\n`);
+      io.stdout.write(request.text);
+      io.stdout.write(`Snapshot: ${request.snapshotId}
+Review address: ${server.url}
+`);
     }
-    if (!command.noBrowser) {
+    if (!request.noBrowser) {
       const launch = deps.launch ?? launchDefaultBrowser;
       if (!(await launch(server.url, io.env))) {
         const notice = new ReviewError('ERR-UI-003', {
-          operation: 'review',
+          operation: request.label,
           params: { address: server.url },
         });
-        io.stderr.write(`${errorLine(notice)}\n`);
+        io.stderr.write(`${errorLine(notice)}
+`);
       }
     }
-    io.stderr.write('review: serving the review; stop it with Ctrl+C\n');
+    io.stderr.write(`${request.label}: serving the review; stop it with Ctrl+C
+`);
     await waitForStop(io.signal);
   } finally {
     await server.close();
   }
-  return exitOk;
 }

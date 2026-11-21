@@ -10,12 +10,14 @@ import type {
 import { ReviewError } from '../errors/review-error.js';
 import { completeRecordBytes, exportContents, writeExport } from './export.js';
 import type { GitAccessPort } from '../git/port.js';
+import { validateConfigurationFile } from '../config/load.js';
 import { takeInChange } from '../intake/snapshot.js';
 import { SnapshotEventLoop, SnapshotLoops } from '../orchestrator/event-loop.js';
 import { JobScheduler } from '../orchestrator/jobs.js';
 import type { StoreContext } from '../store/fsutil.js';
 import { RevisionStore, type RevisionDocuments } from '../store/revisions.js';
 import type { ReviewIndexEntry, SnapshotStore } from '../store/snapshots.js';
+export { mostRecentlyOpened } from '../store/reviews-index.js';
 
 /**
  * The core API (C001-IF-003, C001-COMP-002): the only entry point into the analysis core. The CLI
@@ -28,7 +30,9 @@ import type { ReviewIndexEntry, SnapshotStore } from '../store/snapshots.js';
  * root" of §2 is the binding and the operations take the snapshot ID and their own inputs.
  *
  * This task (C001-T-009) implements `startReview`, `getSession`, `getIntakeSummary`, `listReviews`
- * and the job operations, C001-T-010 adds `exportResults` (the headless output); every other operation rejects with `NotImplementedError` until its task.
+ * and the job operations, C001-T-010 adds `exportResults` (the headless output), C001-T-034 the
+ * reopen of an existing snapshot (`startReview`, `openReview`) and the record path of
+ * `listReviews`; every other operation rejects with `NotImplementedError` until its task.
  */
 
 type Schemas = components['schemas'];
@@ -43,8 +47,8 @@ export type { Job } from '../orchestrator/jobs.js';
 
 /** Intake options of C001-IF-003 §3; only the named base is read until the tasks that read the rest. */
 export interface StartReviewOptions {
-  /** The commit the developer named (C001-REQ-102). */
-  readonly namedBase: string;
+  /** The commit the developer named (C001-REQ-102); without one, the default rules apply. */
+  readonly namedBase?: string;
   readonly sddChange?: string;
   readonly namedFiles?: ReadonlyArray<{
     readonly role: 'pull-request-text' | 'agent-plan' | 'agent-transcript';
@@ -59,6 +63,14 @@ export interface StartReviewResult {
   /** True when a review of the same snapshot existed and was reopened, not recomputed. */
   readonly reopened: boolean;
   readonly notices: readonly Notice[];
+}
+
+/** One review of the repository as `listReviews` gives it (C001-IF-003 §3, C001-IF-001 `reviews`). */
+export interface ReviewListing extends ReviewIndexEntry {
+  /** The path of the review record file (C001-IF-009), which the developer can give to others. */
+  readonly recordFile: string;
+  /** Null until the decision status is computed (C001-REQ-711, C001-T-078). */
+  readonly decisionStatus: null;
 }
 
 export interface StaticAnalysisResult {
@@ -87,7 +99,7 @@ export interface CoreApi {
   listJobs(snapshotId: string): Promise<Schemas['Job'][]>;
   cancelJob(snapshotId: string, jobId: string): Promise<Schemas['Job'][]>;
   openReview(snapshotId: string): Promise<SessionInfo>;
-  listReviews(): Promise<ReviewIndexEntry[]>;
+  listReviews(): Promise<ReviewListing[]>;
   getSession(snapshotId: string): Promise<SessionInfo>;
   checkMovedOn(snapshotId: string): Promise<MovedOnNotice | null>;
   getIntakeSummary(snapshotId: string): Promise<IntakeSummary>;
@@ -267,6 +279,17 @@ export function createCore(deps: CoreDeps): Core {
     });
   }
 
+  /**
+   * Reopens a stored review (C001-REQ-119): its last-opened time is set and its current revision
+   * is what every view reads; nothing is analysed again and no event is submitted, except the
+   * first revision when the snapshot's creation ended before it was written. Re-applying record
+   * entries that no revision holds yet is C001-T-080.
+   */
+  async function reopen(snapshotId: string): Promise<void> {
+    await store.markOpened(snapshotId);
+    await ensureFirstRevision(snapshotId);
+  }
+
   async function getIntakeSummary(snapshotId: string): Promise<IntakeSummary> {
     return (await store.readSnapshot(snapshotId)).intakeSummary;
   }
@@ -301,23 +324,44 @@ export function createCore(deps: CoreDeps): Core {
           repositoryRoot: deps.repositoryRoot,
           ...(deps.now ? { now: deps.now } : {}),
         },
-        { namedBase: options.namedBase },
+        options.namedBase !== undefined ? { namedBase: options.namedBase } : {},
       );
       const { snapshotId } = result;
-      const intake =
-        result.status === 'created' ? result.intake : await store.readSnapshot(snapshotId);
-      if (result.status === 'existing') await store.markOpened(snapshotId);
+      if (result.status === 'existing') {
+        // The snapshot ID of an existing review: reopen it with its recorded results, without
+        // recomputing them (C001-REQ-119). Earlier snapshots are never touched (C001-REQ-118).
+        const intake = await store.readSnapshot(snapshotId);
+        await reopen(snapshotId);
+        return {
+          snapshotId,
+          intakeSummary: intake.intakeSummary,
+          reopened: true,
+          notices: intake.notices,
+        };
+      }
+      const { intake } = result;
       await ensureFirstRevision(snapshotId);
       return {
         snapshotId,
         intakeSummary: intake.intakeSummary,
-        reopened: result.status === 'existing',
+        reopened: false,
         notices: intake.notices,
       };
     },
     getSession,
     getIntakeSummary,
-    listReviews: () => store.listReviews(),
+    async listReviews() {
+      return (await store.listReviews()).map((entry) => ({
+        ...entry,
+        recordFile: store.record(entry.snapshotId).file,
+        decisionStatus: null,
+      }));
+    },
+    async openReview(snapshotId) {
+      store.requireReview(snapshotId); // ERR-STORE-004
+      await reopen(snapshotId);
+      return getSession(snapshotId);
+    },
     async startJobs(snapshotId) {
       await store.readSnapshot(snapshotId); // ERR-STORE-004
       return jobs.start(snapshotId);
@@ -339,7 +383,6 @@ export function createCore(deps: CoreDeps): Core {
     },
 
     runStaticAnalysis: later('runStaticAnalysis'),
-    openReview: later('openReview'),
     checkMovedOn: later('checkMovedOn'),
     getArchitectureDelta: later('getArchitectureDelta'),
     getComponent: later('getComponent'),
@@ -353,7 +396,10 @@ export function createCore(deps: CoreDeps): Core {
     getCoverageStatement: later('getCoverageStatement'),
     getDecisionStatus: later('getDecisionStatus'),
     getRecord: later('getRecord'),
-    validateConfiguration: later('validateConfiguration'),
+    async validateConfiguration(filePath) {
+      const { valid, ignoredSettings } = validateConfigurationFile(filePath, { log: ctx.log }); // ERR-CFG-003
+      return { valid, ignoredSettings };
+    },
     markRead: later('markRead'),
     markIntentRead: later('markIntentRead'),
     reopenHunk: later('reopenHunk'),
@@ -383,3 +429,8 @@ export { requireGitIdentity } from '../orchestrator/identity.js';
 /** The error type every operation rejects with, for surfaces that map it to their own outcome. */
 export { ReviewError, isReviewError } from '../errors/review-error.js';
 export type { ProblemDetails } from '../errors/review-error.js';
+
+/** `config validate` without a repository: the working-tree file needs no git data (C001-IF-001). */
+export { validateConfigurationFile } from '../config/load.js';
+export { CONFIGURATION_PATH } from '../config/effective.js';
+export type { FileValidation } from '../config/load.js';

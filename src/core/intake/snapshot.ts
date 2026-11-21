@@ -9,8 +9,11 @@ import type {
 import type { FileMode, GitAccessPort } from '../git/port.js';
 import type { ContextualLog } from '../log/log.js';
 import type { SnapshotStore } from '../store/snapshots.js';
-import { computeChange, resolveNamedBase, type ChangeFile } from './change.js';
+import { chooseBase } from './base.js';
+import { computeChange, type ChangeFile } from './change.js';
 import { cutHunks, identifyHunks } from './hunks.js';
+import type { SddIntentSources } from '../intent-sources/sdd-workspace.js';
+import { readIntakeIntentSources } from './intent-context.js';
 
 /** JSON with object keys in code-unit order and no white space: one text per value. */
 export function canonicalJson(value: unknown): string {
@@ -75,12 +78,21 @@ export interface IntakeDeps {
 }
 
 export interface IntakeOptions {
-  /** The commit the developer named (C001-REQ-102). */
-  readonly namedBase: string;
+  /**
+   * The commit the developer named (C001-REQ-102); without one, the default rules of
+   * C001-REQ-103 and C001-REQ-104 choose the base commit.
+   */
+  readonly namedBase?: string;
 }
 
 export type IntakeResult =
-  | { readonly status: 'created'; readonly snapshotId: string; readonly intake: IntakeDocument }
+  | {
+      readonly status: 'created';
+      readonly snapshotId: string;
+      readonly intake: IntakeDocument;
+      /** The `.sdd/` reading with the lines read on both sides (C001-REQ-222, C001-REQ-328). */
+      readonly intentSources: SddIntentSources;
+    }
   | {
       /** The snapshot exists already: the orchestrator reopens it (C001-T-034); nothing was written. */
       readonly status: 'existing';
@@ -103,8 +115,8 @@ async function commitRef(git: GitAccessPort, hash: string): Promise<CommitRef> {
 }
 
 /**
- * Intake (C001-REQ-101, C001-REQ-102, C001-REQ-115): takes in the change against the named base
- * commit, cuts the hunks, computes the snapshot ID and stores the snapshot document and the
+ * Intake (C001-REQ-101 to C001-REQ-106, C001-REQ-115): chooses the base commit, takes in the change
+ * against it, cuts the hunks, computes the snapshot ID and stores the snapshot document and the
  * snapshot-side content of the text files. When a snapshot with the same ID is stored already, it is
  * reported and nothing is written.
  */
@@ -113,7 +125,8 @@ export async function takeInChange(
   options: IntakeOptions,
 ): Promise<IntakeResult> {
   const { git, store, log } = deps;
-  const { base, head } = await resolveNamedBase(git, options.namedBase, log);
+  const chosen = await chooseBase(git, options.namedBase, log);
+  const { base, head } = chosen;
   const files = await computeChange(git, base, log);
   const snapshotId = snapshotIdOf(base, head, files);
 
@@ -143,14 +156,15 @@ export async function takeInChange(
   });
   const changedLines = changedFiles.reduce((sum, file) => sum + file.changedLines, 0);
   const baseCommit = await commitRef(git, base);
+  const sources = await readIntakeIntentSources(git, base, files, log); // C001-T-029
   const createdAt = (deps.now?.() ?? new Date()).toISOString();
 
   const snapshot: Snapshot = {
     snapshotId,
     baseCommit,
-    baseChoice: 'named',
-    namedValue: options.namedBase,
-    baseRef: null,
+    baseChoice: chosen.baseChoice,
+    namedValue: chosen.namedValue,
+    baseRef: chosen.baseRef,
     headCommit: head,
     changedFiles: changedFiles as Snapshot['changedFiles'],
     changedLines,
@@ -165,33 +179,31 @@ export async function takeInChange(
     hunks,
     intakeSummary: {
       baseCommit,
-      baseChoice: 'named',
-      baseRef: null,
+      baseChoice: chosen.baseChoice,
+      baseRef: chosen.baseRef,
       changedFiles: changedFiles.length,
       changedLines,
       // The intent context is read by C001-T-029 to C001-T-033.
       intentContext: {
-        sddChanges: [],
+        ...sources.summary,
         commits: 0,
         namedFiles: [],
-        documentedArchitecture: 'none',
       },
       sizeWarning: null,
     },
     intentContext: {
-      sddChanges: [],
-      documentedArchitecture: null,
+      ...sources.intentContext,
       commits: [],
       namedFiles: [],
       planItems: [],
       recordedRuns: [],
     },
-    notices: [],
+    notices: [...sources.notices],
   };
 
   const contents = files.flatMap((entry) =>
     entry.contentSha256 !== null && entry.file.currentContent ? [entry.file.currentContent] : [],
   );
   await store.createSnapshot(intake, contents, deps.repositoryRoot);
-  return { status: 'created', snapshotId, intake };
+  return { status: 'created', snapshotId, intake, intentSources: sources.sdd };
 }

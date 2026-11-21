@@ -3,15 +3,12 @@ import type { CommandName } from '../parser.js';
 
 /** The task that provides the operation of each command that is parsed but not built yet. */
 export const PROVIDED_BY: Readonly<Partial<Record<CommandName, string>>> = {
-  // `review` is built (C001-T-012); `open` needs the restore of a review (C001-T-034).
-  open: 'C001-T-034',
-  reviews: 'C001-T-034',
+  // `review` (C001-T-012), `analyse` (C001-T-010), `open` and `reviews` (C001-T-034) are built.
   status: 'C001-T-082',
   intents: 'C001-T-082',
   sign: 'C001-T-082',
   reject: 'C001-T-082',
   defer: 'C001-T-082',
-  'config-validate': 'C001-T-035',
 };
 
 const WORDS: Readonly<Partial<Record<CommandName, string>>> = {

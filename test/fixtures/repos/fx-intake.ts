@@ -1,5 +1,7 @@
 import { FixtureRepo, type FixtureOptions } from '../builder/fixture-repo.js';
 import { buildFxBranches } from './fx-branches.js';
+import { buildFxDefault } from './fx-default.js';
+import { buildFxSdd } from './fx-sdd.js';
 import { buildFxUpstream } from './fx-upstream.js';
 
 /**
@@ -26,4 +28,6 @@ export const NAMED_FIXTURES: Record<string, (options?: FixtureOptions) => Fixtur
   'fx-intake': buildFxIntake,
   'fx-upstream': buildFxUpstream,
   'fx-branches': buildFxBranches,
+  'fx-default': buildFxDefault,
+  'fx-sdd': buildFxSdd,
 };

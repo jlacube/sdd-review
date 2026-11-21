@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { openCore, type OpenedCore } from '../core/api/open.js';
 import { analyse } from './commands/analyse.js';
+import { open } from './commands/open.js';
 import { review } from './commands/review.js';
+import { reviews } from './commands/reviews.js';
+import { configValidate } from './commands/config-validate.js';
 import { notImplemented } from './commands/pending.js';
 import { EXIT, errorLine, exitCodeOf, toReviewError } from './exit-codes.js';
 import type { CliIo } from './io.js';
@@ -48,13 +51,17 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
     const { command, global } = parsed;
     // `config validate` reads a file of the working tree, no git data; every other command reads
     // git data, so the git program check (C001-IF-012 §6) is its first step.
-    if (command.name === 'config-validate') throw notImplemented(command.name);
+    if (command.name === 'config-validate') return configValidate(command, global, io);
     opened = await openCore(resolve(io.cwd, global.repo ?? '.'), { env: io.env });
     switch (command.name) {
       case 'analyse':
         return await analyse(command, global, opened.core.api, io, EXIT.ok);
       case 'review':
         return await review(command, global, opened.core.api, io, EXIT.ok);
+      case 'open':
+        return await open(command, global, opened.core.api, io, EXIT.ok);
+      case 'reviews':
+        return await reviews(global, opened.core.api, io, EXIT.ok);
       default:
         throw notImplemented(command.name);
     }

@@ -5,6 +5,7 @@ import { FixtureRepo } from '../../fixtures/builder/fixture-repo.js';
 import { buildFxIntake } from '../../fixtures/repos/fx-intake.js';
 import {
   CORE_OPERATIONS,
+  createCore,
   createCoreApi,
   NotImplementedError,
   type CoreApi,
@@ -12,6 +13,7 @@ import {
 import { ReviewError } from '../../../src/core/errors/review-error.js';
 import { GitAdapter } from '../../../src/core/git/operations.js';
 import { ContextualLog } from '../../../src/core/log/log.js';
+import { RevisionStore } from '../../../src/core/store/revisions.js';
 import { StoreLayout } from '../../../src/core/store/root.js';
 import { SnapshotStore } from '../../../src/core/store/snapshots.js';
 import { cleanTempDirs, tempDir } from '../store/helpers.js';
@@ -197,7 +199,6 @@ describe('core API over a fixture repository', () => {
     const SNAPSHOT = `s-${'a'.repeat(64)}`;
     const calls: Array<[keyof CoreApi, (api: CoreApi) => Promise<unknown>]> = [
       ['runStaticAnalysis', (a) => a.runStaticAnalysis(SNAPSHOT)],
-      ['openReview', (a) => a.openReview(SNAPSHOT)],
       ['checkMovedOn', (a) => a.checkMovedOn(SNAPSHOT)],
       ['getArchitectureDelta', (a) => a.getArchitectureDelta(SNAPSHOT)],
       ['getComponent', (a) => a.getComponent(SNAPSHOT, 'c')],
@@ -211,7 +212,6 @@ describe('core API over a fixture repository', () => {
       ['getCoverageStatement', (a) => a.getCoverageStatement(SNAPSHOT)],
       ['getDecisionStatus', (a) => a.getDecisionStatus(SNAPSHOT)],
       ['getRecord', (a) => a.getRecord(SNAPSHOT)],
-      ['validateConfiguration', (a) => a.validateConfiguration('review.config.json')],
       ['markRead', (a) => a.markRead(SNAPSHOT, ['h'])],
       ['markIntentRead', (a) => a.markIntentRead(SNAPSHOT, 'i')],
       ['reopenHunk', (a) => a.reopenHunk(SNAPSHOT, 'h')],
@@ -234,9 +234,11 @@ describe('core API over a fixture repository', () => {
         'listJobs',
         'cancelJob',
         'listReviews',
+        'openReview',
         'getSession',
         'getIntakeSummary',
         'exportResults',
+        'validateConfiguration',
       ];
       expect(calls.map(([name]) => name).sort()).toEqual(
         CORE_OPERATIONS.filter((name) => !implemented.includes(name)).sort(),
@@ -258,5 +260,128 @@ describe('core API over a fixture repository', () => {
       await api.giveVerdict(SNAPSHOT, 'i', { kind: 'sign' }).catch(() => undefined);
       expect(await store.listReviews()).toEqual([]);
     });
+  });
+});
+
+describe('reopen and snapshot history (C001-T-034: C001-REQ-118, C001-REQ-119)', () => {
+  let fx: FixtureRepo;
+  let base: string;
+  beforeAll(() => {
+    fx = buildFxIntake();
+    base = fx.label('B0').hash;
+  });
+  afterAll(() => fx.dispose());
+
+  const opened: Array<{ close(): Promise<void> }> = [];
+  afterEach(async () => {
+    for (const item of opened.splice(0)) await item.close();
+    cleanTempDirs();
+  });
+
+  let clock = 0;
+  const tick = () => new Date(Date.parse('2026-11-20T10:00:00.000Z') + 1000 * clock++);
+
+  async function rig(root = tempDir('api-reopen')) {
+    const log = new ContextualLog(join(root, 'log.jsonl'));
+    const git = new GitAdapter({ log });
+    opened.push(git);
+    const location = await git.discover(fx.dir);
+    const layout = new StoreLayout(join(root, 'store'), 'k'.repeat(64));
+    const ctx = { log, lockPollMs: 5, now: tick };
+    const store = new SnapshotStore(ctx, layout);
+    const core = createCore({ git, store, ctx, repositoryRoot: location.workTreeRoot, now: tick });
+    opened.push(core);
+    return { core, api: core.api, store, root };
+  }
+
+  /** An analysis result delivered as a revision, as a job delivers it. */
+  async function deliverIntentMap(
+    core: Awaited<ReturnType<typeof rig>>['core'],
+    snapshotId: string,
+    intentMap: Record<string, unknown>,
+  ) {
+    await core.loops.get(snapshotId).submit({
+      kind: 'job-result',
+      run: ({ current }) => ({
+        result: undefined,
+        documents: { ...current!.documents, 'intent-map': intentMap },
+      }),
+    });
+  }
+
+  it('an intake of an existing snapshot reopens it with its current revision and submits no event', async () => {
+    fx.write('src/util.ts', `${fx.read('src/util.ts')}// reopen\n`);
+    const { core, api, store } = await rig();
+    const first = await api.startReview({ namedBase: base });
+    const recorded = { document: 'intent-map', snapshotId: first.snapshotId, intents: ['kept'] };
+    await deliverIntentMap(core, first.snapshotId, recorded);
+    const createdIndex = (await store.listReviews())[0];
+
+    const submit = vi.spyOn(core.loops.get(first.snapshotId), 'submit');
+    for (let i = 0; i < 2; i++) {
+      const again = await api.startReview({ namedBase: base });
+      expect(again).toMatchObject({ snapshotId: first.snapshotId, reopened: true });
+      expect(again.intakeSummary).toEqual(first.intakeSummary);
+    }
+    expect(submit).not.toHaveBeenCalled();
+    expect((await api.getSession(first.snapshotId)).revision).toBe(2);
+    const current = await new RevisionStore(
+      { log: new ContextualLog(join(tempDir('log'), 'l.jsonl')) },
+      store.snapshotDir(first.snapshotId),
+    ).load();
+    expect(current?.documents['intent-map']).toEqual(recorded);
+    const [listed] = await api.listReviews();
+    expect(listed?.createdAt).toBe(createdIndex?.createdAt);
+    expect(listed!.lastOpenedAt > createdIndex!.lastOpenedAt).toBe(true);
+    fx.write('src/util.ts', 'export const util = (s: string) => s.trim();\n');
+  });
+
+  it('a new snapshot keeps every earlier snapshot, its record and its results, and listReviews names each record file', async () => {
+    const { api, store } = await rig();
+    fx.write('src/order.ts', `${fx.read('src/order.ts')}// s1\n`);
+    const s1 = await api.startReview({ namedBase: base });
+    await store
+      .record(s1.snapshotId)
+      .append([
+        { kind: 'read-mark', surface: 'cli', user: { name: 'a', email: 'a@b' }, hunkIds: ['h-1'] },
+      ] as never);
+    const recordBefore = readFileSync(store.record(s1.snapshotId).file);
+    const s1Folder = store.snapshotDir(s1.snapshotId);
+    const snapshotBefore = readFileSync(join(s1Folder, 'snapshot.json'));
+
+    fx.write('src/order.ts', `${fx.read('src/order.ts')}// s2\n`);
+    const s2 = await api.startReview({ namedBase: base });
+    expect(s2.snapshotId).not.toBe(s1.snapshotId);
+    expect(s2.reopened).toBe(false);
+
+    const listed = await api.listReviews();
+    expect(listed.map((r) => r.snapshotId)).toEqual([s1.snapshotId, s2.snapshotId]);
+    for (const review of listed) {
+      expect(review.recordFile).toBe(store.record(review.snapshotId).file);
+      expect(review.decisionStatus).toBeNull();
+    }
+    expect(readFileSync(store.record(s1.snapshotId).file).equals(recordBefore)).toBe(true);
+    expect(readFileSync(join(s1Folder, 'snapshot.json')).equals(snapshotBefore)).toBe(true);
+    expect((await api.getSession(s1.snapshotId)).revision).toBe(1);
+    fx.write('src/order.ts', 'export const order = () => [1, 2, 3];\n');
+  });
+
+  it('openReview reopens a stored review without intake and refuses an unknown one (ERR-STORE-004)', async () => {
+    fx.write('src/cart.ts', `${fx.read('src/cart.ts')}// open\n`);
+    const { core, api } = await rig();
+    const { snapshotId } = await api.startReview({ namedBase: base });
+    const before = (await api.listReviews())[0]!;
+    const submit = vi.spyOn(core.loops.get(snapshotId), 'submit');
+    const session = await api.openReview(snapshotId);
+    expect(session).toMatchObject({ snapshotId, revision: 1 });
+    expect(submit).not.toHaveBeenCalled();
+    const after = (await api.listReviews())[0]!;
+    expect(after.lastOpenedAt > before.lastOpenedAt).toBe(true);
+
+    for (const id of [`s-${'f'.repeat(64)}`, '../x', '']) {
+      await expect(api.openReview(id)).rejects.toMatchObject({ code: 'ERR-STORE-004' });
+    }
+    expect((await api.listReviews()).map((r) => r.snapshotId)).toEqual([snapshotId]);
+    fx.write('src/cart.ts', 'export const cart = (n: number) => n * 2;\n');
   });
 });
