@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intent source reader — `.sdd/` workspace, spec items and documented architecture
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-008]
 implements: [C001-REQ-111, C001-REQ-123, C001-REQ-207, C001-REQ-223]
 satisfies_ac: [C001-AC-111.1, C001-AC-123.1, C001-AC-207.1, C001-AC-223.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-124, C001-TS-125, C001-TS-126, C001-TS-152, C001-TS-153, C
 components: [C001-COMP-005]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: f1364cc, completed_at: 2026-11-21, notes: "SDD workspace, spec items, architecture reader; 61 unit tests; TS-124/126/151/153 pass, TS-152 per D-025, TS-125 awaits T-030; combined tree verified (1,265 tests, 57 CI scenarios); CI green on 4 runners at cad9d3f; shared wiring in ed6f09c; PR at M-01/M-02 merge" }
 ---
 # C001-T-029 — Intent source reader: `.sdd/` workspace, spec items and documented architecture
 

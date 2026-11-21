@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Default base commit and refusals of unusable bases
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-008]
 implements: [C001-REQ-103, C001-REQ-104, C001-REQ-105, C001-REQ-106]
 satisfies_ac: [C001-AC-103.1, C001-AC-104.1, C001-AC-105.1, C001-AC-106.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-106, C001-TS-107, C001-TS-108, C001-TS-109, C001-TS-157, C
 components: [C001-COMP-004, C001-COMP-003]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 67b0fd1, completed_at: 2026-11-21, notes: "Default base rules + refusals; 23 unit tests, 12 new CI scenarios; TS-108 awaits T-027; D-024; combined tree verified (1,265 tests, 57 CI scenarios); CI green on 4 runners at cad9d3f; shared wiring in ed6f09c; PR at M-01/M-02 merge" }
 ---
 # C001-T-025 — Default base commit and refusals of unusable bases
 

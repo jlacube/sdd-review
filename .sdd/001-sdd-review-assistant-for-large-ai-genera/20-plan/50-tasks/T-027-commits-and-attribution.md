@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Commits of the change and hunk attribution
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-008]
 implements: [C001-REQ-109, C001-REQ-110]
 satisfies_ac: [C001-AC-109.1, C001-AC-110.1]

@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Reopen an existing snapshot and keep earlier snapshots
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-009]
 implements: [C001-REQ-118, C001-REQ-119]
 satisfies_ac: [C001-AC-118.1, C001-AC-119.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-141, C001-TS-142, C001-TS-143]
 components: [C001-COMP-002, C001-COMP-014, C001-COMP-001]
 risk_refs: [C001-RISK-008]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: f2dba0d, completed_at: 2026-11-21, notes: "Reopen without re-analysis, reviews/open commands; TS-141/143 pass, TS-142 per D-026; restore in T-080; combined tree verified (1,265 tests, 57 CI scenarios); CI green on 4 runners at cad9d3f; shared wiring in ed6f09c; PR at M-01/M-02 merge" }
 ---
 # C001-T-034 — Reopen an existing snapshot and keep earlier snapshots
 

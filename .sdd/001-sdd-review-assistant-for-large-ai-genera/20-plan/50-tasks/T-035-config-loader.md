@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Configuration loader — base-commit configuration, floor and effective policy
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-006, C001-T-003]
 implements: [C001-REQ-426, C001-REQ-425, C001-REQ-820, C001-REQ-819]
 satisfies_ac: [C001-AC-426.1, C001-AC-425.1, C001-AC-820.1, C001-AC-819.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-476, C001-TS-477, C001-TS-478, C001-TS-479, C001-TS-474, C
 components: [C001-COMP-006]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 5d09b0f, completed_at: 2026-11-21, notes: "Config loader from base commit, floor, effective policy, config validate; 67 unit tests, TS-861; other scenarios await T-049/T-053/T-085/T-086; combined tree verified (1,265 tests, 57 CI scenarios); CI green on 4 runners at cad9d3f; shared wiring in ed6f09c; PR at M-01/M-02 merge" }
 ---
 # C001-T-035 — Configuration loader: base-commit configuration, floor and effective policy
 

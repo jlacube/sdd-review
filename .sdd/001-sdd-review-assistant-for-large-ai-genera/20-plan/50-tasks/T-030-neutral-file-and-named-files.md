@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Neutral intent-and-architecture file and named files
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-029]
 implements: [C001-REQ-112, C001-REQ-113, C001-REQ-124]
 satisfies_ac: [C001-AC-112.1, C001-AC-113.1, C001-AC-124.1]

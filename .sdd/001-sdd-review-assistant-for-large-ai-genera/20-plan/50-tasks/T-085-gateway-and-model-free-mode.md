@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Model gateway — model use decision, model-free mode and reduced labels
 milestone: C001-M-06
-status: todo
+status: in-progress
 depends_on: [C001-T-035, C001-T-009]
 implements: [C001-REQ-801, C001-REQ-802, C001-REQ-803, C001-REQ-804, C001-REQ-819]
 satisfies_ac: [C001-AC-801.1, C001-AC-802.1, C001-AC-803.1, C001-AC-804.1, C001-AC-819.1]
