@@ -43,6 +43,12 @@ writeFileSync(
     `\nexport type * as openapi from './openapi.js';\n`,
 );
 writeApiContract();
+// The configuration loader validates against C001-IF-004 at run time (C001-T-035); the installed
+// package has no .sdd folder, so the schema is compiled in.
+writeFileSync(
+  `${out}/review-config-schema.ts`,
+  `${banner}\n/* C001-IF-004 */\nexport const REVIEW_CONFIG_SCHEMA: object = ${readFileSync(`${dir}/review-config.schema.json`, 'utf8').trim()};\n`,
+);
 
 console.log(`generated ${schemas.length + 1} interface type files and the API contract in ${out}`);
 
