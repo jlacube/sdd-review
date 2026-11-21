@@ -277,6 +277,27 @@ describe('incomplete observation: never silently clean', () => {
     ]);
   });
 
+  it('a whole part not readable reports that cause alone while the retry of beginRun is still starting', async () => {
+    const denied: Recorded[] = [{ kind: 'gap', cause: 'not-readable', path: null }];
+    let release!: () => void;
+    const slow = new Promise<void>((r) => (release = r));
+    // The retry's start (a walk of the tree) outlasts the run.
+    const h = await harness({
+      perStart: { repository: [denied, denied] },
+      gates: { repository: [null, slow] },
+    });
+    const run = await h.observer.beginRun();
+    const result = await h.observer.endRun(run);
+    release();
+    expect(result.incomplete).toEqual([
+      {
+        cause: 'not-readable',
+        name: 'not readable',
+        parts: [{ part: 'repository', whole: true, count: 0, paths: [] }],
+      },
+    ]);
+  });
+
   it('a directory not readable is reported while it exists, and no longer once it is removed', async () => {
     const h = await harness({
       atStart: { 'working-tree': [{ kind: 'gap', cause: 'not-readable', path: 'data/private' }] },

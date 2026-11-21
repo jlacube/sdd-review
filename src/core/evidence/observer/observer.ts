@@ -466,7 +466,12 @@ export class Observer {
     schedule(() => void work());
   }
 
-  private rebuildPart(state: PartState, causedBy: number | null): Promise<void> {
+  /**
+   * With `hold`, the gap `causedBy` (the whole part unobserved since the backend started) stays
+   * open until the new backend has started: a run that starts meanwhile reports that cause, not
+   * also the rebuild as "observation interrupted".
+   */
+  private rebuildPart(state: PartState, causedBy: number | null, hold = false): Promise<void> {
     if (this.stopped) return Promise.resolve();
     if (state.rebuilding) return state.rebuilding;
     const run = async () => {
@@ -479,9 +484,10 @@ export class Observer {
         causedBy,
         { quiet: true },
       );
+      const held = hold ? this.gaps.find((g) => g.id === causedBy) : undefined;
       // The old backend's gaps end where the rebuild starts; the new one reports its own.
       for (const g of this.gaps) {
-        if (g.part === state.part && g.closed === null && g.id !== marker.id)
+        if (g.part === state.part && g.closed === null && g.id !== marker.id && g !== held)
           g.closed = marker.opened;
       }
       const old = state.backend;
@@ -490,6 +496,7 @@ export class Observer {
       if (this.stopped) return;
       await this.startBackend(state);
       if (marker.closed === null) marker.closed = ++this.position;
+      if (held && held.closed === null) held.closed = marker.closed;
     };
     state.rebuilding = run().finally(() => {
       state.rebuilding = null;
@@ -505,7 +512,7 @@ export class Observer {
    */
   private retryBroken(state: PartState): void {
     if (state.rebuilding || this.stopped) return;
-    const broken = this.gaps.some(
+    const broken = this.gaps.find(
       (g) =>
         g.part === state.part &&
         g.closed === null &&
@@ -514,7 +521,7 @@ export class Observer {
         g.generation === state.generation &&
         g.causedBy === null,
     );
-    if (broken) void this.rebuildPart(state, null);
+    if (broken) void this.rebuildPart(state, broken.id, true);
   }
 
   private async drainAll(): Promise<void> {
