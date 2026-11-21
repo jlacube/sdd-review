@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import type { AcceptanceWorld } from './world.js';
 import { intakeOf } from './intent-context.js';
+import { schemaValidator } from '../../support/schemas.js';
 
 // The intents of the headless intent map (C001-IF-008, `Intent`) and the SDD changes that CAP-03
 // scenarios add to a fixture's snapshot, for the CAP-03 steps (C001-T-031 and later).
@@ -8,15 +9,30 @@ import { intakeOf } from './intent-context.js';
 export interface IntentView {
   kind: string;
   title: string;
-  source: { type: string; reference: string };
+  source: { type: string; reference: string; location?: { path: string; line: number } | null };
 }
 
-/** The intents of the last run's intent map; fails with the CLI output when intake did not complete. */
+/**
+ * The intents of the last run's intent map, which must be valid against its schema; fails with the
+ * CLI output when intake did not complete.
+ */
 export function intentsOf(world: AcceptanceWorld): IntentView[] {
   intakeOf(world);
   assert.ok(world.headless?.has('intent-map.json'), 'the headless output holds no intent-map.json');
-  return world.headless.json<{ intents: IntentView[] }>('intent-map.json').intents;
+  const map = world.headless.json<{ intents: IntentView[] }>('intent-map.json');
+  // The intent map is valid against its format (C001-IF-008 `IntentMapDocument`).
+  assert.deepEqual(schemaValidator().document('IntentMapDocument', map), []);
+  return map.intents;
 }
+
+/** The orphan hunks of the last run's intent map (C001-IF-008 `orphanHunkIds`). */
+export function orphanHunksOf(world: AcceptanceWorld): string[] {
+  intentsOf(world);
+  return world.headless!.json<{ orphanHunkIds: string[] }>('intent-map.json').orphanHunkIds;
+}
+
+/** The hunk count a scenario's fixture step states, checked against orphan code (C001-TS-308, TS-330). */
+export const expectedHunks = new WeakMap<AcceptanceWorld, number>();
 
 /** What names an intent in a scenario: the requirement ID of a spec intent, else its title. */
 export const intentName = (intent: IntentView): string =>

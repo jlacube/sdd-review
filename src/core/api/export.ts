@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path';
 import type { IntakeDocument } from '../../generated/analysis-results.js';
 import { ReviewError } from '../errors/review-error.js';
 import type { RevisionDocuments } from '../store/revisions.js';
+import { createIntents, intentSourcesOf, planKeyPath } from '../intent-map/intents.js';
 
 /** The files of the headless output directory (C001-IF-001 Output), in the order they are written. */
 export const EXPORT_FILES = [
@@ -34,10 +35,17 @@ const NOT_YET = (what: string) => `${what}: not yet analysed`;
  * the architecture delta and the intent map say so in `labels.reduced`. The triage and evidence
  * documents have no member that can carry that statement (spec defect, reported by C001-T-010), so
  * they are valid and empty until their analyses exist.
+ *
+ * The intent map holds the deterministic intents of the snapshot (C001-T-044) with every hunk in
+ * orphan code and every intent unmet until the hunks are linked (C001-T-045). No model task creates
+ * intents yet (C001-T-090), so the intents are those of model-free mode (C001-REQ-313).
+ * `repositoryRoot` makes the plan file paths of the intent keys repository-relative (domain model
+ * §3); named plans were resolved against the current directory at intake (C001-IF-007 §7).
  */
 export function completeDocuments(
   intake: IntakeDocument,
   revision: Partial<RevisionDocuments> | null,
+  repositoryRoot?: string,
 ): Record<'architecture-delta' | 'intent-map' | 'triage' | 'evidence', unknown> {
   const { snapshotId } = intake.snapshot;
   const head = (document: string) => ({ document, formatVersion: 1, snapshotId });
@@ -78,17 +86,25 @@ export function completeDocuments(
     notices: [],
     ...stored('architecture-delta'),
   };
+  const sources = intentSourcesOf(intake);
+  const intents = createIntents(sources, {
+    modelFree: true,
+    ...(repositoryRoot !== undefined
+      ? { planKeyPath: (file: string) => planKeyPath(file, repositoryRoot, process.cwd()) }
+      : {}),
+  });
+  const intentIds = intents.map((intent) => intent.intentId);
   const intentMap = {
     ...head('intent-map'),
-    mode: 'intent-fallback',
-    sddChangeId: null,
-    intents: [],
+    mode: sources.sddChange !== null ? 'sdd-change' : 'intent-fallback',
+    sddChangeId: sources.sddChange?.id ?? null,
+    intents,
     links: [],
     specEdits: [],
     orphanHunkIds: hunkIds,
-    unmetIntentIds: [],
-    displayOrder: ['orphan'],
-    labels: { reduced: [NOT_YET('intent map')] },
+    unmetIntentIds: intentIds,
+    displayOrder: ['orphan', ...intentIds],
+    labels: { reduced: [NOT_YET('hunk links')] },
     notices: [],
     ...stored('intent-map'),
   };
@@ -143,11 +159,13 @@ export interface ExportInput {
   readonly intake: IntakeDocument;
   readonly revision: Partial<RevisionDocuments> | null;
   readonly recordBytes: Buffer;
+  /** The working-tree root of the repository (plan file paths of intent keys). */
+  readonly repositoryRoot?: string;
 }
 
 /** Everything `writeExport` writes, by file name. */
 export function exportContents(input: ExportInput): ReadonlyMap<string, Buffer> {
-  const documents = completeDocuments(input.intake, input.revision);
+  const documents = completeDocuments(input.intake, input.revision, input.repositoryRoot);
   return new Map<string, Buffer>([
     ['intake.json', json(input.intake)],
     ['architecture-delta.json', json(documents['architecture-delta'])],
