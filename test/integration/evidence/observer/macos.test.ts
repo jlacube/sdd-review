@@ -10,7 +10,17 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFailed } from 'vitest';
+
+beforeEach(() => {
+  const g = globalThis as unknown as { __fsev?: string[] };
+  g.__fsev = [];
+  onTestFailed(() => {
+    const lines = g.__fsev ?? [];
+    const text = [`${lines.length} events`, ...lines.slice(0, 40), '...', ...lines.slice(-20)].join('%0A');
+    console.log(`::warning title=fsev::${text}`);
+  });
+});
 import { FixtureRepo } from '../../../fixtures/builder/fixture-repo.js';
 import { macosBackendFactory } from '../../../../src/core/evidence/observer/macos.js';
 import {

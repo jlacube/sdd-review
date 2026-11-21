@@ -622,6 +622,12 @@ export class MacosBackend implements PartBackend {
   private async handleDelivered(): Promise<void> {
     while (this.delivered.length > 0) {
       const event = this.delivered.shift()!;
+      if (process.env.SDD_FSEVENTS_DEBUG === '1') {
+        const g = globalThis as unknown as { __fsev?: string[] };
+        (g.__fsev ??= []).push(
+          `${Date.now() % 100000} ${event.path} 0x${event.flags.toString(16)} ${event.id} m=${this.marker}`,
+        );
+      }
       if (this.stream?.own(event.path)) {
         // The marker directory: a marker's event is the barrier; a loss there may cover any path.
         if (event.path === this.marker) this.markerSeen = true;
