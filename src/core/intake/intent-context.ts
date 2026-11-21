@@ -1,32 +1,36 @@
 import type { IntakeDocument, IntakeSummary, Notice } from '../../generated/analysis-results.js';
 import type { FileMode, GitAccessPort } from '../git/port.js';
 import type { ContextualLog } from '../log/log.js';
+import { NEUTRAL_FILE, readNeutralFile } from '../intent-sources/neutral-file.js';
 import { NoticeCollector } from '../intent-sources/notices.js';
 import { readSddIntentSources, type SddIntentSources } from '../intent-sources/sdd-workspace.js';
 import type { SourceTree } from '../intent-sources/tree.js';
-import type { ChangeFile } from './change.js';
+import { fail, type ChangeFile } from './change.js';
+import { isReviewError } from '../errors/review-error.js';
 
 /**
  * Intake's side of the intent source reader (C001-COMP-004 hands content to C001-COMP-005): the
  * snapshot tree holds the snapshot content of the changed files and the base-commit content of the
  * others, the base tree the base commit's content (C001-IF-007 §1 item 1, C001-REQ-116). Only the
- * files under `.sdd/` are listed; nothing is read from the working tree directly.
+ * files under `.sdd/` and the neutral file are listed; nothing is read from the working tree
+ * directly.
  */
 
 const SDD_PREFIX = '.sdd/';
+const isSource = (path: string) => path.startsWith(SDD_PREFIX) || path === NEUTRAL_FILE;
 const readable = (mode: FileMode | null) => mode === 'regular' || mode === 'executable';
 
-/** The base commit's files under `.sdd/`. */
+/** The base commit's files under `.sdd/` and its neutral file. */
 export async function baseSourceTree(git: GitAccessPort, base: string): Promise<SourceTree> {
   const paths = (await git.treeEntries(base))
-    .filter((e) => e.path.startsWith(SDD_PREFIX) && readable(e.mode))
+    .filter((e) => isSource(e.path) && readable(e.mode))
     .map((e) => e.path)
     .sort();
   return { paths, read: (path) => git.readBlob(base, path) };
 }
 
 /**
- * The snapshot's files under `.sdd/`: the base commit's files, less the deleted and renamed-away
+ * The snapshot's files under `.sdd/` and its neutral file: the base commit's files, less the deleted and renamed-away
  * ones, plus the added, modified and renamed ones with their snapshot content. A changed file
  * without text content (binary, symbolic link, submodule) is not listed.
  */
@@ -40,7 +44,7 @@ export function snapshotSourceTree(
   const changed = new Map<string, Buffer>();
   for (const { file } of files) {
     if (file.previousPath) paths.delete(file.previousPath);
-    if (!file.path.startsWith(SDD_PREFIX)) continue;
+    if (!isSource(file.path)) continue;
     paths.delete(file.path);
     if (file.changeType === 'deleted') continue;
     if (file.binary || file.currentContent === null || !readable(file.currentMode)) continue;
@@ -67,7 +71,11 @@ export interface IntakeIntentSources {
   readonly notices: Notice[];
 }
 
-/** Reads the `.sdd/` workspace of the snapshot and of the base commit (C001-REQ-111, C001-REQ-207). */
+/**
+ * Reads the SDD workspace — the `.sdd/` workspace and the neutral file — of the snapshot and of the
+ * base commit (C001-REQ-111, C001-REQ-207). A neutral file of the snapshot that does not conform to
+ * C001-IF-006 stops intake with ERR-SDD-003 (C001-REQ-124).
+ */
 export async function readIntakeIntentSources(
   git: GitAccessPort,
   base: string,
@@ -77,7 +85,15 @@ export async function readIntakeIntentSources(
   const baseTree = await baseSourceTree(git, base);
   const snapshot = snapshotSourceTree(git, base, baseTree, files);
   const sink = new NoticeCollector(log);
-  const sdd = await readSddIntentSources({ snapshot, base: baseTree, sink });
+  const neutral = {
+    snapshot: await readNeutralFile(snapshot, true).catch((error: unknown) =>
+      isReviewError(error) && error.code === 'ERR-SDD-003'
+        ? fail(log, error)
+        : Promise.reject(error),
+    ),
+    base: await readNeutralFile(baseTree, false),
+  };
+  const sdd = await readSddIntentSources({ snapshot, base: baseTree, sink, neutral });
   const documented = sdd.architecture.documented;
   return {
     sdd,
@@ -88,7 +104,7 @@ export async function readIntakeIntentSources(
         specItems: change.items.length,
         selected: sdd.selected?.id === change.id,
       })),
-      documentedArchitecture: documented ? 'sdd-folder' : 'none',
+      documentedArchitecture: documented?.origin ?? 'none',
     },
     notices: sink.notices,
   };

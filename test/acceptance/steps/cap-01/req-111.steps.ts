@@ -4,9 +4,14 @@ import { Given, Then } from '@cucumber/cucumber';
 import type { AcceptanceWorld } from '../../support/world.js';
 import { allItems, idList, intakeOf } from '../../support/intent-context.js';
 import { FX_SDD, FX_SDD_TEXT } from '../../../fixtures/repos/fx-sdd.js';
+import {
+  FX_NEUTRAL_FILE,
+  FX_NEUTRAL_TEXT,
+  fxNeutralDocument,
+} from '../../../fixtures/repos/fx-neutral.js';
 
-// C001-TC-111: C001-TS-124 (`.sdd/` workspace) and C001-TS-126 (no workspace); C001-TS-125 (the
-// neutral file) needs C001-T-030. Steps on the intent context that C001-TC-123 reuses live here.
+// C001-TC-111: C001-TS-124 (`.sdd/` workspace), C001-TS-125 (the neutral file, C001-T-030) and
+// C001-TS-126 (no workspace). Steps on the intent context that C001-TC-123 reuses live here.
 
 Given(
   /^the fixture repository "([^"]+)" whose snapshot holds a `\.sdd\/` workspace with the open SDD change "([^"]+)" and the archived SDD change "([^"]+)"$/,
@@ -32,6 +37,33 @@ Given(
 );
 
 Given(
+  /^the fixture repository "([^"]+)" whose snapshot holds a neutral intent-and-architecture file stating the open SDD change "([^"]+)" with the requirements "([^"]+)" and "([^"]+)" and the task "([^"]+)" linked to "([^"]+)"$/,
+  function (
+    this: AcceptanceWorld,
+    name: string,
+    change: string,
+    r1: string,
+    r2: string,
+    task: string,
+    to: string,
+  ) {
+    const repo = this.fixture(name);
+    const document = JSON.parse(repo.read(FX_NEUTRAL_FILE)) as ReturnType<typeof fxNeutralDocument>;
+    const stated = document.changes.find((c) => c.id === change);
+    assert.ok(stated && stated.status === 'open', `${change} is not an open change of the file`);
+    const kinds = new Map(stated.items.map((i) => [i.id, i.kind]));
+    assert.equal(kinds.get(r1), 'requirement');
+    assert.equal(kinds.get(r2), 'requirement');
+    assert.equal(kinds.get(task), 'task');
+    const links = stated.items.find((i) => i.id === task)?.links ?? [];
+    assert.ok(
+      links.some((l) => l.to === to),
+      `${task} is not linked to ${to}`,
+    );
+  },
+);
+
+Given(
   /^the fixture repository "([^"]+)" with no `\.sdd\/` folder and no neutral intent-and-architecture file$/,
   function (this: AcceptanceWorld, name: string) {
     const repo = this.fixture(name);
@@ -49,7 +81,7 @@ Then(
     for (const id of idList(list)) {
       const item = items.find((i) => i.id === id);
       assert.ok(item, `${id} is not in the intent context: ${items.map((i) => i.id).join(', ')}`);
-      const expected = FX_SDD_TEXT[id];
+      const expected = FX_SDD_TEXT[id] ?? FX_NEUTRAL_TEXT[id];
       if (expected !== undefined) assert.equal(item.text, expected, `text of ${id}`);
       else assert.ok(item.text.length > 0, `${id} has no text`);
     }

@@ -20,6 +20,7 @@ import {
   splitLines,
   textHash,
 } from './text.js';
+import type { NeutralReading } from './neutral-file.js';
 import { type LinesOnBothSides, type LinesRead, type SourceTree } from './tree.js';
 
 /**
@@ -45,7 +46,9 @@ export interface WorkspaceChange {
   /** The `id` of the frontmatter of `change.md`, for example `CHG-042` (§2 item 3). */
   readonly id: string;
   readonly title: string;
-  /** The change folder, for example `.sdd/042-cart`. */
+  /** Where the change is read from: a `.sdd/` change folder or the neutral file (§5). */
+  readonly origin: 'sdd-folder' | 'neutral-file';
+  /** The change folder, for example `.sdd/042-cart`; for the neutral file, its path. */
   readonly folder: string;
   readonly status: string | null;
   /** `full`, `lite` or `null` when `change.md` does not say. */
@@ -432,6 +435,7 @@ export async function readSddWorkspace(
     changes.push({
       id: scalarText(data.id)!,
       title: scalarText(data.title) ?? '',
+      origin: ORIGIN,
       folder,
       status,
       profile,
@@ -450,7 +454,7 @@ export function toSddChange(change: WorkspaceChange): SddChange {
   return {
     id: change.id,
     title: change.title,
-    origin: ORIGIN,
+    origin: change.origin,
     location: change.folder,
     items: [...change.items],
   };
@@ -465,11 +469,11 @@ export function soleOpenChange(changes: readonly WorkspaceChange[]): WorkspaceCh
   return open.length === 1 ? open[0]! : null;
 }
 
-/** What the reader gives intake from the `.sdd/` workspace of the snapshot and the base commit. */
+/** What the reader gives intake from the SDD workspace of the snapshot and the base commit. */
 export interface SddIntentSources {
-  /** The snapshot holds a `.sdd/` workspace. */
+  /** The snapshot holds an SDD workspace: a `.sdd/` workspace or a neutral file. */
   readonly present: boolean;
-  /** The readable SDD changes of the snapshot, open and archived. */
+  /** The readable SDD changes of the snapshot, open and archived, `.sdd/` ones first. */
   readonly changes: readonly WorkspaceChange[];
   /** The open SDD changes with their spec items: the intent context (C001-REQ-111). */
   readonly sddChanges: readonly SddChange[];
@@ -481,8 +485,10 @@ export interface SddIntentSources {
    * ID (§3 "Lines read"). Items that only the base commit holds are included (a deleted item).
    */
   readonly specItemLines: ReadonlyMap<string, ReadonlyMap<string, LinesOnBothSides>>;
-  /** The documented architecture of the selected change (§4). */
+  /** The documented architecture: of the neutral file, else of the selected change (§4 item 1). */
   readonly architecture: ArchitectureReading;
+  /** The producer named by the snapshot's neutral file, when it names one. */
+  readonly producer: string | null;
 }
 
 export interface ReadSddOptions {
@@ -492,6 +498,11 @@ export interface ReadSddOptions {
   readonly sink: NoticeSink;
   /** Chooses the SDD change (§6); the only open one when not given. */
   readonly select?: (changes: readonly WorkspaceChange[]) => WorkspaceChange | null;
+  /** The neutral file of each side, read and validated by `readNeutralFile` (§5). */
+  readonly neutral?: {
+    readonly snapshot: NeutralReading | null;
+    readonly base: NeutralReading | null;
+  };
 }
 
 /** Pairs the lines read of the items of a change on both sides, by item ID. */
@@ -509,35 +520,123 @@ export function pairLines(
   return out;
 }
 
+const NEUTRAL_PREFIX = 'neutral:';
+
 /**
- * Reads the `.sdd/` workspace of the snapshot into the intent context, the lines read on both sides
- * and the documented architecture of the selected SDD change (C001-IF-007 §1 to §4).
+ * The SDD changes of a neutral file beside those of the `.sdd/` workspace of the same tree: a
+ * neutral-file change ID equal to a `.sdd/` change ID is prefixed `neutral:` (§5 item 3).
+ */
+function withNeutral(
+  sdd: readonly WorkspaceChange[],
+  neutral: NeutralReading | null,
+): WorkspaceChange[] {
+  const taken = new Set(sdd.map((c) => c.id));
+  const renamed = (neutral?.changes ?? []).map((c) =>
+    taken.has(c.id) ? { ...c, id: `${NEUTRAL_PREFIX}${c.id}` } : c,
+  );
+  return [...sdd, ...renamed];
+}
+
+/** The ID a change has in its own source, without the prefix of §5 item 3. */
+const sourceId = (c: WorkspaceChange) =>
+  c.origin === 'neutral-file' && c.id.startsWith(NEUTRAL_PREFIX)
+    ? c.id.slice(NEUTRAL_PREFIX.length)
+    : c.id;
+
+function pairComponents(
+  now: ReadonlyMap<string, LinesRead>,
+  before: ReadonlyMap<string, LinesRead>,
+): Map<string, LinesOnBothSides> {
+  const out = new Map<string, LinesOnBothSides>();
+  for (const [id, lines] of now) out.set(id, { snapshot: lines, base: before.get(id) ?? null });
+  for (const [id, lines] of before) if (!out.has(id)) out.set(id, { snapshot: null, base: lines });
+  return out;
+}
+
+/**
+ * Reads the SDD workspace of the snapshot — its `.sdd/` workspace and its neutral file — into the
+ * intent context, the lines read on both sides and the documented architecture in the source order
+ * of §4 item 1: the neutral file's `architecture`, else the selected SDD change's
+ * `architecture.md` (C001-IF-007 §1 to §5).
  */
 export async function readSddIntentSources(options: ReadSddOptions): Promise<SddIntentSources> {
+  const neutralNow = options.neutral?.snapshot ?? null;
+  const neutralBefore = options.neutral?.base ?? null;
   const snapshot = await readSddWorkspace(options.snapshot, options.sink);
   const base = await readSddWorkspace(options.base, null);
-  const baseById = (id: string) => base.changes.find((c) => c.id === id) ?? null;
-  const open = snapshot.changes.filter((c) => c.open);
+  const changes = withNeutral(snapshot.changes, neutralNow);
+  const baseChanges = withNeutral(base.changes, neutralBefore);
+  // The base side reads the SDD change with the same ID from the same source.
+  const baseOf = (change: WorkspaceChange) =>
+    baseChanges.find((c) => c.origin === change.origin && sourceId(c) === sourceId(change)) ?? null;
+  const open = changes.filter((c) => c.open);
 
   const specItemLines = new Map<string, ReadonlyMap<string, LinesOnBothSides>>();
   for (const change of open) {
     if (!specItemLines.has(change.id)) {
-      specItemLines.set(change.id, pairLines(change, baseById(change.id)));
+      specItemLines.set(change.id, pairLines(change, baseOf(change)));
     }
   }
 
-  const selected = (options.select ?? soleOpenChange)(snapshot.changes);
-  const architecture = await readSddArchitecture(
-    { tree: options.snapshot, folder: selected?.folder ?? null },
-    { tree: options.base, folder: selected ? (baseById(selected.id)?.folder ?? null) : null },
-    options.sink,
-  );
+  const selected = (options.select ?? soleOpenChange)(changes);
+  const sddFolder = (change: WorkspaceChange | null) =>
+    change?.origin === 'sdd-folder' ? change.folder : null;
+  const baseSelected = selected ? baseOf(selected) : null;
+  let architecture: ArchitectureReading;
+  if (neutralNow?.architecture) {
+    const now = neutralNow.architecture;
+    // The base side, by the same source order: its neutral file's architecture, else the
+    // architecture.md of the SDD change with the selected one's ID (§4 item 6).
+    const before = neutralBefore?.architecture
+      ? {
+          linesRead: neutralBefore.architecture.linesRead,
+          componentLines: neutralBefore.architecture.componentLines,
+        }
+      : await readSddArchitecture(
+          { tree: options.snapshot, folder: null },
+          { tree: options.base, folder: sddFolder(baseSelected) },
+          options.sink,
+        ).then((r) => ({
+          linesRead: r.linesRead.base,
+          componentLines: new Map(
+            [...r.componentLines].flatMap(([id, l]) => (l.base ? [[id, l.base] as const] : [])),
+          ),
+        }));
+    architecture = {
+      file: neutralNow.file,
+      documented: now.documented,
+      linesRead: { snapshot: now.linesRead, base: before.linesRead },
+      componentLines: pairComponents(now.componentLines, before.componentLines),
+    };
+  } else {
+    const sdd = await readSddArchitecture(
+      { tree: options.snapshot, folder: sddFolder(selected) },
+      { tree: options.base, folder: neutralBefore?.architecture ? null : sddFolder(baseSelected) },
+      options.sink,
+    );
+    const before = neutralBefore?.architecture;
+    architecture = before
+      ? {
+          ...sdd,
+          linesRead: { snapshot: sdd.linesRead.snapshot, base: before.linesRead },
+          componentLines: pairComponents(
+            new Map(
+              [...sdd.componentLines].flatMap(([id, l]) =>
+                l.snapshot ? [[id, l.snapshot] as const] : [],
+              ),
+            ),
+            before.componentLines,
+          ),
+        }
+      : sdd;
+  }
   return {
-    present: snapshot.present,
-    changes: snapshot.changes,
+    present: snapshot.present || neutralNow !== null,
+    changes,
     sddChanges: open.map(toSddChange),
     selected,
     specItemLines,
     architecture,
+    producer: neutralNow?.producer ?? null,
   };
 }

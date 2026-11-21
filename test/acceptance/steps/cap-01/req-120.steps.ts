@@ -5,6 +5,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Given, Then } from '@cucumber/cucumber';
 import type { AcceptanceWorld } from '../../support/world.js';
+import { namedPath } from '../../support/named-files.js';
 import type { FixtureRepo } from '../../../fixtures/builder/fixture-repo.js';
 
 // C001-TC-120: C001-TS-144, C001-TS-145, C001-TS-146 (C001-REQ-120). The repository is read by the
@@ -101,6 +102,12 @@ Given(
 );
 
 Then('no file {string} exists', function (this: AcceptanceWorld, file: string) {
+  if (!this.lastRun) {
+    // Used as a state before the review (C001-TS-129): the file named as intent context is missing.
+    assert.equal(existsSync(namedPath(this, file)), false);
+    assert.equal(existsSync(this.repo!.path(file)), false);
+    return;
+  }
   assertReviewRan(this);
   assert.equal(existsSync(this.repo!.path(file)), false);
 });
