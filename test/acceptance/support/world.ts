@@ -21,6 +21,13 @@ export interface CliResult {
   readonly signal?: NodeJS.Signals | null;
 }
 
+/** One outbound connection a CLI process started (`listen-spy.mjs`); `path` for a local socket. */
+export interface ConnectCall {
+  readonly host: string | null;
+  readonly port: number | null;
+  readonly path: string | null;
+}
+
 /** A CLI command that keeps running until it is interrupted. */
 export interface RunningCli {
   stdout(): string;
@@ -42,11 +49,22 @@ export class AcceptanceWorld extends World {
   private readonly running: RunningCli[] = [];
   private storeHome: string | undefined;
   private listenLog: string | undefined;
+  private connectLog: string | undefined;
 
   /** The calls that made a CLI process listen on a socket during this scenario (none expected). */
   listenCalls(): string[] {
     return this.listenLog && existsSync(this.listenLog)
       ? readFileSync(this.listenLog, 'utf8').split('\n').filter(Boolean)
+      : [];
+  }
+
+  /** The outbound connections a CLI process started during this scenario (`listen-spy.mjs`). */
+  connectCalls(): ConnectCall[] {
+    return this.connectLog && existsSync(this.connectLog)
+      ? readFileSync(this.connectLog, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => JSON.parse(line) as ConnectCall)
       : [];
   }
 
@@ -57,6 +75,7 @@ export class AcceptanceWorld extends World {
       ...process.env,
       NODE_OPTIONS: '',
       SDD_LISTEN_LOG: (this.listenLog ??= join(this.tempDir('sddlisten-'), 'listen.log')),
+      SDD_CONNECT_LOG: (this.connectLog ??= join(this.tempDir('sddconnect-'), 'connect.log')),
       LOCALAPPDATA: this.storeHome,
       XDG_DATA_HOME: this.storeHome,
       HOME: this.storeHome,

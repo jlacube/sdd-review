@@ -2,6 +2,83 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+// C001-CON-11, C001-CON-12 (C001-T-085): the model gateway in src/core/model/ is the only module
+// that may open an outbound connection; the UI server may only listen. Type-only imports open
+// nothing and stay allowed. Enforced with the typescript-eslint variant of the rule so that it
+// adds to, and does not replace, the module rules of C001-CON-09 below.
+const OUTBOUND_MESSAGE =
+  'Outbound network access is reserved to the model gateway in src/core/model/ (C001-CON-11, C001-CON-12).';
+const OUTBOUND_CLIENTS = [
+  'https',
+  'http2',
+  'tls',
+  'dgram',
+  'dns',
+  'dns/promises',
+  'undici',
+  'node-fetch',
+  'cross-fetch',
+  'isomorphic-fetch',
+  'axios',
+  'got',
+  'ky',
+  'needle',
+  'request',
+  'superagent',
+  'ws',
+  'socket.io-client',
+];
+const nodeAndBare = (name) =>
+  name.includes('-') || name === 'request' ? [name] : [name, `node:${name}`];
+const outboundPaths = (listen) => [
+  ...OUTBOUND_CLIENTS.flatMap(nodeAndBare).map((name) => ({
+    name,
+    message: OUTBOUND_MESSAGE,
+    allowTypeImports: true,
+  })),
+  ...['http', 'node:http'].map((name) => ({
+    name,
+    allowTypeImports: true,
+    message: listen
+      ? `${OUTBOUND_MESSAGE} The UI server may only listen: createServer and the server types.`
+      : OUTBOUND_MESSAGE,
+    ...(listen
+      ? {
+          allowImportNames: [
+            'createServer',
+            'IncomingMessage',
+            'IncomingHttpHeaders',
+            'OutgoingHttpHeaders',
+            'Server',
+            'ServerResponse',
+            'STATUS_CODES',
+          ],
+        }
+      : {}),
+  })),
+  ...['net', 'node:net'].map((name) => ({
+    name,
+    allowTypeImports: true,
+    message: listen
+      ? `${OUTBOUND_MESSAGE} The UI server may only listen: address checks of node:net only.`
+      : OUTBOUND_MESSAGE,
+    ...(listen ? { allowImportNames: ['isIP', 'isIPv4', 'isIPv6'] } : {}),
+  })),
+];
+const outboundRule = (listen) => ({
+  '@typescript-eslint/no-restricted-imports': [
+    'error',
+    { paths: outboundPaths(listen), patterns: [] },
+  ],
+  'no-restricted-globals': [
+    'error',
+    ...['fetch', 'WebSocket', 'EventSource', 'XMLHttpRequest'].map((name) => ({
+      name,
+      message: OUTBOUND_MESSAGE,
+    })),
+  ],
+});
+
 export default tseslint.config(
   {
     ignores: [
@@ -176,5 +253,16 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // C001-CON-11, C001-CON-12: no outbound network client outside the model gateway.
+    files: ['src/**/*.ts'],
+    ignores: ['src/core/model/**'],
+    rules: outboundRule(false),
+  },
+  {
+    // The UI server listens on 127.0.0.1 and opens no outbound connection (C001-CON-10, -11).
+    files: ['src/ui-server/**/*.ts'],
+    rules: outboundRule(true),
   },
 );
