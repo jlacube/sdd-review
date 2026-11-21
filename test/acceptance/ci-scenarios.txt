@@ -12,6 +12,9 @@
 #   C001-TS-147, 148  their last step needs the architecture delta view (C001-T-043)
 #   C001-TS-149  its last steps need component placement (C001-T-039) and intent grouping (C001-T-045)
 #   C001-TS-801, 802, 857  their last steps need the model tasks and their reduced labels (C001-T-090; 857 also C001-T-087, C001-T-088)
+#   C001-TS-177, 188  resume a review and expect the moved-on notice: the moved-on check (C001-T-033)
+#   C001-TS-183, 186  each example states its operating system and is skipped on the others, which
+#                the run summary reports as FAILED although Cucumber exits with 0 (C001-T-028)
 C001-TS-101
 C001-TS-102
 C001-TS-103
@@ -72,3 +75,21 @@ C001-TS-116
 C001-TS-117
 C001-TS-827
 C001-TS-860
+C001-TS-167
+C001-TS-168
+C001-TS-169
+C001-TS-170
+C001-TS-171
+C001-TS-172
+C001-TS-173
+C001-TS-176
+C001-TS-179
+C001-TS-180
+C001-TS-190
+C001-TS-181
+C001-TS-182
+C001-TS-184
+C001-TS-174
+C001-TS-175
+C001-TS-185
+C001-TS-187

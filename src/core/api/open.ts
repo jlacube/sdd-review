@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { ReviewError } from '../errors/review-error.js';
 import { GitAdapter } from '../git/operations.js';
 import { ContextualLog } from '../log/log.js';
+import { PROVIDER_ADAPTERS } from '../model/adapters/index.js';
 import { createKeySource } from '../model/keys/key-source.js';
 import { layoutFor } from '../store/root.js';
 import { SnapshotStore } from '../store/snapshots.js';
@@ -60,7 +61,9 @@ export async function openCore(
       ctx,
       repositoryRoot: location.workTreeRoot,
       // C001-T-086: provider keys from the developer's environment or credential store (§7).
-      model: { keys: createKeySource({ env }) },
+      // C001-T-087: the adapters; the gateway calls one only once the egress policy of §6
+      // (C001-T-088) allows the request, so until then every request stays model-free.
+      model: { keys: createKeySource({ env }), adapters: PROVIDER_ADAPTERS },
     });
     return {
       core,

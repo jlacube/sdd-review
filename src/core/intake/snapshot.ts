@@ -10,14 +10,14 @@ import type { FileMode, GitAccessPort } from '../git/port.js';
 import type { ContextualLog } from '../log/log.js';
 import type { SnapshotStore } from '../store/snapshots.js';
 import { chooseBase } from './base.js';
-import { computeChange, fail, type ChangeFile } from './change.js';
+import { cleanFilterNotice, computeChange, fail, type ChangeFile } from './change.js';
 import { cutHunks, identifyHunks } from './hunks.js';
 import { hasHunks, snapshotBytes } from './classify.js';
 import { measureSize, sizeWarning } from './size.js';
 import { readChangeCommits } from './commits.js';
 import { attributeHunks } from './attribution.js';
 import type { SddIntentSources } from '../intent-sources/sdd-workspace.js';
-import { readIntakeIntentSources } from './intent-context.js';
+import { namedFileSources, readIntakeIntentSources } from './intent-context.js';
 import { isReviewError } from '../errors/review-error.js';
 import { readNamedFiles, type NamedFileRequest } from '../intent-sources/named-files.js';
 
@@ -179,6 +179,8 @@ export async function takeInChange(
   const size = measureSize(changedFiles);
   const { changedLines } = size;
   const warning = sizeWarning(size, log, { base, head });
+  // Files under a clean filter compared by their working-tree bytes (C001-REQ-126, C001-T-028).
+  const cleanFilter = cleanFilterNotice(files, log, { base, head });
   const baseCommit = await commitRef(git, base);
   const commits = await readChangeCommits(git, base, head); // C001-T-027
   const attributed = await attributeHunks(git, { base, head, commits, files, hunks }, log);
@@ -220,10 +222,9 @@ export async function takeInChange(
       ...sources.intentContext,
       commits,
       namedFiles,
-      planItems: [],
-      recordedRuns: [],
+      ...namedFileSources(namedFiles, files), // C001-T-032
     },
-    notices: [...sources.notices],
+    notices: [...(cleanFilter ? [cleanFilter] : []), ...sources.notices],
   };
 
   // The snapshot-side content of every changed text and binary file (domain model §2.2).

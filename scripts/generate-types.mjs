@@ -54,6 +54,12 @@ writeFileSync(
   `${out}/workspace-schema.ts`,
   `${banner}\n/* C001-IF-006 */\nexport const WORKSPACE_SCHEMA: object = ${readFileSync(`${dir}/workspace.schema.json`, 'utf8').trim()};\n`,
 );
+// The provider adapters send the output definition of each task as structured-output schema
+// (C001-IF-010 §4, §5; C001-T-087); output validation (C001-T-089) can use it too.
+writeFileSync(
+  `${out}/model-output-schema.ts`,
+  `${banner}\n/* C001-IF-011 */\nexport const MODEL_OUTPUT_SCHEMA: object = ${readFileSync(`${dir}/model-output.schema.json`, 'utf8').trim()};\n`,
+);
 
 console.log(`generated ${schemas.length + 1} interface type files and the API contract in ${out}`);
 
