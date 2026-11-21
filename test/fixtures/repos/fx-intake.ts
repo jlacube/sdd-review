@@ -3,7 +3,8 @@ import { buildFxBranches } from './fx-branches.js';
 import { buildFxDefault } from './fx-default.js';
 import { buildFxLocal } from './fx-local.js';
 import { buildFxNeutral } from './fx-neutral.js';
-import { buildFxSdd } from './fx-sdd.js';
+import { buildFxSdd, buildFxSddArchived } from './fx-sdd.js';
+import { buildFxSize } from './fx-size.js';
 import { buildFxUpstream } from './fx-upstream.js';
 
 /**
@@ -33,5 +34,7 @@ export const NAMED_FIXTURES: Record<string, (options?: FixtureOptions) => Fixtur
   'fx-default': buildFxDefault,
   'fx-local': buildFxLocal,
   'fx-sdd': buildFxSdd,
+  'fx-sdd-archived': buildFxSddArchived,
   'fx-neutral': buildFxNeutral,
+  'fx-size': buildFxSize,
 };

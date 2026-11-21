@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { ReviewError } from '../errors/review-error.js';
 import { GitAdapter } from '../git/operations.js';
 import { ContextualLog } from '../log/log.js';
+import { createKeySource } from '../model/keys/key-source.js';
 import { layoutFor } from '../store/root.js';
 import { SnapshotStore } from '../store/snapshots.js';
 import { createCore, type Core } from './index.js';
@@ -58,6 +59,8 @@ export async function openCore(
       store: new SnapshotStore(ctx, layout),
       ctx,
       repositoryRoot: location.workTreeRoot,
+      // C001-T-086: provider keys from the developer's environment or credential store (§7).
+      model: { keys: createKeySource({ env }) },
     });
     return {
       core,

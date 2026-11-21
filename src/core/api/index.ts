@@ -369,6 +369,7 @@ export function createCore(deps: CoreDeps): Core {
         {
           ...(options.namedBase !== undefined ? { namedBase: options.namedBase } : {}),
           ...(options.namedFiles !== undefined ? { namedFiles: options.namedFiles } : {}),
+          ...(options.sddChange !== undefined ? { sddChange: options.sddChange } : {}),
         },
       );
       const { snapshotId } = result;

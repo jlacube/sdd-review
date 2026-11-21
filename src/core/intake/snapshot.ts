@@ -12,6 +12,8 @@ import type { SnapshotStore } from '../store/snapshots.js';
 import { chooseBase } from './base.js';
 import { computeChange, fail, type ChangeFile } from './change.js';
 import { cutHunks, identifyHunks } from './hunks.js';
+import { hasHunks, snapshotBytes } from './classify.js';
+import { measureSize, sizeWarning } from './size.js';
 import { readChangeCommits } from './commits.js';
 import { attributeHunks } from './attribution.js';
 import type { SddIntentSources } from '../intent-sources/sdd-workspace.js';
@@ -32,9 +34,10 @@ export function canonicalJson(value: unknown): string {
 }
 
 /**
- * The content part of a file in the snapshot ID: the SHA-256 of the snapshot-side bytes, `null` for
- * a deleted file. A binary file, whose bytes the review does not keep, is named by git's own hash of
- * them with a prefix that no SHA-256 can have.
+ * The content part of a file in the snapshot ID: the SHA-256 of the snapshot-side bytes, text or
+ * binary, `null` for a deleted file. A binary file whose bytes a git port did not give (the adapter
+ * always gives them, C001-T-026) is named by git's own hash of them, with a prefix that no SHA-256
+ * can have, so that two contents never share an ID.
  */
 function idContent(entry: ChangeFile): string | null {
   if (entry.contentSha256 !== null) return entry.contentSha256;
@@ -89,6 +92,8 @@ export interface IntakeOptions {
   readonly namedBase?: string;
   /** The pull-request text, plans and transcripts named at intake (C001-REQ-112, C001-T-030). */
   readonly namedFiles?: readonly NamedFileRequest[];
+  /** The SDD change named at intake (`--sdd-change`, C001-IF-007 §6, C001-T-031). */
+  readonly sddChange?: string;
 }
 
 export type IntakeResult =
@@ -139,6 +144,10 @@ export async function takeInChange(
   );
   const files = await computeChange(git, base, log);
   const snapshotId = snapshotIdOf(base, head, files);
+  // The intent source reader runs before the existing-review check (architecture.md §3, "Intake
+  // to architecture delta"): its stops — an invalid neutral file, several open SDD changes and
+  // none named, a named SDD change that is not open — refuse a reopen as well (C001-T-031).
+  const sources = await readIntakeIntentSources(git, base, files, log, options.sddChange);
 
   const known = (await store.listReviews()).find((r) => r.snapshotId === snapshotId);
   if (known) {
@@ -148,7 +157,8 @@ export async function takeInChange(
   const hunks: Hunk[] = [];
   const changedFiles: ChangedFile[] = files.map((entry) => {
     const { file } = entry;
-    const cut = file.binary ? [] : cutHunks(file.path, file.baseContent, file.currentContent);
+    // A binary file is listed with 0 changed lines and no hunk (C001-REQ-108).
+    const cut = hasHunks(file) ? cutHunks(file.path, file.baseContent, file.currentContent) : [];
     const identified = identifyHunks(snapshotId, cut);
     hunks.push(...identified);
     return {
@@ -164,9 +174,12 @@ export async function takeInChange(
       hunkIds: identified.map((hunk) => hunk.hunkId),
     } as ChangedFile;
   });
-  const changedLines = changedFiles.reduce((sum, file) => sum + file.changedLines, 0);
+  // The supported size (C001-REQ-121): a warning with the measured counts; the whole change is
+  // still taken in and analysed (C001-REQ-122).
+  const size = measureSize(changedFiles);
+  const { changedLines } = size;
+  const warning = sizeWarning(size, log, { base, head });
   const baseCommit = await commitRef(git, base);
-  const sources = await readIntakeIntentSources(git, base, files, log); // C001-T-029
   const commits = await readChangeCommits(git, base, head); // C001-T-027
   const attributed = await attributeHunks(git, { base, head, commits, files, hunks }, log);
   const createdAt = (deps.now?.() ?? new Date()).toISOString();
@@ -180,7 +193,7 @@ export async function takeInChange(
     headCommit: head,
     changedFiles: changedFiles as Snapshot['changedFiles'],
     changedLines,
-    sizeWarning: false, // C001-T-026
+    sizeWarning: size.exceeded,
     configurationSource: { default: true }, // C001-T-035
     createdAt,
   } as Snapshot;
@@ -201,7 +214,7 @@ export async function takeInChange(
         commits: commits.length,
         namedFiles: namedFiles.map(({ role, path }) => ({ role, path })),
       },
-      sizeWarning: null,
+      sizeWarning: warning,
     },
     intentContext: {
       ...sources.intentContext,
@@ -213,9 +226,11 @@ export async function takeInChange(
     notices: [...sources.notices],
   };
 
-  const contents = files.flatMap((entry) =>
-    entry.contentSha256 !== null && entry.file.currentContent ? [entry.file.currentContent] : [],
-  );
+  // The snapshot-side content of every changed text and binary file (domain model §2.2).
+  const contents = files.flatMap((entry) => {
+    const bytes = entry.contentSha256 !== null ? snapshotBytes(entry.file) : null;
+    return bytes ? [bytes] : [];
+  });
   await store.createSnapshot(intake, contents, deps.repositoryRoot);
   return { status: 'created', snapshotId, intake, intentSources: sources.sdd };
 }

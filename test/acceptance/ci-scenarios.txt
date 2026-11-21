@@ -9,6 +9,8 @@
 #   C001-TS-928  needs the verdict commands (C001-T-082)
 #   C001-TS-152  expects ERR-SDD-005 on line 1 for a frontmatter block that is not YAML: defect D-025
 #   C001-TS-142  its `stub-llm` steps need the provider configuration and the model gateway (C001-T-085, C001-T-087)
+#   C001-TS-147, 148  their last step needs the architecture delta view (C001-T-043)
+#   C001-TS-149  its last steps need component placement (C001-T-039) and intent grouping (C001-T-045)
 #   C001-TS-801, 802, 857  their last steps need the model tasks and their reduced labels (C001-T-090; 857 also C001-T-087, C001-T-088)
 C001-TS-101
 C001-TS-102
@@ -62,3 +64,11 @@ C001-TS-914
 C001-TS-861
 C001-TS-803
 C001-TS-856
+C001-TS-306
+C001-TS-353
+C001-TS-355
+C001-TS-115
+C001-TS-116
+C001-TS-117
+C001-TS-827
+C001-TS-860
