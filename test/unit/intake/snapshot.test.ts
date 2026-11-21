@@ -143,7 +143,7 @@ describe('takeInChange', () => {
     expect(asB0.intake.snapshot.baseCommit.subject).toBe('');
   });
 
-  it('stores the document and the snapshot-side content of the text files', async () => {
+  it('stores the document and the snapshot-side content of the text and binary files', async () => {
     const { fx } = r;
     fx.write('src/promo.ts', 'export const promo = true;\n');
     fx.write('logo.bin', Buffer.from([0, 1, 2, 3]));
@@ -157,7 +157,12 @@ describe('takeInChange', () => {
       'export const promo = true;\n',
     );
     const logo = stored.snapshot.changedFiles.find((f) => f.path === 'logo.bin')!;
-    expect(logo).toMatchObject({ binary: true, contentHash: null, changedLines: 0, hunkIds: [] });
+    // C001-T-026: a binary file has no hunk and 0 changed lines, and its bytes are kept.
+    expect(logo).toMatchObject({ binary: true, changedLines: 0, hunkIds: [] });
+    expect(logo.contentHash).toBe(sha256(Buffer.from([0, 1, 2, 3])));
+    expect(await r.store.readBlob(result.snapshotId, logo.contentHash!)).toEqual(
+      Buffer.from([0, 1, 2, 3]),
+    );
     expect(stored.hunks.some((h) => h.path === 'logo.bin')).toBe(false);
   });
 

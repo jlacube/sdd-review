@@ -196,7 +196,7 @@ export interface SnapshotFile {
   readonly oldPath: string | null;
   readonly changeType: 'added' | 'modified' | 'deleted' | 'renamed';
   readonly mode: 'regular' | 'executable' | 'symbolic-link' | null;
-  /** SHA-256 of the stored snapshot content; null for a deleted file and a binary file. */
+  /** SHA-256 of the stored snapshot content, text or binary (C001-T-026); null for a deleted file. */
   readonly contentHash: string | null;
 }
 
@@ -246,7 +246,7 @@ export function snapshotEntries(source: SnapshotSource): WorkspaceEntry[] {
       path: f.path,
       mode: f.mode === 'symbolic-link' ? 'symlink' : (f.mode ?? 'regular'),
       read: async () => {
-        // A binary file's content is not in the snapshot store (C001-T-008); see the task report.
+        // Only a snapshot stored before C001-T-026 lacks the content of a binary file.
         if (hash === null) throw new MissingContent(f.path);
         return source.readSnapshot(hash);
       },

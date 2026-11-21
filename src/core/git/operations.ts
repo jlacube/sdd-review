@@ -526,6 +526,7 @@ export class GitAdapter implements GitAccessPort {
           currentMode: entry.current?.mode ?? null,
           baseContent: binary ? null : baseBytes,
           currentContent: binary ? null : (entry.current?.bytes ?? null),
+          binaryContent: binary ? (entry.current?.bytes ?? null) : null,
         });
       }
       return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));

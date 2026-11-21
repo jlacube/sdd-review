@@ -55,6 +55,12 @@ export interface ChangedFile {
   readonly currentMode: FileMode | null;
   readonly baseContent: Buffer | null;
   readonly currentContent: Buffer | null;
+  /**
+   * The snapshot-side bytes of a binary file, which the snapshot keeps like those of a text file
+   * (domain model §2.2 `content`; C001-T-026). `null` or absent for a text file, whose bytes are
+   * `currentContent`, and for a deleted file.
+   */
+  readonly binaryContent?: Buffer | null;
 }
 
 /**

@@ -265,6 +265,9 @@ describe.each(GIT_VERSIONS.filter((v) => v.path !== undefined))(
             baseContent: null,
             currentContent: null,
           });
+          // the snapshot keeps the bytes of a binary file (C001-T-026)
+          expect(files.get('bin.dat')!.binaryContent).toEqual(Buffer.from([0, 9, 9, 9, 9]));
+          expect(files.get('src/a.txt')!.binaryContent).toBeNull();
           expect(files.get('src/a.txt')!.binary).toBe(false);
         });
 

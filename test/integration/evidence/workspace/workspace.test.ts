@@ -363,14 +363,15 @@ describe('disk space and content that cannot be read', () => {
     }
   }, 120_000);
 
-  it('a changed binary file whose content the snapshot does not hold fails with ERR-EVID-002', async () => {
+  it('a changed binary file is filled from the snapshot content (C001-T-026)', async () => {
     const repo = buildRepo({ autocrlf: 'false' });
+    const bytes = Buffer.from([0, 0, 1, 2, 3, 0xff]);
+    repo.write('assets/new.bin', bytes);
+    const ws = await prepareFromRepo(repo);
     try {
-      repo.write('assets/new.bin', Buffer.from([0, 0, 1, 2, 3]));
-      const error = await rejection(prepareFromRepo(repo));
-      expect(error.code).toBe('ERR-EVID-002');
-      expect(error.message).toContain('assets/new.bin');
+      expect(readFileSync(join(ws.prepared.handle.root, 'assets', 'new.bin'))).toEqual(bytes);
     } finally {
+      await ws.dispose();
       disposeRepo(repo);
     }
   }, 120_000);
