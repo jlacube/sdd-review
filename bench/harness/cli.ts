@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runCalibrationCheck } from './calibration.js';
+import { DEFECT_KINDS, runCalibrationCheck, runDefectValidation } from './calibration.js';
 import { countRepositoryLines } from './loc.js';
 import { formatBytes, formatDuration, writeReport } from './report.js';
 import { runCommand } from './run.js';
@@ -25,6 +25,10 @@ suites:
   validate-set                 validate bench/set/benchmark-set.json (draft or frozen)
   calibration --check-overlap  validate bench/calibration/corpus.json and check it does not overlap the
                                benchmark set or the G-8 pool (study/g8/pool.json once it exists)
+  calibration --validate-corpus
+                               check the defects of each seeded change (at least 8 seeded, the six
+                               kinds, files and lines changed by the change; git when the clone is
+                               present) and report the kind coverage per change
   count-lines <dir>            count the lines of the files a git repository tracks
   measure <name> -- <cmd...>   run a command, write bench/results/<name>-<time>.json and .md
 ${SPIKE_USAGE}
@@ -54,6 +58,24 @@ async function main(argv: string[]): Promise<number> {
       return result.errors.length === 0 ? 0 : 1;
     }
     case 'calibration': {
+      if (rest[0] === '--validate-corpus') {
+        const result = runDefectValidation(repoRoot, benchRoot);
+        for (const r of result.reports) {
+          const kinds = DEFECT_KINDS.map((k) => `${k} ${r.kinds[k]}`).join(', ');
+          console.log(
+            `${r.id}: ${r.seeded} seeded, ${r.noticed} noticed (${r.checkedWith}); ${kinds}`,
+          );
+        }
+        if (result.pending.length > 0) console.log(`not seeded yet: ${result.pending.join(', ')}`);
+        for (const w of result.warnings) console.log(`warning: ${w}`);
+        for (const e of result.errors) console.log(`error: ${e}`);
+        console.log(
+          `calibration --validate-corpus: ${result.errors.length === 0 ? 'ok' : 'FAILED'} ` +
+            `(${result.reports.length} seeded changes, ${result.pending.length} not seeded yet, ` +
+            `${result.errors.length} errors)`,
+        );
+        return result.errors.length === 0 ? 0 : 1;
+      }
       if (rest[0] !== '--check-overlap') {
         console.error(USAGE);
         return 2;

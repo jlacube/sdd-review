@@ -137,4 +137,19 @@ benchmark recipe of the same repository) and its agent commits as a bundle in
 `bench/calibration/bundles/` (restore as for the benchmark changes, branch `calib/<eco>-<n>`).
 `npm run bench -- calibration --check-overlap` validates the corpus and fails when a change shares a
 commit range or a task description with the benchmark set or with the G-8 pool
-(`study/g8/pool.json`, once C001-T-110 writes it). Seeded defects follow in C001-T-107 and C001-T-108.
+(`study/g8/pool.json`, once C001-T-110 writes it).
+
+Seeded defects (C001-T-107 for changes 1 to 6, C001-T-108 for 7 to 12): the calibration seeder named
+in `seeder` adds one commit per change on top of its agent commits (`seedingCommit`, equal to
+`seededHeadCommit`; `headCommit` and `agentCommits` stay the agent's) and records under `defects`
+every seeded defect and every defect noticed in the agent's commits while reading the change:
+`{id, file, lines: [start, end] in the seeded head, kind, description, origin: seeded|noticed,
+testsCatchIt}`, with `kind` one of `wrong-logic`, `unrequested-behaviour`,
+`missing-requested-behaviour`, `architecture-violation`, `test-not-checking-subject`,
+`security-weakness` (`10-spec/30-nfr/nfr.md` §3 item 3); `testsAtSeededHead` holds the test run at
+the seeded head. The bundles of seeded changes hold `<baseCommit>..calib/<eco>-<n>` including the
+seeding commit. `npm run bench -- calibration --validate-corpus` checks each change that lists
+`seededHeadCommit`: at least 8 seeded defects covering the six kinds, and each defect's file present
+at the seeded head with its lines inside the file and inside lines changed by the change (git diff
+`-U0` from the base to the seeded head, read from the clone under the bench root when present;
+structural checks only otherwise); it prints the kind coverage per change.

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -28,6 +29,13 @@ export interface CorpusChange {
   taskDescriptionFile: string;
   testCommand: string;
   environmentFile: string;
+  /** Directory of the clone under the bench root (`ref/<name>`). */
+  localCheckout?: string;
+  /** C001-T-107/T-108: the commit holding the seeded defects, directly on top of headCommit. */
+  seedingCommit?: string;
+  /** C001-T-107/T-108: the head after seeding (the seeding commit: one commit per change). */
+  seededHeadCommit?: string;
+  defects?: CorpusDefect[];
 }
 
 /** A change of another set (benchmark set, G-8 pool) that the corpus must not overlap. */
@@ -224,4 +232,281 @@ export function runCalibrationCheck(repoRoot: string): CalibrationRunResult {
     poolPresent: poolText !== null,
     errors,
   };
+}
+
+/** The six kinds of seeded defects of `30-nfr/nfr.md` §3 item 3, in its order. */
+export const DEFECT_KINDS = [
+  'wrong-logic',
+  'unrequested-behaviour',
+  'missing-requested-behaviour',
+  'architecture-violation',
+  'test-not-checking-subject',
+  'security-weakness',
+] as const;
+
+export type DefectKind = (typeof DEFECT_KINDS)[number];
+
+/** At least 8 seeded defects per seeded change (C001-ADR-009 §4 item 1). */
+export const MIN_SEEDED_DEFECTS = 8;
+
+/** A seeded or noticed defect; lines are 1-based and inclusive, in the seeded head version. */
+export interface CorpusDefect {
+  id: string;
+  file: string;
+  lines: [number, number];
+  kind: string;
+  description: string;
+  origin: 'seeded' | 'noticed';
+  testsCatchIt: boolean | null;
+}
+
+/** The files of a change at its seeded head and the lines the change touches. */
+export interface ChangeSource {
+  /** Number of lines of the file at the seeded head, or null when the file does not exist there. */
+  lineCount(file: string): number | null;
+  /**
+   * New-side lines changed by the change (base..seeded head: agent commits and seeding commit) in
+   * the file. A pure deletion counts the lines on both sides of the point where lines were removed.
+   */
+  changedLines(file: string): Set<number>;
+}
+
+export interface ChangeDefectReport {
+  id: string;
+  /** `git` when files and lines were checked against the clone, else `structural`. */
+  checkedWith: 'git' | 'structural';
+  seeded: number;
+  noticed: number;
+  /** Seeded defects per kind. */
+  kinds: Record<DefectKind, number>;
+}
+
+export interface DefectValidation {
+  reports: ChangeDefectReport[];
+  /** Changes without seededHeadCommit (not seeded yet). */
+  pending: string[];
+  errors: string[];
+  warnings: string[];
+}
+
+const isPositiveInt = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1;
+
+function isRepositoryPath(file: unknown): file is string {
+  return (
+    typeof file === 'string' &&
+    file !== '' &&
+    !file.includes('\\') &&
+    !file.startsWith('/') &&
+    !/^[A-Za-z]:/.test(file) &&
+    !file.split('/').includes('..')
+  );
+}
+
+/**
+ * Validates the recorded defects of one seeded change: at least 8 seeded defects covering the six
+ * kinds and well-formed records; with a source, each file present at the seeded head and its lines
+ * inside the file and inside lines the change touches.
+ */
+export function validateChangeDefects(
+  change: CorpusChange,
+  source: ChangeSource | null,
+): { report: ChangeDefectReport; errors: string[] } {
+  const errors: string[] = [];
+  const where = change.id;
+  const kinds = Object.fromEntries(DEFECT_KINDS.map((k) => [k, 0])) as Record<DefectKind, number>;
+  const defects = Array.isArray(change.defects) ? change.defects : [];
+  if (!Array.isArray(change.defects)) errors.push(`${where}: defects is missing`);
+  if (!HEX40.test(change.seedingCommit ?? '')) {
+    errors.push(`${where}: seedingCommit is not a commit hash`);
+  }
+  if (!HEX40.test(change.seededHeadCommit ?? '')) {
+    errors.push(`${where}: seededHeadCommit is not a commit hash`);
+  } else if (change.seedingCommit !== change.seededHeadCommit) {
+    errors.push(`${where}: seededHeadCommit is not the seeding commit (one commit per change)`);
+  }
+  if (change.seedingCommit && (change.agentCommits ?? []).includes(change.seedingCommit)) {
+    errors.push(`${where}: the seeding commit is listed among agentCommits`);
+  }
+
+  const ids = new Set<string>();
+  let seeded = 0;
+  let noticed = 0;
+  for (const [i, d] of defects.entries()) {
+    const named = typeof d?.id === 'string' && d.id !== '';
+    const at = `${where} defect ${named ? d.id : `#${i + 1}`}`;
+    if (!named) errors.push(`${at}: id is missing`);
+    else if (ids.has(d.id)) errors.push(`${at}: duplicate id`);
+    else ids.add(d.id);
+    if (d.origin === 'seeded') seeded++;
+    else if (d.origin === 'noticed') noticed++;
+    else errors.push(`${at}: origin must be seeded or noticed`);
+    if ((DEFECT_KINDS as readonly string[]).includes(d.kind)) {
+      if (d.origin === 'seeded') kinds[d.kind as DefectKind]++;
+    } else {
+      errors.push(`${at}: kind "${String(d.kind)}" is not one of ${DEFECT_KINDS.join(', ')}`);
+    }
+    if (typeof d.description !== 'string' || d.description.trim() === '') {
+      errors.push(`${at}: description is missing`);
+    }
+    if (!(d.testsCatchIt === true || d.testsCatchIt === false || d.testsCatchIt === null)) {
+      errors.push(`${at}: testsCatchIt must be true, false or null`);
+    }
+    const fileOk = isRepositoryPath(d.file);
+    if (!fileOk) errors.push(`${at}: file "${String(d.file)}" is not a repository-relative path`);
+    const lines = d.lines;
+    const linesOk =
+      Array.isArray(lines) &&
+      lines.length === 2 &&
+      isPositiveInt(lines[0]) &&
+      isPositiveInt(lines[1]) &&
+      lines[0] <= lines[1];
+    if (!linesOk) errors.push(`${at}: lines must be [start, end] with 1 <= start <= end`);
+    if (!source || !fileOk || !linesOk) continue;
+    const count = source.lineCount(d.file);
+    if (count === null) {
+      errors.push(`${at}: ${d.file} does not exist at the seeded head`);
+      continue;
+    }
+    if (lines[1] > count) {
+      errors.push(`${at}: lines ${lines[0]}-${lines[1]} beyond the ${count} lines of ${d.file}`);
+      continue;
+    }
+    const changed = source.changedLines(d.file);
+    const outside: number[] = [];
+    for (let n = lines[0]; n <= lines[1]; n++) if (!changed.has(n)) outside.push(n);
+    if (outside.length > 0) {
+      const shown = outside.slice(0, 5).join(', ') + (outside.length > 5 ? ', ...' : '');
+      errors.push(`${at}: ${d.file} line(s) ${shown} not changed by the change`);
+    }
+  }
+  if (seeded < MIN_SEEDED_DEFECTS) {
+    errors.push(`${where}: ${seeded} seeded defects, at least ${MIN_SEEDED_DEFECTS} required`);
+  }
+  const missing = DEFECT_KINDS.filter((k) => kinds[k] === 0);
+  if (missing.length > 0) errors.push(`${where}: no seeded defect of kind ${missing.join(', ')}`);
+  return {
+    report: { id: where, checkedWith: source ? 'git' : 'structural', seeded, noticed, kinds },
+    errors,
+  };
+}
+
+/**
+ * New-side changed lines per file from the output of `git diff -U0`. A hunk `+c,0` (a pure deletion
+ * after line c) counts lines c and c + 1.
+ */
+export function parseChangedLines(diff: string): Map<string, Set<number>> {
+  const out = new Map<string, Set<number>>();
+  let current: Set<number> | null = null;
+  for (const raw of diff.split('\n')) {
+    const line = raw.replace(/\r$/, '');
+    if (line.startsWith('+++ ')) {
+      const target = line.slice(4);
+      if (target === '/dev/null') {
+        current = null;
+        continue;
+      }
+      const file = target.replace(/^"?b\//, '').replace(/"$/, '');
+      current = out.get(file) ?? new Set<number>();
+      out.set(file, current);
+      continue;
+    }
+    const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (!m || !current) continue;
+    const start = Number(m[1]);
+    const count = m[2] === undefined ? 1 : Number(m[2]);
+    if (count === 0) {
+      if (start >= 1) current.add(start);
+      current.add(start + 1);
+    } else {
+      for (let n = start; n < start + count; n++) current.add(n);
+    }
+  }
+  return out;
+}
+
+function git(checkout: string, ...args: string[]): string {
+  return execFileSync('git', ['-C', checkout, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+/** Number of lines of a text (a last line without a newline counts). */
+export function countLines(text: string): number {
+  if (text === '') return 0;
+  return text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+}
+
+/**
+ * A ChangeSource read from a clone, after checking that the seeding commit sits directly on
+ * headCommit. Throws when the clone lacks the commits.
+ */
+export function gitChangeSource(checkout: string, change: CorpusChange): ChangeSource {
+  const head = change.seededHeadCommit ?? '';
+  const parent = git(checkout, 'rev-parse', `${change.seedingCommit ?? ''}^`).trim();
+  if (parent !== change.headCommit) {
+    throw new Error(`the parent of seedingCommit is ${parent}, not headCommit`);
+  }
+  const changed = parseChangedLines(
+    git(checkout, 'diff', '-U0', '--no-color', '--no-ext-diff', change.baseCommit, head),
+  );
+  const counts = new Map<string, number | null>();
+  return {
+    lineCount(file) {
+      if (!counts.has(file)) {
+        let n: number | null;
+        try {
+          n = countLines(git(checkout, 'show', `${head}:${file}`));
+        } catch {
+          n = null;
+        }
+        counts.set(file, n);
+      }
+      return counts.get(file) ?? null;
+    },
+    changedLines: (file) => changed.get(file) ?? new Set<number>(),
+  };
+}
+
+/**
+ * `npm run bench -- calibration --validate-corpus`: the recorded defects of each change that lists
+ * seededHeadCommit, against its clone under benchRoot when present, structurally otherwise.
+ */
+export function runDefectValidation(repoRoot: string, benchRoot: string): DefectValidation {
+  const corpus = JSON.parse(
+    readFileSync(path.join(repoRoot, 'bench', 'calibration', 'corpus.json'), 'utf8'),
+  ) as { seeder?: unknown; changes: CorpusChange[] };
+  const result: DefectValidation = { reports: [], pending: [], errors: [], warnings: [] };
+  const anySeeded = corpus.changes.some((c) => c.seededHeadCommit !== undefined);
+  if (anySeeded && (typeof corpus.seeder !== 'string' || corpus.seeder.trim() === '')) {
+    result.errors.push('corpus: the seeder is not named');
+  }
+  for (const change of corpus.changes) {
+    if (change.seededHeadCommit === undefined) {
+      if (Array.isArray(change.defects) && change.defects.length > 0) {
+        result.errors.push(`${change.id}: defects are listed but seededHeadCommit is missing`);
+      }
+      result.pending.push(change.id);
+      continue;
+    }
+    let source: ChangeSource | null = null;
+    const checkout = change.localCheckout ? path.resolve(benchRoot, change.localCheckout) : null;
+    if (!checkout || !existsSync(checkout)) {
+      result.warnings.push(
+        `${change.id}: clone ${checkout ?? '(no localCheckout)'} is absent; structural checks only`,
+      );
+    } else if (HEX40.test(change.seededHeadCommit) && HEX40.test(change.seedingCommit ?? '')) {
+      try {
+        source = gitChangeSource(checkout, change);
+      } catch (err) {
+        const message = (err as Error).message.split('\n')[0];
+        result.errors.push(`${change.id}: git data unreadable (${message})`);
+      }
+    }
+    const { report, errors } = validateChangeDefects(change, source);
+    result.reports.push(report);
+    result.errors.push(...errors);
+  }
+  return result;
 }

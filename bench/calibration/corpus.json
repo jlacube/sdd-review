@@ -2,6 +2,7 @@
   "schema": "sdd-review-calibration-corpus/1",
   "description": "Calibration corpus of C001-ADR-009 section 4 item 1 (C001-T-106). Seeded defects are added by C001-T-107 and C001-T-108.",
   "benchRoot": "Same as bench/set/benchmark-set.json: ../sdd-bench next to this repository, or SDD_BENCH_ROOT.",
+  "seeder": "claude-opus-5-5 seeding agent (appointed by P-01 for C001-T-107/T-108)",
   "changes": [
     {
       "id": "calib-cs-1",
@@ -34,7 +35,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "Ran at head 04675ecb: 1159 passed, 1 skipped, 0 failed (1160 total, net10.0); the same suite on net8.0 also gave 1159 passed, 1 skipped. At base 299ef377 the test command gave 887 passed, 1 skipped, 0 failed. `dotnet build FluentValidation.sln --no-incremental` (Debug) and `-c Release --no-incremental`: 0 warnings, 0 errors at head; Debug was 0 warnings at base (the Release build was not run at base).",
       "environmentFile": "bench/calibration/environments/calib-cs-1.json",
-      "bundle": "bench/calibration/bundles/calib-cs-1.bundle"
+      "bundle": "bench/calibration/bundles/calib-cs-1.bundle",
+      "seedingCommit": "3cc41d05be534a9f1db80f0ad668f69acc397c79",
+      "seededHeadCommit": "3cc41d05be534a9f1db80f0ad668f69acc397c79",
+      "testsAtSeededHead": "Ran 2026-11-21 at 3cc41d05 (xUnit, net10.0): 1157 passed, 2 failed (JsonSchemaGeneratorTests.Flags_enum_is_not_enumerated, JsonSchemaGeneratorTests.Result_serializes_to_json), 1 skipped (1160 total); `dotnet build FluentValidation.sln --no-incremental` in Debug and Release: 0 warnings, 0 errors.",
+      "defects": [
+        {
+          "id": "calib-cs-1-D01",
+          "file": "src/FluentValidation/Internal/RuleDescriber.cs",
+          "lines": [54, 54],
+          "kind": "wrong-logic",
+          "description": "Components of a rule whose condition was added with WhenAsync/UnlessAsync are described with IsConditional false, because only rule.HasCondition and not rule.HasAsyncCondition is passed to DescribeComponent.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D02",
+          "file": "src/FluentValidation/Schema/BuiltInSchemaMappers.cs",
+          "lines": [198, 198],
+          "kind": "wrong-logic",
+          "description": "MapLength only writes maxLength when the maximum is greater than zero, so MaximumLength(0) or Length(0, 0) produces no maxLength at all.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D03",
+          "file": "src/FluentValidation/Schema/BuiltInSchemaMappers.cs",
+          "lines": [288, 290],
+          "kind": "architecture-violation",
+          "description": "MapRange reads the bounds by casting context.Validator to IBetweenValidator instead of from the validator metadata, so the schema mapper depends on concrete validator interfaces, ignores GetMetadata overrides and throws InvalidCastException for a custom validator that reports an InclusiveBetween/ExclusiveBetween kind.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D04",
+          "file": "src/FluentValidation/Schema/BuiltInSchemaMappers.cs",
+          "lines": [330, 332],
+          "kind": "missing-requested-behaviour",
+          "description": "IsInEnum on a flags enum is silently dropped from the schema without the diagnostic that the request requires for every rule that cannot be expressed.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-1-D05",
+          "file": "src/FluentValidation/Schema/BuiltInSchemaMappers.cs",
+          "lines": [363, 364],
+          "kind": "wrong-logic",
+          "description": "PrecisionScale bounds are written as inclusive maximum/minimum (±10^(precision-scale)), although that value itself has one integer digit too many and fails the validator; they must be exclusive.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D06",
+          "file": "src/FluentValidation/Schema/JsonSchemaResult.cs",
+          "lines": [70, 70],
+          "kind": "security-weakness",
+          "description": "ToJson serializes with JavaScriptEncoder.UnsafeRelaxedJsonEscaping, so titles, descriptions and error messages containing <, > or & are written unescaped, which allows script injection when the schema is embedded in an HTML page.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D07",
+          "file": "src/FluentValidation/Schema/ObjectSchemaBuilder.cs",
+          "lines": [170, 172],
+          "kind": "unrequested-behaviour",
+          "description": "Every object schema gets additionalProperties: false when IncludeUnvalidatedProperties is false, which nobody asked for and makes the schema reject payloads containing the model's other (unvalidated) properties.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-1-D08",
+          "file": "src/FluentValidation.Tests/Schema/JsonSchemaGeneratorTests.cs",
+          "lines": [482, 483],
+          "kind": "test-not-checking-subject",
+          "description": "Precision_scale_sets_bounds_and_multiple_of only checks the type and multipleOf, not the minimum/maximum bounds its name says it tests.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D09",
+          "file": "src/FluentValidation.Tests/ValidatorDescriptorTester.cs",
+          "lines": [217, 217],
+          "kind": "test-not-checking-subject",
+          "description": "Describes_dependent_rules only asserts that DependentRules is not null, which is always true, instead of checking the described dependent rule.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-1-D10",
+          "file": "src/FluentValidation/Schema/ObjectSchemaBuilder.cs",
+          "lines": [75, 84],
+          "kind": "missing-requested-behaviour",
+          "description": "Resolve adds a property for a rule on a member marked [JsonIgnore] (and can mark it required), although such a member is never serialized; [JsonIgnore] is only honoured for unvalidated properties.",
+          "origin": "noticed",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-cs-2",
@@ -63,7 +159,93 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "Ran at head c20cb1de: 1058 passed, 1 skipped, 0 failed (1059 total, net8.0). At base c8c6400f the same command gave 927 passed, 1 skipped, 0 failed. `dotnet build FluentValidation.sln --no-incremental` (Debug) and `-c Release --no-incremental`: 0 warnings, 0 errors at head; both were 0 warnings at base.",
       "environmentFile": "bench/calibration/environments/calib-cs-2.json",
-      "bundle": "bench/calibration/bundles/calib-cs-2.bundle"
+      "bundle": "bench/calibration/bundles/calib-cs-2.bundle",
+      "seedingCommit": "fdb66f95c17cae14b513a6585b1a1dbd298c4a43",
+      "seededHeadCommit": "fdb66f95c17cae14b513a6585b1a1dbd298c4a43",
+      "testsAtSeededHead": "Ran 2026-11-21 at fdb66f95 (xUnit, net8.0): 1056 passed, 2 failed, 1 skipped (1059 total); failing: ValidationTraceTests.Validators_and_rules_are_enumerated_depth_first and ForEachRuleTests.Diagnostics_count_elements_filtered_asynchronously. `dotnet build FluentValidation.sln --no-incremental` (Debug) and `-c Release --no-incremental`: 0 warnings, 0 errors.",
+      "defects": [
+        {
+          "id": "calib-cs-2-D01",
+          "file": "src/FluentValidation/Diagnostics/ValidationDiagnosticsScope.cs",
+          "lines": [70, 70],
+          "kind": "unrequested-behaviour",
+          "description": "TryCreate forces an execution trace (and thus a diagnostics scope on every validation) whenever a debugger is attached, which nobody requested and which breaks the pay-for-play rule while debugging.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-2-D02",
+          "file": "src/FluentValidation/Diagnostics/ValidationDiagnosticsScope.cs",
+          "lines": [115, 116],
+          "kind": "security-weakness",
+          "description": "ValidatorStartingEvent.Instance is populated whenever the call captures a trace, even with CaptureInstances off, so the (possibly sensitive) validated instance is handed to every global listener.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-2-D03",
+          "file": "src/FluentValidation/Diagnostics/ValidationInstrumentation.cs",
+          "lines": [180, 180],
+          "kind": "wrong-logic",
+          "description": "The duration histogram, declared with unit \"s\", records Elapsed.TotalMilliseconds, so durations are reported 1000 times too large.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-2-D04",
+          "file": "src/FluentValidation/Diagnostics/ValidationTrace.cs",
+          "lines": [77, 79],
+          "kind": "wrong-logic",
+          "description": "Validators() pushes child validators onto the stack in forward order, so sibling child validators are enumerated in reverse start order instead of depth-first start order.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-2-D05",
+          "file": "src/FluentValidation/Diagnostics/ValidationTraceJsonWriter.cs",
+          "lines": [104, 104],
+          "kind": "security-weakness",
+          "description": "The JSON writer writes Exception.ToString() as the exception message, exposing full stack traces and inner exception details in logged traces.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-2-D06",
+          "file": "src/FluentValidation/Diagnostics/ValidationTraceJsonWriter.cs",
+          "lines": [318, 321],
+          "kind": "architecture-violation",
+          "description": "On .NET 6+ the JSON writer escapes strings with System.Text.Json, contrary to the requirement that the writer has no JSON library dependency and behaves the same on every target framework.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-2-D07",
+          "file": "src/FluentValidation/Diagnostics/ValidationTraceTextFormatter.cs",
+          "lines": [177, 179],
+          "kind": "unrequested-behaviour",
+          "description": "The text formatter appends a \"(slow)\" marker to rules taking at least a new SlowRuleThreshold (100 ms by default), a feature that was not requested.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-2-D08",
+          "file": "src/FluentValidation/Internal/CollectionPropertyRule.cs",
+          "lines": [171, 171],
+          "kind": "missing-requested-behaviour",
+          "description": "Only the synchronous Filter branch (this line) reports filtered elements; the AsyncFilter branch a few lines below skips the element without calling recorder?.ElementFiltered(), so elements filtered with WhereAsync are not counted.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-2-D09",
+          "file": "src/FluentValidation.Tests/Diagnostics/ValidationTraceFormatterTests.cs",
+          "lines": [219, 221],
+          "kind": "test-not-checking-subject",
+          "description": "Json_writer_escapes_strings_and_reports_exceptions only asserts the rule outcome, not that the property path with quotes, backslash and control characters round-trips through the JSON, so escaping is not checked.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-cs-3",
@@ -89,7 +271,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "Passed: 1144 passed, 0 failed, 1 skipped (1145 total) on net8.0. At base: 926 passed, 0 failed, 1 skipped (927 total). Full solution build with --no-incremental: 0 warnings, 0 errors in Debug and in Release at head, same as at base.",
       "environmentFile": "bench/calibration/environments/calib-cs-3.json",
-      "bundle": "bench/calibration/bundles/calib-cs-3.bundle"
+      "bundle": "bench/calibration/bundles/calib-cs-3.bundle",
+      "seedingCommit": "271f7f355f2cab1fd9c142b0b097a63e610f6610",
+      "seededHeadCommit": "271f7f355f2cab1fd9c142b0b097a63e610f6610",
+      "testsAtSeededHead": "Ran 2026-11-21 at 271f7f35 with `dotnet test src/FluentValidation.Tests/FluentValidation.Tests.csproj -f net8.0`: 1143 passed, 1 failed, 1 skipped (1145 total); the failure is ProblemDetailsJsonConverterTests.Writes_empty_errors_object_for_valid_result (indented output). `dotnet build FluentValidation.sln --no-incremental` in Debug and in Release: 0 warnings, 0 errors.",
+      "defects": [
+        {
+          "id": "calib-cs-3-D01",
+          "file": "src/FluentValidation.Tests/DependencyInjectionExtensions/ServiceCollectionExtensionsTests.cs",
+          "lines": [91, 97],
+          "kind": "test-not-checking-subject",
+          "description": "Problem_details_registration_does_not_change_global_defaults never resolves the formatter, so the registration's configure delegate (which runs lazily on first resolution) is never invoked and the assertion on the global title cannot fail.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D02",
+          "file": "src/FluentValidation.Tests/ValidationProblemDetailsBuilderTests.cs",
+          "lines": [370, 381],
+          "kind": "test-not-checking-subject",
+          "description": "Builder_does_not_change_options_it_was_given creates the builder without passing the options object it then asserts on, so the assertions that the given options stay unchanged are trivially true.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D03",
+          "file": "src/FluentValidation/Results/Formatting/Json/FluentValidationJsonSerializerOptionsExtensions.cs",
+          "lines": [58, 58],
+          "kind": "unrequested-behaviour",
+          "description": "CreateProblemDetailsSerializerOptions turns on WriteIndented, so problem details responses are pretty-printed, which the requested web defaults with null values left out do not include.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-3-D04",
+          "file": "src/FluentValidation/Results/Formatting/Json/ValidationProblemDetailsJsonConverter.cs",
+          "lines": [68, 93],
+          "kind": "wrong-logic",
+          "description": "The problem details converter matches member names on read with a case-sensitive switch, so a document with \"Title\" or \"Errors\" (for example from Newtonsoft.Json defaults) puts those members into Extensions instead of the standard members, although member matching on read must be case-insensitive.",
+          "origin": "noticed",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D05",
+          "file": "src/FluentValidation/Results/Formatting/Json/ValidationProblemDetailsJsonConverter.cs",
+          "lines": [108, 108],
+          "kind": "missing-requested-behaviour",
+          "description": "The problem details converter writes the type member unconditionally, so a problem details object whose Type is null is written with \"type\": null instead of leaving the null standard member out.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D06",
+          "file": "src/FluentValidation/Results/Formatting/ValidationProblemDetails.cs",
+          "lines": [35, 37],
+          "kind": "architecture-violation",
+          "description": "The serializer-neutral ValidationProblemDetails model is bound to the System.Text.Json converter with a [JsonConverter] attribute, coupling the core model to one serializer and bypassing the opt-in registration through AddFluentValidationConverters.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D07",
+          "file": "src/FluentValidation/Results/Formatting/ValidationProblemDetailsBuilder.cs",
+          "lines": [87, 87],
+          "kind": "wrong-logic",
+          "description": "WithStatus rejects 599 because the upper bound check uses >= 599, although its message and documentation accept HTTP status codes from 100 to 599.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D08",
+          "file": "src/FluentValidation/Results/Formatting/ValidationProblemDetailsBuilder.cs",
+          "lines": [280, 280],
+          "kind": "security-weakness",
+          "description": "CreateDetail includes the attempted value whenever custom state is enabled, so opting into custom state alone exposes attempted values (possibly passwords or personal data) that must stay out unless IncludeAttemptedValue is set.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D09",
+          "file": "src/FluentValidation/Results/Formatting/ValidationProblemDetailsBuilder.cs",
+          "lines": [310, 310],
+          "kind": "wrong-logic",
+          "description": "DistinctMessages compares messages ignoring case, so messages for the same property that differ only in letter case are dropped as duplicates although only identical messages should be merged.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-3-D10",
+          "file": "src/FluentValidation/Results/ValidationResult.cs",
+          "lines": [117, 117],
+          "kind": "unrequested-behaviour",
+          "description": "The existing ValidationResult.ToDictionary() now groups property names case-insensitively, merging keys such as \"Name\" and \"name\", which changes existing behaviour that had to stay unchanged.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-cs-4",
@@ -114,7 +391,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "passed: 1134 passed, 1 skipped, 0 failed (net8.0); at base 923 passed, 1 skipped, 0 failed. `dotnet build FluentValidation.sln --no-incremental` 0 warnings at base and head; Release build 0 warnings at head.",
       "environmentFile": "bench/calibration/environments/calib-cs-4.json",
-      "bundle": "bench/calibration/bundles/calib-cs-4.bundle"
+      "bundle": "bench/calibration/bundles/calib-cs-4.bundle",
+      "seedingCommit": "ae2f318ffd51ad467b1c317e806e6406dd411741",
+      "seededHeadCommit": "ae2f318ffd51ad467b1c317e806e6406dd411741",
+      "testsAtSeededHead": "Ran at seeded head ae2f318f on 2026-11-21 (net8.0): 1132 passed, 2 failed, 1 skipped (1135 total); failing tests RuleSetExpressionParserTests.Equality_ignores_case_of_names and RuleSetExpressionParserTests.Deeply_nested_negation_is_rejected. Debug and Release builds of FluentValidation.sln with --no-incremental: 0 warnings, 0 errors.",
+      "defects": [
+        {
+          "id": "calib-cs-4-D01",
+          "file": "docs/rulesets.md",
+          "lines": [116, 117],
+          "kind": "missing-requested-behaviour",
+          "description": "The syntax table of docs/rulesets.md has no row for quoted names ('two words', \"two words\", with a doubled quote as escape), so the quoting syntax the request asks to document is not documented.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D02",
+          "file": "src/FluentValidation.Tests/RuleSetExpressionTests.cs",
+          "lines": [336, 336],
+          "kind": "test-not-checking-subject",
+          "description": "Expression_selects_rules_in_async_validation validates with IncludeRuleSets(\"Create\") instead of IncludeRuleSetsMatching, so the async path of rule set expressions is not exercised by the test.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D03",
+          "file": "src/FluentValidation.Tests/RulesetTests.cs",
+          "lines": [362, 362],
+          "kind": "test-not-checking-subject",
+          "description": "Expression_selects_the_same_rules_as_rule_set_names computes byExpression with IncludeRuleSets(ruleSets) instead of IncludeRuleSetsMatching(expression), so it compares IncludeRuleSets with itself and never checks the expression.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D04",
+          "file": "src/FluentValidation/Internal/RuleSetExpressionNodes.cs",
+          "lines": [112, 112],
+          "kind": "wrong-logic",
+          "description": "RuleSetNameExpression.ComputeHashCode uses the case-sensitive Name.GetHashCode() while equality compares names case-insensitively, so equal expressions such as \"create\" and \"Create\" get different hash codes.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-4-D05",
+          "file": "src/FluentValidation/Internal/RuleSetExpressionParser.cs",
+          "lines": [109, 113],
+          "kind": "missing-requested-behaviour",
+          "description": "ParseUnary does not count '!'/'not' towards the nesting depth, so a chain of more than 64 negations is not rejected and deep input can overflow the stack.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-cs-4-D06",
+          "file": "src/FluentValidation/Internal/RuleSetExpressionTokenizer.cs",
+          "lines": [84, 85],
+          "kind": "unrequested-behaviour",
+          "description": "The tokenizer accepts '~' as a negation operator (and treats '~' as an operator character, so it can no longer appear in an unquoted rule set name), which the requested syntax does not include.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D07",
+          "file": "src/FluentValidation/Internal/RuleSetNamePattern.cs",
+          "lines": [76, 76],
+          "kind": "wrong-logic",
+          "description": "CharEquals compares with the culture-sensitive char.ToUpper, so glob pattern matching depends on the current culture (e.g. 'i' and 'I' do not match under tr-TR) and is inconsistent with the ordinal case-insensitive comparison of names.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D08",
+          "file": "src/FluentValidation/Internal/ValidationStrategy.cs",
+          "lines": [118, 118],
+          "kind": "unrequested-behaviour",
+          "description": "IncludeRuleSetsMatching(string) treats an empty or whitespace expression as \"*\" and runs every rule instead of rejecting it as a syntax error.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D09",
+          "file": "src/FluentValidation/RuleSetExpression.cs",
+          "lines": [151, 152],
+          "kind": "security-weakness",
+          "description": "RuleSetExpression.Parse adds every distinct expression text to the static cache without any size bound, so expressions taken from user input can grow memory without limit.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-cs-4-D10",
+          "file": "src/FluentValidation/Validators/ChildValidatorAdaptor.cs",
+          "lines": [117, 117],
+          "kind": "architecture-violation",
+          "description": "ChildValidatorAdaptor.GetSelector creates RuleSetExpressionValidatorSelector directly instead of through ValidatorOptions.Global.ValidatorSelectors.RuleSetExpressionValidatorSelectorFactory, so a custom selector factory is ignored for child validators.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-py-1",
@@ -144,7 +516,93 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "2728 passed, 20 skipped, 1 deselected (run 2026-11-21 at head; base v40.40.0: 2411 passed, 10 skipped, 1 deselected). Linters at head: flake8, isort, black --line-length 120 and mypy --config mypy.ini faker all exit 0 (all also clean at the base).",
       "environmentFile": "bench/calibration/environments/calib-py-1.json",
-      "bundle": "bench/calibration/bundles/calib-py-1.bundle"
+      "bundle": "bench/calibration/bundles/calib-py-1.bundle",
+      "seedingCommit": "3403555ecc4b5eecb32130f0ffceee9370633e86",
+      "seededHeadCommit": "3403555ecc4b5eecb32130f0ffceee9370633e86",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head 3403555e: 2728 passed, 20 skipped, 1 deselected, 0 failed (the same counts as at the agent's head).",
+      "defects": [
+        {
+          "id": "calib-py-1-D01",
+          "file": "faker/providers/color/__init__.py",
+          "lines": [382, 382],
+          "kind": "missing-requested-behaviour",
+          "description": "hsl_css_color() does not pass its luminosity argument to generate_hsl(), so the luminosity the task requires every new method to honour is ignored.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D02",
+          "file": "faker/providers/color/__init__.py",
+          "lines": [396, 397],
+          "kind": "architecture-violation",
+          "description": "hwb_css_color() converts HSV to HWB inline in the provider instead of using RandomColor.hsv_to_hwb / the hwb format of RandomColor, where the task places the conversions.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D03",
+          "file": "faker/providers/color/__init__.py",
+          "lines": [494, 494],
+          "kind": "wrong-logic",
+          "description": "color_pair() picks a dark foreground only when the background's relative luminance exceeds 0.5 instead of about 0.18 (where black and white give equal contrast), so mid-luminance backgrounds get a light foreground with poor contrast and many more tries are needed.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D04",
+          "file": "faker/providers/color/contrast.py",
+          "lines": [38, 38],
+          "kind": "unrequested-behaviour",
+          "description": "_HEX_PATTERN (with the matching len(digits) in (3, 4) expansion in _parse_hex at line 57) also accepts 4- and 8-digit hex colors with an alpha channel, which the task does not ask for (it asks for #rrggbb input) and whose alpha is then silently dropped.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D05",
+          "file": "faker/providers/color/contrast.py",
+          "lines": [39, 39],
+          "kind": "security-weakness",
+          "description": "_NUMBER uses the nested quantifier ((?:\\d+)+...), so parse_color() / contrast_ratio() on a long digit run that fails to match (for example 'rgb(' + '1' * 30 + '!') backtracks exponentially (regular-expression denial of service).",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D06",
+          "file": "faker/providers/color/palettes.py",
+          "lines": [133, 133],
+          "kind": "wrong-logic",
+          "description": "tones() divides by (size - 1) instead of (size - 2) when interpolating the size - 1 derived tones, so the last tone of a monochromatic palette never reaches the dark shade and the spread is uneven.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D07",
+          "file": "faker/proxy.pyi",
+          "lines": [1005, 1007],
+          "kind": "missing-requested-behaviour",
+          "description": "The hwb_css_color stub is missing from faker/proxy.pyi after the hsl_css_color stub, so the stub file is not the regenerated one the task requires and type checkers do not know Faker.hwb_css_color.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D08",
+          "file": "tests/providers/test_color_formats.py",
+          "lines": [65, 68],
+          "kind": "test-not-checking-subject",
+          "description": "test_alpha_is_ignored_by_opaque_formats passes alpha=0.5 to both generate() calls it compares, so it does not check that an alpha is ignored by the hex format.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-1-D09",
+          "file": "tests/providers/test_color_contrast.py",
+          "lines": [287, 292],
+          "kind": "test-not-checking-subject",
+          "description": "test_contrast_ratio_draws_no_random_value re-seeds the generator after calling contrast_ratio(), so any random value drawn by contrast_ratio() is reset and the test cannot detect it.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-py-2",
@@ -187,7 +645,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "2770 passed, 10 skipped, 1 deselected (run 2026-11-21 at head; base v40.30.0: 2394 passed, 10 skipped, 1 deselected). Linters at head: flake8, black --line-length 120 and mypy --config mypy.ini faker exit 0; isort --check-only fails only on tests/providers/test_company.py, which already failed identically at the base (pre-existing, untouched by the change).",
       "environmentFile": "bench/calibration/environments/calib-py-2.json",
-      "bundle": "bench/calibration/bundles/calib-py-2.bundle"
+      "bundle": "bench/calibration/bundles/calib-py-2.bundle",
+      "seedingCommit": "6889dcc028c3dd232c9f35effef5a39e702ed29b",
+      "seededHeadCommit": "6889dcc028c3dd232c9f35effef5a39e702ed29b",
+      "testsAtSeededHead": "Ran at seeded head 6889dcc0 on 2026-11-21: 10 failed, 2760 passed, 10 skipped, 1 deselected (failures: 5 test_unknown_level_raises[Bachelor-*], test_education_with_birthdate_respects_birthday, test_seeded_records[es_ES-...], test_profile_highest_degree, test_localized_education, test_opt_in_field_alone[highest_degree]).",
+      "defects": [
+        {
+          "id": "calib-py-2-D01",
+          "file": "faker/providers/education/__init__.py",
+          "lines": [284, 290],
+          "kind": "unrequested-behaviour",
+          "description": "_check_level strips and lower-cases the level before validating it, so levels such as \"Bachelor\" or \" master \" are accepted instead of raising ValueError for a value that is not one of the six level literals.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-2-D02",
+          "file": "faker/providers/education/__init__.py",
+          "lines": [448, 448],
+          "kind": "wrong-logic",
+          "description": "The age computed from the birthdate in education() compares (month, day) with <=, so a person is counted one year younger on their birthday itself and levels completed at exactly that age are rejected.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-2-D03",
+          "file": "faker/providers/education/es_ES/__init__.py",
+          "lines": [300, 300],
+          "kind": "architecture-violation",
+          "description": "The es_ES grade draws the Matrícula de Honor chance from the module-level random module instead of self.generator.random, so the output does not follow the generator's seed.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-2-D04",
+          "file": "faker/providers/education/fr_FR/__init__.py",
+          "lines": [6, 6],
+          "kind": "architecture-violation",
+          "description": "The fr_FR education provider subclasses the en_US locale provider instead of the base education Provider, making one locale depend on another locale's data and overrides.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-2-D05",
+          "file": "faker/providers/education/it_IT/__init__.py",
+          "lines": [276, 276],
+          "kind": "wrong-logic",
+          "description": "_mark_out_of draws the ordinary mark with triangular(lowest, highest, mode), so a mark can round to the full mark outside the full_mark_share draw instead of being capped at highest - 1.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-2-D06",
+          "file": "faker/providers/profile/__init__.py",
+          "lines": [67, 68],
+          "kind": "missing-requested-behaviour",
+          "description": "profile() only generates the education fields when \"education\" is named, so profile(fields=[\"highest_degree\"]) returns no highest_degree field.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-2-D07",
+          "file": "faker/proxy.pyi",
+          "lines": [1506, 1506],
+          "kind": "missing-requested-behaviour",
+          "description": "The regenerated faker/proxy.pyi has no stub for academic_title(), so the education provider's academic_title method is missing from the Faker type stubs.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-2-D08",
+          "file": "tests/providers/test_education.py",
+          "lines": [521, 528],
+          "kind": "test-not-checking-subject",
+          "description": "test_mention_matches_mark only checks that the mention is one of the known mentions and the mark is in range, not that the mention corresponds to the mark.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-2-D09",
+          "file": "tests/providers/test_profile.py",
+          "lines": [90, 97],
+          "kind": "test-not-checking-subject",
+          "description": "test_default_profile_random_sequence_is_unchanged does not request the education field in the second profile, so it does not check that asking for education leaves the other fields unchanged.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-2-D10",
+          "file": "tests/test_cli_arg_parsing.py",
+          "lines": [55, 55],
+          "kind": "security-weakness",
+          "description": "test_localized_education_record parses the CLI output with eval() instead of ast.literal_eval(), executing whatever the command printed.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-py-3",
