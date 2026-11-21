@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Working-tree observer — common model and Linux implementation
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-003]
 implements: [C001-REQ-523, C001-REQ-524]
 satisfies_ac: [C001-AC-523.1, C001-AC-524.1]

@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Copier, ignored paths made available, link retargeting and mutation copy
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-015]
 implements: [C001-REQ-509, C001-REQ-516]
 satisfies_ac: [C001-AC-509.1, C001-AC-516.1]

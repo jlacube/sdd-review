@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Command runner for evidence commands
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-015]
 implements: [C001-REQ-525, C001-REQ-521]
 satisfies_ac: [C001-AC-525.1, C001-AC-521.1]
