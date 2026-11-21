@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["web/**/*.ts", "web/**/*.tsx"]
+  "include": ["web/**/*.ts", "web/**/*.tsx", "spikes/ui/app/**/*.ts", "spikes/ui/app/**/*.tsx"]
 }

@@ -85,7 +85,8 @@ export default tseslint.config(
     // C001-ADR-002 items 1 and 2, C001-CON-20: the web client renders repository content, named
     // files, transcripts and model output only as React text nodes, and loads styles only from
     // static CSS files.
-    files: ['web/**/*.{ts,tsx}'],
+    // The UI spike's prototype page (C001-T-023) is held to the same rules.
+    files: ['web/**/*.{ts,tsx}', 'spikes/ui/app/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     rules: {
       'no-restricted-syntax': [

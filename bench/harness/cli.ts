@@ -12,6 +12,12 @@ import {
   SPIKE_USAGE,
   writeSpikeReport,
 } from '../../spikes/parse/runner.js';
+import {
+  outcomeLine,
+  parseSpikeUiArgs,
+  runUiSpike,
+  SPIKE_UI_USAGE,
+} from '../../spikes/ui/runner.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, '..', '..');
@@ -32,6 +38,7 @@ suites:
   count-lines <dir>            count the lines of the files a git repository tracks
   measure <name> -- <cmd...>   run a command, write bench/results/<name>-<time>.json and .md
 ${SPIKE_USAGE}
+${SPIKE_UI_USAGE}
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -147,6 +154,33 @@ ${USAGE}`);
             `(margin ${v.memoryMarginPct} %); ${jsonPath}, ${mdPath}`,
         );
         allPass &&= report.result === 'pass';
+      }
+      return allPass ? 0 : 1;
+    }
+    case 'spike-ui': {
+      const setFile = path.join(repoRoot, 'bench', 'set', 'benchmark-set.json');
+      let parsed;
+      try {
+        parsed = parseSpikeUiArgs(rest, setFile);
+      } catch (error) {
+        console.error(`spike-ui: ${(error as Error).message}
+
+${USAGE}`);
+        return 2;
+      }
+      let allPass = true;
+      for (const target of parsed.targets) {
+        const outcome = await runUiSpike(
+          target,
+          parsed.options,
+          setFile,
+          benchRoot,
+          path.join(repoRoot, 'bench', 'results'),
+        );
+        for (const { report, mdPath } of outcome.reports) {
+          console.log(outcomeLine(report, mdPath));
+          allPass &&= report.result === 'pass';
+        }
       }
       return allPass ? 0 : 1;
     }
