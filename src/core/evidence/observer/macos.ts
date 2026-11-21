@@ -1,7 +1,8 @@
 import { createRequire } from 'node:module';
-import { realpathSync, statSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { lstat } from 'node:fs/promises';
-import { sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
 import type { ObservedPart } from './causes.js';
 import {
   repositoryBases,
@@ -33,12 +34,18 @@ import { absOf, SerialQueue, walkTree } from './walk.js';
  * being registered; the start waits for `HistoryDone`. Changes made right after the observer
  * started are therefore delivered, which `fs.watch` (stream from "now") does not guarantee.
  *
- * Drain (the "event ID window"): `FSEventStreamFlushAsync` returns the ID of the last event
- * queued for the stream; the run loop is run until an event with that ID or later has been
- * delivered. `FSEventStreamFlushSync` is not used: it blocks until delivery, which here needs the
- * very run loop the blocked thread would have to run. When delivery does not reach that ID within
- * the drain timeout, FSEvents "stops delivering events before the command ends": events lost for
- * the whole part.
+ * Drain (the marker barrier): each stream also watches a private marker directory of its own (in
+ * the temporary directory). A drain writes and removes a marker file there, asks FSEvents to flush
+ * (`FSEventStreamFlushAsync`) and runs the run loop until the marker's event has been delivered.
+ * FSEvents assigns event IDs in the order the file system reports changes and delivers a stream's
+ * events in that order, so every change made before the marker has been delivered by then. The ID
+ * `FSEventStreamFlushAsync` returns is no barrier: it only covers events fseventsd has already
+ * queued for the client, not changes still on their way from the kernel (the first version of
+ * this backend waited for it and ended most drains before the run's events arrived).
+ * `FSEventStreamFlushSync` is not used: it blocks until delivery, which here needs the very run
+ * loop the blocked thread would have to run. A marker that cannot be written, or is not delivered
+ * while nothing else is within the drain timeout, means FSEvents "stops delivering events before
+ * the command ends": events lost for the whole part.
  *
  * Causes:
  * - not readable: a directory that cannot be listed (at start, or created during observation), a
@@ -47,7 +54,7 @@ import { absOf, SerialQueue, walkTree } from './walk.js';
  * - events lost: `MustScanSubDirs` (also with `UserDropped` or `KernelDropped`) for the named
  *   subtree as the top-most path, the whole part when it is a root or outside the bases;
  *   `UserDropped` or `KernelDropped` alone, and an event without item flags, for the whole part
- *   or the named directory; a drain that does not reach the flushed event ID;
+ *   or the named directory; a drain whose marker is not delivered;
  * - observation interrupted: `RootChanged`, a stream that cannot be created or started, a history
  *   replay that does not complete, an observer failure.
  *
@@ -147,8 +154,16 @@ export const LOCAL_ONLY_VOLUME_TYPES: ReadonlySet<string> = new Set([
 export interface FsEventsStream {
   /** Runs the run loop once without waiting: delivers the batches FSEvents has sent. */
   pump(): void;
-  /** `FSEventStreamFlushAsync`: the ID of the last event queued for the stream, 0 when none. */
-  flush(): bigint;
+  /**
+   * The drain barrier: writes (and removes) a marker file in the stream's own directory, which
+   * the stream also watches, then asks FSEvents to flush (`FSEventStreamFlushAsync`). Returns the
+   * marker's path as FSEvents reports it, or the reason as an error when it cannot be written.
+   * FSEvents delivers a stream's events in event-ID order, so once the marker's event has been
+   * delivered, so has every event that happened before the marker was written.
+   */
+  mark(): { path: string } | { error: string };
+  /** Whether an event path lies in the stream's own marker directory. */
+  own(path: string): boolean;
   close(): void;
 }
 
@@ -226,7 +241,16 @@ export function loadFsEvents(): FsEventsApi {
 
   fsevents = {
     currentEventId: () => BigInt(FSEventsGetCurrentEventId() as number | bigint),
-    open(paths, since, latency, flags, deliver) {
+    open(watched, since, latency, flags, deliver) {
+      // The stream's own marker directory, watched with the bases (see `mark`).
+      let markerDir: string;
+      try {
+        markerDir = realpathSync.native(mkdtempSync(join(tmpdir(), 'sddr-fsevents-')));
+      } catch (error) {
+        return `cannot create the marker directory: ${(error as Error).message}`;
+      }
+      const removeMarkerDir = () => rmSync(markerDir, { recursive: true, force: true });
+      const paths = [...watched, markerDir];
       const strings = paths.map(
         (p) => CFStringCreateWithCString(null, p, kCFStringEncodingUTF8) as bigint | null,
       );
@@ -235,6 +259,7 @@ export function loadFsEvents(): FsEventsApi {
       };
       if (strings.some((s) => !s)) {
         releaseStrings();
+        removeMarkerDir();
         return 'CFStringCreateWithCString failed';
       }
       const values = koffi.alloc('void *', paths.length);
@@ -243,7 +268,10 @@ export function loadFsEvents(): FsEventsApi {
       // The array retains the strings (kCFTypeArrayCallBacks).
       releaseStrings();
       koffi.free(values);
-      if (!array) return 'CFArrayCreate failed';
+      if (!array) {
+        removeMarkerDir();
+        return 'CFArrayCreate failed';
+      }
 
       const callback = koffi.register(
         (
@@ -277,6 +305,7 @@ export function loadFsEvents(): FsEventsApi {
       CFRelease(array);
       if (!stream) {
         koffi.unregister(callback);
+        removeMarkerDir();
         return 'FSEventStreamCreate failed';
       }
       const runLoop = CFRunLoopGetCurrent() as bigint;
@@ -286,9 +315,12 @@ export function loadFsEvents(): FsEventsApi {
         FSEventStreamInvalidate(stream);
         FSEventStreamRelease(stream);
         koffi.unregister(callback);
+        removeMarkerDir();
         return 'FSEventStreamStart failed';
       }
       let closed = false;
+      let markers = 0;
+      const markerPrefix = `${markerDir}${sep}`;
       return {
         pump() {
           if (closed) return;
@@ -298,9 +330,20 @@ export function loadFsEvents(): FsEventsApi {
             if ((CFRunLoopRunInMode(defaultMode, 0, 1) as number) !== 4) break;
           }
         },
-        flush() {
-          if (closed) return 0n;
-          return BigInt(FSEventStreamFlushAsync(stream) as number | bigint);
+        mark() {
+          if (closed) return { error: 'stream closed' };
+          const path = join(markerDir, `m${++markers}`);
+          try {
+            writeFileSync(path, '');
+            unlinkSync(path);
+          } catch (error) {
+            return { error: `cannot write the marker ${path}: ${(error as Error).message}` };
+          }
+          FSEventStreamFlushAsync(stream);
+          return { path };
+        },
+        own(path) {
+          return path === markerDir || path.startsWith(markerPrefix);
         },
         close() {
           if (closed) return;
@@ -309,6 +352,7 @@ export function loadFsEvents(): FsEventsApi {
           FSEventStreamInvalidate(stream);
           FSEventStreamRelease(stream);
           koffi.unregister(callback);
+          removeMarkerDir();
         },
       };
     },
@@ -327,7 +371,7 @@ export interface MacosOptions {
   readonly pollMs?: number;
   /** FSEvents latency in seconds; default 0.05. */
   readonly latency?: number;
-  /** How long a drain waits for the flushed event ID; default 2,000 ms. */
+  /** How long a drain waits for the marker without any event delivered; default 5,000 ms. */
   readonly drainTimeoutMs?: number;
   /** How long the start waits for `HistoryDone`; default 5,000 ms. */
   readonly startTimeoutMs?: number;
@@ -355,6 +399,25 @@ function identityOf(path: string): string | null {
   }
 }
 
+/** `path` is `dir` or lies below it (case-insensitive as a fallback, as in `locate`). */
+function atOrBelow(path: string, dir: string): boolean {
+  for (const [p, d] of [
+    [path, dir],
+    [path.toLowerCase(), dir.toLowerCase()],
+  ] as const) {
+    if (p === d || p.startsWith(d.endsWith(sep) ? d : `${d}${sep}`)) return true;
+  }
+  return false;
+}
+
+/**
+ * The started backends of this process. A directory moved or removed is reported by the stream
+ * that watches its parent, which is not always the stream of the base below it: the git directory
+ * inside the working tree moves with the working-tree root, which only the working-tree stream
+ * sees. Every backend with a base at or below a moved directory is told.
+ */
+const liveBackends = new Set<MacosBackend>();
+
 /** The FSEvents backend of one part, over one or more watch bases. */
 export class MacosBackend implements PartBackend {
   private readonly api: FsEventsApi | null;
@@ -363,7 +426,9 @@ export class MacosBackend implements PartBackend {
   private readonly queue: SerialQueue;
   private stream: FsEventsStream | null = null;
   private readonly delivered: RawFsEvent[] = [];
-  private lastId = 0n;
+  /** The marker the current drain waits for, and whether it has been delivered. */
+  private marker: string | null = null;
+  private markerSeen = false;
   private historyDone = false;
   private timer: NodeJS.Timeout | null = null;
   private closed = false;
@@ -424,6 +489,7 @@ export class MacosBackend implements PartBackend {
       return;
     }
     this.stream = stream;
+    liveBackends.add(this);
     await this.queue.enqueue(async () => {
       // The startup barrier: the replay from `since` ends with HistoryDone.
       const deadline = Date.now() + (this.options.startTimeoutMs ?? 5000);
@@ -469,6 +535,7 @@ export class MacosBackend implements PartBackend {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    liveBackends.delete(this);
     if (this.timer) clearInterval(this.timer);
     await this.queue.idle();
     this.stream?.close();
@@ -482,32 +549,60 @@ export class MacosBackend implements PartBackend {
     return type !== null && LOCAL_ONLY_VOLUME_TYPES.has(type) ? type : null;
   }
 
-  /** The event-ID window: runs the run loop until the last event queued has been delivered. */
+  /**
+   * The drain barrier: writes a marker in the stream's own directory and runs the run loop until
+   * the marker's event has been delivered; every event before it has been delivered by then. A
+   * marker that cannot be written, or is not delivered while nothing else is (within the drain
+   * timeout), is "events lost" for the whole part: the drain never ends clean on a guess.
+   */
   private async drainStream(): Promise<void> {
     const stream = this.stream;
     if (!stream) return;
-    const target = stream.flush();
-    const deadline = Date.now() + (this.options.drainTimeoutMs ?? 2000);
-    for (;;) {
-      stream.pump();
-      await this.handleDelivered();
-      if (target === 0n || this.lastId >= target || this.closed) break;
-      if (Date.now() > deadline) {
-        this.sink.gap(
-          'events-lost',
-          null,
-          `FSEvents stopped delivering events: event ${target} flushed, ${this.lastId} delivered`,
-        );
-        break;
+    const marked = stream.mark();
+    if ('error' in marked) {
+      this.sink.gap('events-lost', null, `FSEvents drain barrier failed: ${marked.error}`);
+    } else {
+      this.marker = marked.path;
+      this.markerSeen = false;
+      const timeout = this.options.drainTimeoutMs ?? 5000;
+      let deadline = Date.now() + timeout;
+      for (;;) {
+        stream.pump();
+        const progressed = this.delivered.length > 0;
+        await this.handleDelivered();
+        if (this.markerSeen || this.closed) break;
+        if (progressed) deadline = Date.now() + timeout;
+        else if (Date.now() > deadline) {
+          this.sink.gap(
+            'events-lost',
+            null,
+            `FSEvents stopped delivering events: the drain marker ${marked.path} was not delivered`,
+          );
+          break;
+        }
+        await sleep(1);
       }
-      await sleep(1);
+      this.marker = null;
     }
-    // Events without an event ID (RootChanged, Mount, Unmount) are not covered by the flushed ID:
+    // Events without an event ID (RootChanged, Mount, Unmount) are not ordered with the marker:
     // the run loop gets one more turn for them, and each root is checked where it was.
     await sleep(2);
     stream.pump();
     await this.handleDelivered();
     this.checkRoots();
+  }
+
+  /**
+   * A directory at `path` was moved (renamed away or back) or removed: each base at or below it
+   * was not where it was watched for a while, which FSEvents does not always report with
+   * `RootChanged` (a root renamed and renamed back is reported only as a rename of the root).
+   */
+  private rootMoved(path: string, detail: string): void {
+    for (const state of this.states) {
+      if (state.real === null || state.moved || !atOrBelow(state.real, path)) continue;
+      state.moved = true;
+      this.sink.gap('observation-interrupted', null, `the root ${state.real} was moved: ${detail}`);
+    }
   }
 
   /** A root that is no longer the directory watched from the start interrupts the observation. */
@@ -561,7 +656,12 @@ export class MacosBackend implements PartBackend {
   private async handleDelivered(): Promise<void> {
     while (this.delivered.length > 0) {
       const event = this.delivered.shift()!;
-      if (event.id > this.lastId) this.lastId = event.id;
+      if (this.stream?.own(event.path)) {
+        // The marker directory: a marker's event is the barrier; a loss there may cover any path.
+        if (event.path === this.marker) this.markerSeen = true;
+        const kind = classifyFsEvent(event.flags);
+        if (kind !== 'events-lost' && kind !== 'observation-interrupted') continue;
+      }
       await this.handle(event);
     }
   }
@@ -593,6 +693,13 @@ export class MacosBackend implements PartBackend {
       }
       default:
         break;
+    }
+    if (event.flags & FSE.ItemIsDir && event.flags & (FSE.ItemRenamed | FSE.ItemRemoved)) {
+      let p = event.path;
+      while (p.length > 1 && p.endsWith(sep)) p = p.slice(0, -1);
+      for (const backend of liveBackends) {
+        if (!backend.closed) backend.rootMoved(p, `FSEvents ${flagText}: ${event.path}`);
+      }
     }
     const at = this.locate(event.path);
     if (at === null || at.rel === '') return;
