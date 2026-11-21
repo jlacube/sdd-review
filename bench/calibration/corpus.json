@@ -782,7 +782,111 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "2669 passed, 12 skipped, 1 deselected (run 2026-11-21 at head; base v40.20.0: 2325 passed, 10 skipped, 1 deselected). Linters at head: flake8, black --line-length 120 and mypy --config mypy.ini faker exit 0; isort --check-only fails only on tests/providers/test_company.py, which already failed identically at the base (pre-existing, untouched by the change).",
       "environmentFile": "bench/calibration/environments/calib-py-3.json",
-      "bundle": "bench/calibration/bundles/calib-py-3.bundle"
+      "bundle": "bench/calibration/bundles/calib-py-3.bundle",
+      "seedingCommit": "b9bd3e8f3db7368e0fde0fe1eaef0b036e85013f",
+      "seededHeadCommit": "b9bd3e8f3db7368e0fde0fe1eaef0b036e85013f",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head b9bd3e8f: 18 failed, 2651 passed, 12 skipped, 1 deselected (failures: TestFormatValidators::test_colegiado_number, TestEsEs::test_colegiado_number_uses_province_code, 8 TestMedicalLocales::test_blood_group[<locale>] in tests/providers/test_medical.py, and 8 TestProfileBloodGroupPerLocale::test_blood_group_frequencies[<locale>-Provider] in tests/providers/test_profile.py).",
+      "defects": [
+        {
+          "id": "calib-py-3-D01",
+          "file": "faker/providers/medical/__init__.py",
+          "lines": [495, 495],
+          "kind": "missing-requested-behaviour",
+          "description": "blood_group() picks from tuple(self.blood_group_frequencies), i.e. only the keys, so every blood group is equally likely and the result is not weighted by the locale's population frequencies as the task requires.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-3-D02",
+          "file": "faker/providers/medical/__init__.py",
+          "lines": [609, 609],
+          "kind": "unrequested-behaviour",
+          "description": "practitioner_name() strips and upper-cases sex before checking it, so values such as \"m\", \"f\" or \" x \" are accepted instead of raising ValueError for anything other than \"M\", \"F\", \"X\" or None.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D03",
+          "file": "faker/providers/medical/de_DE/__init__.py",
+          "lines": [420, 420],
+          "kind": "architecture-violation",
+          "description": "The first de_DE female practitioner name format hard-codes the title \"Dr. med.\" instead of using {{prefix_medical_female}}, although doctor titles belong to the person provider; female full names therefore never get the person provider's other titles (Prof. Dr. med., Dipl.-Med.).",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D04",
+          "file": "faker/providers/medical/identifiers.py",
+          "lines": [78, 78],
+          "kind": "security-weakness",
+          "description": "_CRM_PATTERN matches the number with the nested quantifier ((?:\\d+)+) (the 4-6 digit length is only checked afterwards in is_valid_crm), so is_valid_crm() on a long digit run that fails to match, such as 'CRM/SP ' + '1' * 30 + '!', backtracks exponentially (regular-expression denial of service) in a validator documented for checking user data.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D05",
+          "file": "faker/providers/medical/identifiers.py",
+          "lines": [149, 152],
+          "kind": "wrong-logic",
+          "description": "nhs_check_digit() returns \"0\" when the modulus 11 check value is 10 and \"\" when it is 11, the wrong way round: numbers whose check value is 10 (which are invalid) are accepted by is_valid_nhs_number() with check digit 0, and valid numbers whose check value is 11 (check digit 0) are rejected and never generated.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D06",
+          "file": "faker/providers/medical/identifiers.py",
+          "lines": [203, 203],
+          "kind": "wrong-logic",
+          "description": "is_valid_colegiado_number() accepts province prefixes 1 <= p < 52, so prefix 52 (Melilla) is rejected although its docstring and the es_ES province codes cover 01-52, and colegiado numbers generated for Melilla fail validation.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-3-D07",
+          "file": "faker/providers/profile/__init__.py",
+          "lines": [96, 96],
+          "kind": "architecture-violation",
+          "description": "profile() draws blood_group from the class attribute of the base medical Provider imported directly into the profile provider (from ..medical import Provider) instead of calling self.generator.blood_group(), so it bypasses the generator's locale provider and always uses the base (US) frequencies instead of the locale's table.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D08",
+          "file": "faker/proxy.pyi",
+          "lines": [2986, 2989],
+          "kind": "missing-requested-behaviour",
+          "description": "faker/proxy.pyi has no stub for prefix_medical_female() between the prefix_medical and prefix_medical_male stubs, so the stub file is not the regenerated one the task requires and type checkers do not know Faker.prefix_medical_female.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D09",
+          "file": "tests/providers/test_medical.py",
+          "lines": [468, 468],
+          "kind": "test-not-checking-subject",
+          "description": "TestVitalSigns.test_abnormal asserts `abnormal is not None` for each sample, which is always true for a list, so it does not check that every vital_signs(abnormal=True) result has at least one value outside its normal range.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D10",
+          "file": "tests/providers/test_medical.py",
+          "lines": [547, 547],
+          "kind": "test-not-checking-subject",
+          "description": "TestMedicalLocales.test_blood_group asserts counts.most_common(1)[0][1] >= counts[most_common], which holds for any counts, so it does not check that the table's most frequent blood group is the most generated one; only the > 250 bound checks anything.",
+          "origin": "noticed",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-3-D11",
+          "file": "tests/providers/test_profile.py",
+          "lines": [119, 119],
+          "kind": "test-not-checking-subject",
+          "description": "test_default_output_is_unchanged calls the second profile() with only the default fields, never naming a medical field, so it does not check that requesting the opt-in medical fields leaves the default fields unchanged.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-py-4",
@@ -816,7 +920,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "3479 passed, 10 skipped, 1 deselected; flake8, black, mypy pass; isort fails only on tests/providers/test_company.py, as at the base",
       "environmentFile": "bench/calibration/environments/calib-py-4.json",
-      "bundle": "bench/calibration/bundles/calib-py-4.bundle"
+      "bundle": "bench/calibration/bundles/calib-py-4.bundle",
+      "seedingCommit": "28f4b9bbf8b749d1169e586d9df221cb4e334ca6",
+      "seededHeadCommit": "28f4b9bbf8b749d1169e586d9df221cb4e334ca6",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head 28f4b9bb: 5 failed, 3474 passed, 10 skipped, 1 deselected (failures: TestBusinessDays::test_add_business_days_zero, TestBusinessDays::test_weekend_date_between_ignores_holidays, TestHolidayProvider::test_holiday_dates_between, test_holiday_dates_between_end_is_exclusive, test_holiday_dates_between_several_years).",
+      "defects": [
+        {
+          "id": "calib-py-4-D01",
+          "file": "faker/providers/date_time/__init__.py",
+          "lines": [2486, 2486],
+          "kind": "architecture-violation",
+          "description": "_holiday_dates() calls the private HolidayCalendar._compute() instead of calendar.dates(), bypassing the per (locale, year) cache of the rule engine, so every business-day check recomputes three years of holiday rules.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-4-D02",
+          "file": "faker/providers/date_time/__init__.py",
+          "lines": [2491, 2491],
+          "kind": "security-weakness",
+          "description": "_is_business_day() is decorated with functools.lru_cache(maxsize=None) on an instance method, so every (provider, day) pair ever queried stays in an unbounded process-wide cache that also keeps every provider (and its generator) alive; dates taken from caller input grow memory without limit.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-4-D03",
+          "file": "faker/providers/date_time/__init__.py",
+          "lines": [2506, 2506],
+          "kind": "wrong-logic",
+          "description": "The enumeration fallback of _random_day_matching() builds candidates with range(span), which leaves out the end day although the range is inclusive, so when the random draws miss and the only matching day is the end day, business_date_between() / weekend_date_between() raise ValueError instead of returning it.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-4-D04",
+          "file": "faker/providers/date_time/__init__.py",
+          "lines": [2591, 2592],
+          "kind": "unrequested-behaviour",
+          "description": "add_business_days() with n=0 moves a day that is not a business day forward to the next business day (and its docstring documents this), instead of returning the day unchanged; the request defines only adding n business days.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-4-D05",
+          "file": "faker/providers/holiday/__init__.py",
+          "lines": [149, 150],
+          "kind": "unrequested-behaviour",
+          "description": "is_holiday() returns True for every Sunday, not only for public holidays and substitute days of the locale's calendar, which the request does not ask for and which disagrees with holidays() and with the business-day weekend configuration (e.g. he_IL, where Sunday is a working day).",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-4-D06",
+          "file": "faker/providers/holiday/__init__.py",
+          "lines": [179, 179],
+          "kind": "wrong-logic",
+          "description": "holiday_dates_between() iterates range(first.year, last.year) without including last.year, so holidays in the year of the end date are never returned (a range within a single year returns nothing).",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-py-4-D07",
+          "file": "faker/providers/holiday/en_CA/__init__.py",
+          "lines": [34, 34],
+          "kind": "wrong-logic",
+          "description": "Victoria Day is defined as the Monday on or before 25 May, so in years where 25 May is a Monday (e.g. 2015, 2020, 2026) it falls on 25 May instead of the Monday preceding 25 May (18 May).",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-4-D08",
+          "file": "faker/providers/holiday/ja_JP/__init__.py",
+          "lines": [53, 53],
+          "kind": "missing-requested-behaviour",
+          "description": "建国記念の日 (National Foundation Day, 11 February) is not wrapped in _holiday()/Observed, so when it falls on a Sunday (e.g. 2018, 2024) no 振替休日 substitute holiday is generated, although the request requires ja_JP substitute holidays.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-4-D09",
+          "file": "tests/providers/test_date_time.py",
+          "lines": [1642, 1644],
+          "kind": "test-not-checking-subject",
+          "description": "test_is_business_day_observed_holiday asserts that Saturday 4 July 2026 and Saturday 1 January 2022 are not business days, which holds for any weekend day, so it does not check the observed (substitute) days 3 July 2026 and 31 December 2021 that its comments describe.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-py-4-D10",
+          "file": "tests/providers/test_holiday.py",
+          "lines": [3396, 3399],
+          "kind": "test-not-checking-subject",
+          "description": "test_holiday_with_year only checks that holiday(year=2019) returns a non-empty name and a date in 2019, not that the pair is one of the holidays of 2019 for the locale.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-ts-1",
@@ -843,7 +1042,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "`npx jest --coverage=false` at head: 18 suites / 835 tests passed, 0 failed (2026-11-21, Windows 11, Node 22.13.0). Also passing at head: `npm run lint:check`, `npx tsc --noEmit -p tsconfig.prod.cjs.json`, `npx prettier --check --end-of-line auto \"**/*.{ts,md}\"`. At base all of these passed too; plain `prettier --check` fails at base and head only because core.autocrlf=true gives a CRLF checkout, and `tsc -p tsconfig.spec.json` is not a working check at base (TS5051/TS6059).",
       "environmentFile": "bench/calibration/environments/calib-ts-1.json",
-      "bundle": "bench/calibration/bundles/calib-ts-1.bundle"
+      "bundle": "bench/calibration/bundles/calib-ts-1.bundle",
+      "seedingCommit": "b7e10d3a86e18e827b35137b3597499010215a18",
+      "seededHeadCommit": "b7e10d3a86e18e827b35137b3597499010215a18",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head b7e10d3a with `npx jest --coverage=false`: 18 suites (6 failed, 12 passed), 835 tests: 827 passed, 8 failed (groupErrorsByPath › should keep a property named __proto__ as an ordinary key; flattenValidationErrors › should escape ~ and / in JSON Pointer paths, › should render map keys in brackets and as pointer segments, › should include the constraint context only when asked to; conditional validation › should only format the errors of properties whose condition holds; nested validation › should be formatted with the keys of nested sets and maps; formatErrorTree › should accept a custom indentation string or width; error path helpers › escapeJsonPointerToken › should escape ~ before /). `npx tsc --noEmit -p tsconfig.prod.cjs.json` and `npx prettier --check --end-of-line auto` on src/formatters and test/formatters pass.",
+      "defects": [
+        {
+          "id": "calib-ts-1-D01",
+          "file": "src/formatters/error-path.util.ts",
+          "lines": [95, 95],
+          "kind": "wrong-logic",
+          "description": "escapeJsonPointerToken replaces '/' with '~1' before replacing '~' with '~0', so the '~' of the produced '~1' is escaped again and a key containing '/' becomes '~01' instead of '~1', violating RFC 6901 (every pointer path with a '/' in a key is wrong).",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-1-D02",
+          "file": "src/formatters/flatten-validation-errors.formatter.ts",
+          "lines": [102, 106],
+          "kind": "missing-requested-behaviour",
+          "description": "flattenValidationErrors never adds the constraint context to an entry: options.includeContext (documented on FlattenValidationErrorsOptions and passed on by toProblemDetails) is ignored, although the task requires includeContext to add the context of the failed constraint.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-1-D03",
+          "file": "src/formatters/format-error-tree.formatter.ts",
+          "lines": [36, 36],
+          "kind": "security-weakness",
+          "description": "describeValue quotes string values by escaping only double quotes, so newlines, carriage returns and control characters (including ANSI escape sequences) of a user-supplied value are written raw into the formatErrorTree output with showValues, allowing forged log lines and terminal escape injection when the tree is logged.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-1-D04",
+          "file": "src/formatters/format-error-tree.formatter.ts",
+          "lines": [73, 73],
+          "kind": "wrong-logic",
+          "description": "resolveIndent rejects an indent width of 0 with a RangeError (the check is indent <= 0), although its message and the option's contract accept any non-negative integer, so formatErrorTree(errors, { indent: 0 }) throws instead of rendering an unindented tree.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-1-D05",
+          "file": "src/formatters/format-error-tree.formatter.ts",
+          "lines": [108, 109],
+          "kind": "architecture-violation",
+          "description": "formatErrorTree builds the property label with its own bracket/property rule instead of the shared appendDotSegment of error-path.util, duplicating the path-rendering logic that the task requires to live in one place shared by the formatters and ValidationError.toString().",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-1-D06",
+          "file": "src/formatters/group-errors-by-path.formatter.ts",
+          "lines": [39, 39],
+          "kind": "security-weakness",
+          "description": "groupErrorsByPath creates each group by plain assignment, so an error path of __proto__ (a property name that can come from validated input, for example a nested object or map key) replaces the prototype of the returned object with an array instead of becoming an own key: the messages for that path vanish from the enumerable result and the object inherits array members (prototype poisoning of the result).",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-1-D07",
+          "file": "src/formatters/group-errors-by-path.formatter.ts",
+          "lines": [42, 44],
+          "kind": "unrequested-behaviour",
+          "description": "groupErrorsByPath drops a message that is already listed for the same path, a de-duplication nobody asked for: the task specifies each path mapped to its messages in the order the constraints were reported, so the result does not have one message per failed constraint.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-1-D08",
+          "file": "src/formatters/walk-validation-errors.util.ts",
+          "lines": [114, 114],
+          "kind": "wrong-logic",
+          "description": "hasRecordedValue treats a recorded value of undefined as not recorded (it tests error.value !== undefined instead of whether the error has a value property), so a property that failed because it was undefined gets no value in flattenValidationErrors/toProblemDetails with includeValue and none in formatErrorTree with showValues.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-1-D09",
+          "file": "test/formatters/flatten-validation-errors.spec.ts",
+          "lines": [452, 456],
+          "kind": "test-not-checking-subject",
+          "description": "'should not modify the given errors' takes the JSON snapshot after calling flattenValidationErrors, so it compares the errors with themselves and cannot detect a mutation by the formatter.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-1-D10",
+          "file": "test/formatters/to-problem-details.spec.ts",
+          "lines": [138, 142],
+          "kind": "test-not-checking-subject",
+          "description": "'should pass includeValue and includeContext to the entries' only checks the paths and the first message of problem.errors, never the value or context members, so it does not check that toProblemDetails passes includeValue and includeContext on.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-ts-2",
@@ -874,7 +1168,93 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "`npx jest --coverage=false` at head: 24 suites / 912 tests passed, 0 failed (2026-11-21, Windows 11, Node 22.13.0). Also passing at head: `npm run lint:check`, `npx tsc --noEmit -p tsconfig.prod.cjs.json`, `npx prettier --check --end-of-line auto \"**/*.{ts,md}\"`. At base all of these passed too; plain `prettier --check` fails at base and head only because core.autocrlf=true gives a CRLF checkout, and `tsc -p tsconfig.spec.json` is not a working check at base (TS5051/TS6059).",
       "environmentFile": "bench/calibration/environments/calib-ts-2.json",
-      "bundle": "bench/calibration/bundles/calib-ts-2.bundle"
+      "bundle": "bench/calibration/bundles/calib-ts-2.bundle",
+      "seedingCommit": "ad64f5a3013e234b8591e2d42077e1f3c0fe092e",
+      "seededHeadCommit": "ad64f5a3013e234b8591e2d42077e1f3c0fe092e",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head ad64f5a3 with `npx jest --coverage=false`: 7 suites failed, 17 passed (24); 11 tests failed, 901 passed (912 total); failing: @JsonSchema decorator › should reject keywords that are not plain JSON; IsDateString › should agree with the exported JSON Schema; IsISO8601 › should agree with the exported JSON Schema; JSON Schema export of array checks › should keep the tightest size when ArrayNotEmpty and ArrayMinSize are combined; JSON Schema export of custom decorators › should report partial conversions and constraints a converter declines; JSON Schema export of number checks › should keep the tightest of several bounds; JSON Schema export of string checks › identifiers and formats › should map IsEmail, IsUrl and IsIP to formats, which are reported as partial conversions; ... › should report the strict ISO 8601 option as a partial conversion; ... › lengths › should keep the tightest bounds when length decorators are combined; ... › patterns › should map character class checks to the validator.js patterns; JSON Schema export of type checks › should treat maxDecimalPlaces as a number without an exact equivalent. `npx tsc --noEmit -p tsconfig.prod.cjs.json`, eslint and prettier (--end-of-line auto) on the touched files: clean.",
+      "defects": [
+        {
+          "id": "calib-ts-2-D01",
+          "file": "src/json-schema/JsonSchemaGenerator.ts",
+          "lines": [147, 147],
+          "kind": "architecture-violation",
+          "description": "getDefinitionName checks whether a validation schema is registered by reading the private validationMetadatas map of MetadataStorage through an `any` cast instead of calling MetadataStorage.hasValidationSchema(), although the task requires the exporter's metadata access to go through MetadataStorage methods.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-2-D02",
+          "file": "src/json-schema/JsonSchemaGenerator.ts",
+          "lines": [235, 241],
+          "kind": "missing-requested-behaviour",
+          "description": "buildPropertySchema only records a constraint as not expressed when no conversion is returned; a partial conversion (exact: false, e.g. IsEmail, IsUrl, IsIP, strict IsISO8601, IsNumber with maxDecimalPlaces, or a custom converter returning partial keywords) is emitted without being listed under x-class-validator with unknownConstraints: 'annotate', so the looser schema is not reported.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-2-D03",
+          "file": "src/json-schema/converters/number.converters.ts",
+          "lines": [39, 39],
+          "kind": "wrong-logic",
+          "description": "The IsDivisibleBy converter emits multipleOf with the divisor as given, so a negative divisor (e.g. IsDivisibleBy(-4)) produces multipleOf: -4, which is not a valid JSON Schema (multipleOf must be strictly greater than 0); the sign does not affect validator.js's check and must be dropped.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-2-D04",
+          "file": "src/json-schema/converters/string.converters.ts",
+          "lines": [92, 92],
+          "kind": "wrong-logic",
+          "description": "The Length converter only writes maxLength when the maximum is truthy, so Length(0, 0) (or Length(min, 0)) produces no maxLength and the schema accepts strings of any length that validator.js rejects.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-2-D05",
+          "file": "src/json-schema/converters/string.converters.ts",
+          "lines": [159, 159],
+          "kind": "security-weakness",
+          "description": "The IsAlphanumeric converter emits the pattern ^([0-9A-Za-z]+)+$ with a nested quantifier, so a JSON Schema validator using a backtracking regex engine (such as ajv on Node.js) takes exponential time on a long alphanumeric string followed by a non-matching character (regular-expression denial of service on untrusted payloads); ^[0-9A-Za-z]+$ accepts the same strings.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-2-D06",
+          "file": "src/json-schema/schema-merge.ts",
+          "lines": [66, 66],
+          "kind": "wrong-logic",
+          "description": "mergeSchemas keeps the smaller of two lower bounds (minLength, minimum, exclusiveMinimum, minItems) with Math.min instead of the larger, so combining e.g. Min(1) and Min(10), or ArrayNotEmpty and ArrayMinSize(3), gives a schema looser than validate().",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-2-D07",
+          "file": "src/json-schema/schema-utils.ts",
+          "lines": [120, 120],
+          "kind": "unrequested-behaviour",
+          "description": "toPlainJson silently converts valid Date instances to ISO 8601 strings instead of rejecting them as non-JSON values, so @JsonSchema keywords and converter results containing dates are accepted and rewritten, which nobody asked for and contradicts the documented rejection of class instances.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-2-D08",
+          "file": "test/functional/json-schema-number.spec.ts",
+          "lines": [76, 78],
+          "kind": "test-not-checking-subject",
+          "description": "'should map IsDivisibleBy to multipleOf' only checks the type of the property declared with IsDivisibleBy(-4), not its multipleOf, so the mapping of a negative divisor is not tested.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-2-D09",
+          "file": "test/functional/json-schema-options.spec.ts",
+          "lines": [151, 151],
+          "kind": "test-not-checking-subject",
+          "description": "'should not share objects between two exports' asserts that the second export's minLength is >= 0, which holds whether it is 3 or the 0 written into the first export, so shared objects between exports are not detected.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-ts-3",
@@ -912,7 +1292,102 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "`npx jest --coverage=false` at head: 23 suites / 2205 tests passed, 0 failed (2026-11-21, Windows 11, Node 22.13.0). Also passing at head: `npm run lint:check`, `npx tsc --noEmit -p tsconfig.prod.cjs.json`, `npx prettier --check --end-of-line auto \"**/*.{ts,md}\"`. At base all of these passed too; plain `prettier --check` fails at base and head only because core.autocrlf=true gives a CRLF checkout, and `tsc -p tsconfig.spec.json` is not a working check at base (TS5051/TS6059).",
       "environmentFile": "bench/calibration/environments/calib-ts-3.json",
-      "bundle": "bench/calibration/bundles/calib-ts-3.bundle"
+      "bundle": "bench/calibration/bundles/calib-ts-3.bundle",
+      "seedingCommit": "55943e2fc26769ada943aba5b497bbcdde6fbc2f",
+      "seededHeadCommit": "55943e2fc26769ada943aba5b497bbcdde6fbc2f",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head 55943e2f with `npx jest --coverage=false`: 23 suites (5 failed, 18 passed), 2205 tests: 2199 passed, 6 failed (canonicalizeLocale › rejects \"de-toolongsubtag\"; custom constraints and message catalogues › passes the messages of ValidateBy on; locale › each › should use the prefix of the messages option; MessageResolver › messages option › can override only the prefix of the catalogue messages; registered locales › lets later registrations override earlier entries; whitelist validation with a locale › should let the messages option override the forbidden property error). `npx tsc --noEmit -p tsconfig.prod.cjs.json` and `npm run lint:check`: no errors.",
+      "defects": [
+        {
+          "id": "calib-ts-3-D01",
+          "file": "src/decorator/common/Validate.ts",
+          "lines": [33, 33],
+          "kind": "missing-requested-behaviour",
+          "description": "@ValidatorConstraint registers its messages option only when an explicit name is also given, so a constraint class named after its class (no name option) silently loses its catalogue entries although custom constraints must be able to provide them under their constraint name.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-3-D02",
+          "file": "src/decorator/common/ValidateBy.ts",
+          "lines": [12, 15],
+          "kind": "missing-requested-behaviour",
+          "description": "ValidateByOptions declares a messages option, but ValidateBy (lines 30-37) never passes options.messages on to registerDecorator, so the per-locale messages given to ValidateBy are never registered in the catalogues.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-3-D03",
+          "file": "src/i18n/locale-registry.ts",
+          "lines": [10, 10],
+          "kind": "security-weakness",
+          "description": "LOCALE_TAG_PATTERN makes the hyphen optional inside a repeated group ((-?[a-z0-9]{1,8})*), so a long alphanumeric value that fails to match (e.g. 'de' followed by many digits and '!') backtracks exponentially (regular-expression denial of service, reachable from an Accept-Language header as in sample11); it also accepts tags such as 'de-toolongsubtag' that are not valid BCP 47 tags.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-3-D04",
+          "file": "src/i18n/locale-registry.ts",
+          "lines": [106, 106],
+          "kind": "wrong-logic",
+          "description": "registerLocale spreads the existing catalogue after the given one, so entries already in a catalogue (including every bundled entry) win over newly registered ones: a later registration cannot override an existing message, contrary to its documented merge behaviour.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-3-D05",
+          "file": "src/i18n/locales/pl.ts",
+          "lines": [108, 113],
+          "kind": "wrong-logic",
+          "description": "The Polish isLength 'tooLong' message chooses the plural form of 'znak' from the minimum (constraint 1) instead of the maximum it states ($constraint2), so e.g. Length(1, 5) gives 'co najwyżej 5 znak' instead of '5 znaków'.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-3-D06",
+          "file": "src/i18n/resolve-message.ts",
+          "lines": [154, 155],
+          "kind": "wrong-logic",
+          "description": "findEachPrefix takes the $each prefix of the catalogue that provided the message before the $each given in the call's messages option, so a prefix overridden for one call is ignored whenever the catalogue has its own, although the documented rule is that the messages option wins.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-3-D07",
+          "file": "src/validation/ValidationExecutor.ts",
+          "lines": [160, 163],
+          "kind": "architecture-violation",
+          "description": "The forbidNonWhitelisted message is built in the executor from getLocaleCatalog/en via whitelistMessageTemplate() (lines 452-456) instead of through the MessageResolver, although message creation in the executor must go through one resolution function; as a result it ignores the call's messages option and the locale fallback chain (de-AT gets English).",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-3-D08",
+          "file": "src/validation/ValidationUtils.ts",
+          "lines": [26, 27],
+          "kind": "unrequested-behaviour",
+          "description": "insertEachPrefix also treats '{each}' as a placeholder for the each prefix, a second token syntax nobody asked for (catalogues use the $each token) that also removes a literal '{each}' from any message.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-3-D09",
+          "file": "test/functional/i18n/executor-messages.spec.ts",
+          "lines": [108, 114],
+          "kind": "test-not-checking-subject",
+          "description": "'are passed to the message builder only when no catalogue has an entry' only checks the resulting message, never that the constraint's defaultMessage was not called, which is what its name says it tests.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-3-D10",
+          "file": "test/functional/i18n/locale-registry.spec.ts",
+          "lines": [100, 106],
+          "kind": "test-not-checking-subject",
+          "description": "'copies the registered catalogue' mutates isInt on the passed object but asserts on isEmail, so it cannot detect that the registry keeps a reference to the passed catalogue instead of a copy.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     },
     {
       "id": "calib-ts-4",
@@ -944,7 +1419,93 @@
       "corpusBuilder": "claude-opus-5-5 coding agent",
       "testsAtHead": "`npx jest --coverage=false` at head: 27 suites / 1915 tests passed, 0 failed (2026-11-21, Windows 11, Node 22.13.0). Also passing at head: `npm run lint:check`, `npx tsc --noEmit -p tsconfig.prod.cjs.json`, `npx prettier --check --end-of-line auto \"**/*.{ts,md}\"`. At base all of these passed too; plain `prettier --check` fails at base and head only because core.autocrlf=true gives a CRLF checkout, and `tsc -p tsconfig.spec.json` is not a working check at base (TS5051/TS6059).",
       "environmentFile": "bench/calibration/environments/calib-ts-4.json",
-      "bundle": "bench/calibration/bundles/calib-ts-4.bundle"
+      "bundle": "bench/calibration/bundles/calib-ts-4.bundle",
+      "seedingCommit": "afeed6b629f627b1a5d22127546a8d41a5eaea8d",
+      "seededHeadCommit": "afeed6b629f627b1a5d22127546a8d41a5eaea8d",
+      "testsAtSeededHead": "Ran 2026-11-21 at seeded head afeed6b6 with `npx jest --coverage=false`: 4 of 27 suites failed, 7 failed, 1908 passed (1915 tests); failing: rules builder › invalid rules › should throw when length() has a minimum greater than its maximum, rules builder › invalid rules › should throw when isByteLength() has a minimum greater than its maximum, schema conversion › rulesToValidationSchema › should convert built-in rules with their arguments and options, schema conversion › rulesFromValidationSchema › should throw for unknown validation types, schema conversion › rulesFromValidationSchema › should report rules with invalid constraints and modifiers that cannot apply to each element, validation options of builder-configured classes › groups › should use the always validator option as default, validation schemas › should throw when a built-in validation type has invalid constraints. `npm run lint:check` and `npx tsc --noEmit -p tsconfig.prod.cjs.json` pass.",
+      "defects": [
+        {
+          "id": "calib-ts-4-D01",
+          "file": "src/builder/FieldBuilder.ts",
+          "lines": [233, 239],
+          "kind": "unrequested-behaviour",
+          "description": "The validator of an inline rule created with validateBy() catches any exception thrown by the user's validator function and reports the value as invalid, which nobody asked for: decorators created with @ValidateBy let such exceptions propagate, so programming errors in an inline check are silently turned into validation failures.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-4-D02",
+          "file": "src/builder/field/ArrayRules.ts",
+          "lines": [78, 78],
+          "kind": "wrong-logic",
+          "description": "isSize() requires a size greater than zero, so arrayMinSize(0) and arrayMaxSize(0) throw a RuleDefinitionError (\"must be a non-negative number\") although @ArrayMinSize(0) and @ArrayMaxSize(0) are valid decorators and the builder must accept the same parameters.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-4-D03",
+          "file": "src/builder/field/FieldBuilderBase.ts",
+          "lines": [100, 100],
+          "kind": "wrong-logic",
+          "description": "resolveOptions() copies the always rule option only when it is truthy, so a rule configured with { always: false } gets no always option and falls back to the validator's global always option, unlike the same decorator with always: false (the rule is then checked although it opted out).",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-4-D04",
+          "file": "src/builder/field/NumberRules.ts",
+          "lines": [32, 45],
+          "kind": "architecture-violation",
+          "description": "isPositive() re-implements the isPositive check and its default message inline with ValidateBy instead of using the existing IsPositive decorator / isPositive function, contrary to the requirement that the field builder reuses the existing validator functions and default messages rather than duplicating them.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-4-D05",
+          "file": "src/builder/field/StringRules.ts",
+          "lines": [683, 691],
+          "kind": "missing-requested-behaviour",
+          "description": "assertRange() checks only that min and max are non-negative numbers and never compares them, so length(min, max) and isByteLength(min, max) with min > max are accepted instead of throwing when the rule is built, as the task requires.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-4-D06",
+          "file": "src/builder/schema-conversion.ts",
+          "lines": [128, 138],
+          "kind": "security-weakness",
+          "description": "applySchemaRule() falls back to calling any field builder method whose name equals the schema validation type (with all the schema's constraints as arguments) when the type is not a built-in rule name, so a schema taken from a configuration file or other untrusted input can invoke arbitrary builder methods (custom, validateBy, the constructor...) instead of being rejected as an unknown validation type.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-4-D07",
+          "file": "src/builder/schema-conversion.ts",
+          "lines": [166, 172],
+          "kind": "missing-requested-behaviour",
+          "description": "ruleToSchemaRule() never writes the rule's context into the schema validation, so rulesToValidationSchema() loses the context option although ValidationSchema supports it and the conversion must keep message, groups, always, context and each.",
+          "origin": "seeded",
+          "testsCatchIt": true
+        },
+        {
+          "id": "calib-ts-4-D08",
+          "file": "test/functional/builder/rules-builder.spec.ts",
+          "lines": [127, 128],
+          "kind": "test-not-checking-subject",
+          "description": "'should never change the builder a new builder is derived from' asserts on the derived builders (extended and derived) only and never on base, so it cannot detect that deriving a builder changes the builder it was derived from.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        },
+        {
+          "id": "calib-ts-4-D09",
+          "file": "test/functional/builder/validate-plain.spec.ts",
+          "lines": [168, 168],
+          "kind": "test-not-checking-subject",
+          "description": "'should strip unknown properties of nested plain objects when whitelisting' checks that the top-level config has no password property, but the unknown password was added to config.database, so the assertion is always true and the stripping of the nested object is not checked.",
+          "origin": "seeded",
+          "testsCatchIt": false
+        }
+      ]
     }
   ]
 }
