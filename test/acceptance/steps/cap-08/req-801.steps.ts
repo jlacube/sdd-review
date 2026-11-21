@@ -91,7 +91,7 @@ const isLoopback = (host: string | null) =>
   host === '::1' ||
   host === '[::1]';
 
-function nonLoopbackConnections(world: AcceptanceWorld) {
+export function nonLoopbackConnections(world: AcceptanceWorld) {
   return world.connectCalls().filter((c) => c.path === null && !isLoopback(c.host));
 }
 
