@@ -3,6 +3,8 @@ import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { ReviewError } from '../errors/review-error.js';
 import type { ContextualLog } from '../log/log.js';
 import { lookupAttribute, parseAttributeFile, type AttributeFile } from './attributes.js';
+import { cleanFilterAttribution } from './clean-filter.js';
+import { indexFileMtimeNs } from './index-stat.js';
 import { attributeHistory, type HistoryCommit } from './line-attribution.js';
 import { splitLines } from './line-diff.js';
 import type {
@@ -424,15 +426,21 @@ export class GitAdapter implements GitAccessPort {
     base: string,
     options: { reuse: boolean; keepContent: boolean },
   ): Promise<{ entries: ScanEntry[]; baseTree: Map<string, TreeEntry> }> {
-    const [tree, index, untracked, config] = await Promise.all([
+    // The index file's time first: an index that git rewrites while it is listed then makes its
+    // new entries racy, never up to date (§7 item 1).
+    const indexMtimeNs = await indexFileMtimeNs(repo.location.gitDir);
+    const [tree, index, untracked, config, attributeFiles] = await Promise.all([
       repo.tree(base),
       repo.run('ls-files', ['-s', '--debug', '-z']).then((r) => parseIndexListing(r.stdout)),
       repo
         .run('ls-files', ['-o', '--exclude-standard', '-z'])
         .then((r) => parseUntracked(r.stdout)),
       repo.config(),
+      this.attributeFilesAt(repo, base),
     ]);
     const baseTree = new Map(tree.map((e) => [e.path, e]));
+    // §7: only the base commit's `.gitattributes` files put a path under a clean filter.
+    const filters = cleanFilterAttribution(attributeFiles, config.values);
     let eol: Promise<ReadonlyMap<string, EolInfo>> | undefined;
     const entries = await scanWorkingTree({
       workTree: repo.location.workTreeRoot,
@@ -446,6 +454,8 @@ export class GitAdapter implements GitAccessPort {
           .then((r) => parseEolListing(r.stdout))),
       settings: config,
       readBlob: (oid) => repo.blobById(oid),
+      cleanFilter: filters.empty ? undefined : (path) => filters.driverOf(path),
+      indexCheck: { fileMode: config.fileMode, symlinks: config.symlinks, indexMtimeNs },
       cache: this.hashCache,
       reuse: options.reuse,
       keepContent: options.keepContent,
@@ -527,6 +537,7 @@ export class GitAdapter implements GitAccessPort {
           baseContent: binary ? null : baseBytes,
           currentContent: binary ? null : (entry.current?.bytes ?? null),
           binaryContent: binary ? (entry.current?.bytes ?? null) : null,
+          ...(entry.cleanFilter && !from ? { cleanFilter: entry.cleanFilter } : {}),
         });
       }
       return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
@@ -804,35 +815,40 @@ export class GitAdapter implements GitAccessPort {
     return this.guard('attributes', { commit, name }, async () => {
       const repo = this.repo();
       const hash = await this.commitId(repo, commit);
-      let files = this.attributeFiles.get(hash);
-      if (!files) {
-        files = (async () => {
-          const config = await repo.config();
-          const tree = await repo.tree(hash);
-          const found = tree
-            .filter(
-              (e) =>
-                e.mode !== 'symlink' &&
-                e.mode !== 'submodule' &&
-                (e.path === '.gitattributes' || e.path.endsWith('/.gitattributes')),
-            )
-            .sort((a, b) => a.path.split('/').length - b.path.split('/').length);
-          const parsed: AttributeFile[] = [];
-          for (const e of found) {
-            const bytes = await repo.blobById(e.blob);
-            if (!bytes) continue;
-            const directory =
-              e.path === '.gitattributes' ? '' : e.path.slice(0, -'/.gitattributes'.length);
-            parsed.push(parseAttributeFile(directory, bytes.toString('utf8'), config.ignoreCase));
-          }
-          return parsed;
-        })();
-        files.catch(() => this.attributeFiles.delete(hash));
-        this.attributeFiles.set(hash, files);
-      }
-      const parsed = await files;
+      const parsed = await this.attributeFilesAt(repo, hash);
       return new Map(paths.map((p) => [p, lookupAttribute(parsed, p, name)] as const));
     });
+  }
+
+  /** The `.gitattributes` files of a commit's tree, parsed and ordered from the root downward. */
+  private attributeFilesAt(repo: Repo, hash: string): Promise<AttributeFile[]> {
+    let files = this.attributeFiles.get(hash);
+    if (!files) {
+      files = (async () => {
+        const config = await repo.config();
+        const tree = await repo.tree(hash);
+        const found = tree
+          .filter(
+            (e) =>
+              e.mode !== 'symlink' &&
+              e.mode !== 'submodule' &&
+              (e.path === '.gitattributes' || e.path.endsWith('/.gitattributes')),
+          )
+          .sort((a, b) => a.path.split('/').length - b.path.split('/').length);
+        const parsed: AttributeFile[] = [];
+        for (const e of found) {
+          const bytes = await repo.blobById(e.blob);
+          if (!bytes) continue;
+          const directory =
+            e.path === '.gitattributes' ? '' : e.path.slice(0, -'/.gitattributes'.length);
+          parsed.push(parseAttributeFile(directory, bytes.toString('utf8'), config.ignoreCase));
+        }
+        return parsed;
+      })();
+      files.catch(() => this.attributeFiles.delete(hash));
+      this.attributeFiles.set(hash, files);
+    }
+    return files;
   }
 
   // -------------------------------------------------------------------------------------------
@@ -894,10 +910,11 @@ export class GitAdapter implements GitAccessPort {
   indexState(paths: readonly string[]): Promise<ReadonlyMap<string, IndexEntryState | null>> {
     return this.guard('index-state', { paths: paths.length }, async () => {
       const repo = this.repo();
-      const [index, config, indexFile] = await Promise.all([
+      // The index file's time before the listing, as in G-07 (§7 items 1 and 6).
+      const indexMtimeNs = await indexFileMtimeNs(repo.location.gitDir);
+      const [index, config] = await Promise.all([
         repo.run('ls-files', ['-s', '--debug', '-z']).then((r) => parseIndexListing(r.stdout)),
         repo.config(),
-        stat(join(repo.location.gitDir, 'index'), { bigint: true }).catch(() => null),
       ]);
       const byPath = new Map<string, IndexEntry>();
       for (const e of index) if (e.stage === 0) byPath.set(e.path, e);
@@ -920,7 +937,7 @@ export class GitAdapter implements GitAccessPort {
         const upToDate = indexEntryUpToDate(entry, st, {
           fileMode: config.fileMode,
           symlinks: config.symlinks,
-          indexMtimeNs: indexFile?.mtimeNs ?? 0n,
+          indexMtimeNs,
         });
         const NS = 1_000_000_000n;
         result.set(path, {

@@ -211,12 +211,12 @@ export function parseAttributeFile(
   return { directory, rules, macros };
 }
 
-/** The value of attribute `name` for `path`, from files ordered from the root downward. */
-export function lookupAttribute(
+/** The state of attribute `name` for `path`, from files ordered from the root downward. */
+export function lookupAttributeState(
   files: readonly AttributeFile[],
   path: string,
   name: string,
-): string | null {
+): AttributeState {
   let state: AttributeState = { kind: 'unspecified' };
   for (const file of files) {
     const prefix = file.directory === '' ? '' : `${file.directory}/`;
@@ -228,6 +228,16 @@ export function lookupAttribute(
       for (const [n, s] of rule.assignments) if (n === name) state = s;
     }
   }
+  return state;
+}
+
+/** The value of attribute `name` for `path`, from files ordered from the root downward. */
+export function lookupAttribute(
+  files: readonly AttributeFile[],
+  path: string,
+  name: string,
+): string | null {
+  const state = lookupAttributeState(files, path, name);
   if ('value' in state) return state.value;
   if (state.kind === 'set') return 'set';
   if (state.kind === 'unset') return 'unset';

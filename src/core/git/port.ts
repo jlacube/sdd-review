@@ -7,6 +7,8 @@
  * rejected as `ReviewError` with the codes of `errors.md`; nothing is retried.
  */
 
+import type { CleanFilterFallback } from './clean-filter.js';
+
 export type ObjectFormat = 'sha1' | 'sha256';
 export type FileMode = 'regular' | 'executable' | 'symlink' | 'submodule';
 
@@ -61,6 +63,12 @@ export interface ChangedFile {
    * `currentContent`, and for a deleted file.
    */
   readonly binaryContent?: Buffer | null;
+  /**
+   * For a file under a clean filter that is compared by its working-tree bytes (C001-IF-012 §7
+   * item 3) and that the base commit holds at the same path: its filter driver and the cause that
+   * notice ERR-INTAKE-009 names (§7 item 4). Absent for every other file.
+   */
+  readonly cleanFilter?: CleanFilterFallback;
 }
 
 /**

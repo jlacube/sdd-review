@@ -3,6 +3,9 @@ import { lstat, readFile, readlink } from 'node:fs/promises';
 import type { BigIntStats } from 'node:fs';
 import { join } from 'node:path';
 import type { FileMode, ObjectFormat, TreeEntry } from './port.js';
+import { LFS_DRIVER, type CleanFilterCause, type CleanFilterFallback } from './clean-filter.js';
+import { indexEntryUpToDate, type IndexCheckOptions } from './index-stat.js';
+import { lfsDigest, matchesLfsPointer, type LfsDigest } from './lfs.js';
 
 /**
  * The working-tree comparison of C001-IF-012 §8 (C001-REQ-101, C001-REQ-117) and the index reads
@@ -14,9 +17,11 @@ import type { FileMode, ObjectFormat, TreeEntry } from './port.js';
  * fsmonitor-valid flags. The index only tells which paths are tracked. A path outside a sparse
  * checkout (skip-worktree entry and no file at the path) is read from its index entry (§8 item 2).
  *
- * Files under a clean filter (§7, C001-T-028) are not settled here: they are compared by their
- * working-tree bytes too (§7 item 3), which is the fallback that §7 gives and what C001-T-028
- * refines for Git LFS files and for up-to-date entries.
+ * Files under a clean filter (§7, C001-T-028) are settled without running the filter: a Git LFS
+ * file by the pointer file whose SHA-256 hash and size its working-tree bytes match (§7 item 7),
+ * another file by the blob of its index entry while that entry is up to date (§7 items 1 and 2),
+ * and otherwise by its working-tree bytes (§7 item 3), which the entry then reports with its cause
+ * for notice ERR-INTAKE-009 (§7 item 4).
  */
 
 // ---------------------------------------------------------------------------------------------
@@ -296,53 +301,12 @@ export function workingStat(
   };
 }
 
-const NS = 1_000_000_000n;
-const U32 = 0xffffffffn;
-
 export function statKey(s: WorkingStat): string {
   return [s.kind, s.size, s.mtimeNs, s.ctimeNs, s.ino, s.uid, s.gid, s.mode & 0o111].join(':');
 }
 
-export interface IndexCheckOptions {
-  /** `core.fileMode`; false means the executable bit does not count. */
-  readonly fileMode: boolean;
-  /** `core.symlinks`; false means a symbolic link entry is a plain file in the working tree. */
-  readonly symlinks: boolean;
-  /** The modification time of the index file, in nanoseconds, for the racy test. */
-  readonly indexMtimeNs: bigint;
-}
-
-/** §7 item 1: whether an index entry is up to date for the file's stat data; reads no content. */
-export function indexEntryUpToDate(
-  entry: IndexEntry,
-  st: WorkingStat | null,
-  options: IndexCheckOptions,
-): boolean {
-  if (!st || entry.stage !== 0 || entry.intentToAdd) return false;
-  const typeOk =
-    entry.mode === 'symlink'
-      ? st.kind === 'symlink' || (st.kind === 'file' && !options.symlinks)
-      : entry.mode === 'submodule'
-        ? st.kind === 'directory'
-        : st.kind === 'file';
-  if (!typeOk) return false;
-  if (entry.mode !== 'submodule' && (st.size & U32) !== BigInt(entry.stat.size)) return false;
-  if ((st.ino & U32) !== BigInt(entry.stat.inode)) return false;
-  if ((st.uid & U32) !== BigInt(entry.stat.uid) || (st.gid & U32) !== BigInt(entry.stat.gid)) {
-    return false;
-  }
-  const timeOk = (ns: bigint, seconds: number, nanos: number) =>
-    (ns / NS) % (1n << 32n) === BigInt(seconds) && (nanos === 0 || ns % NS === BigInt(nanos));
-  if (!timeOk(st.mtimeNs, entry.stat.mtimeSeconds, entry.stat.mtimeNanoseconds)) return false;
-  if (!timeOk(st.ctimeNs, entry.stat.ctimeSeconds, entry.stat.ctimeNanoseconds)) return false;
-  if (options.fileMode && entry.mode !== 'symlink') {
-    const executable = (st.mode & 0o100) !== 0;
-    if (executable !== (entry.mode === 'executable')) return false;
-  }
-  // Racy: the entry's modification time is not earlier than the index file's.
-  const entryMtimeNs = BigInt(entry.stat.mtimeSeconds) * NS + BigInt(entry.stat.mtimeNanoseconds);
-  return entryMtimeNs < options.indexMtimeNs;
-}
+// The up-to-date rule of §7 item 1 lives in `index-stat.ts`; re-exported for existing callers.
+export { indexEntryUpToDate, type IndexCheckOptions } from './index-stat.js';
 
 export const HASH_KEEP_MARGIN_MS = 3000;
 
@@ -395,6 +359,11 @@ export interface ScanEntry {
   readonly outsideSparse: boolean;
   /** Whether the current side differs from the base side in content or file mode. */
   readonly differs: boolean;
+  /**
+   * Set for a file under a clean filter that §7 item 3 compared by its working-tree bytes, that
+   * differs and that the base side holds at the same path: what notice ERR-INTAKE-009 names.
+   */
+  readonly cleanFilter?: CleanFilterFallback;
 }
 
 /** The file mode of a working-tree file as git records it (core.fileMode, core.symlinks). */
@@ -426,6 +395,16 @@ export async function readWorkingBytes(
 ): Promise<Buffer> {
   const raw =
     st.kind === 'symlink' ? Buffer.from(await readlink(abs), 'utf8') : await readFile(abs);
+  return convertWorkingBytes(raw, symlinkLike, eol, settings);
+}
+
+/** The blob form of bytes read from the working tree: git's built-in end-of-line conversion. */
+export async function convertWorkingBytes(
+  raw: Buffer,
+  symlinkLike: boolean,
+  eol: () => Promise<EolInfo | undefined>,
+  settings: EolSettings,
+): Promise<Buffer> {
   if (symlinkLike || !raw.includes(0x0d)) return raw;
   const info = await eol();
   return convertEol(
@@ -449,6 +428,14 @@ export interface ScanInput {
   /** G-12: reuse a kept hash while the stat data are unchanged. G-07 never reuses (§8 item 3). */
   readonly reuse: boolean;
   readonly keepContent: boolean;
+  /**
+   * §7: the clean-filter driver of a path, from the base commit's `.gitattributes` files and the
+   * effective configuration (`clean-filter.ts`); `null` for a path under no clean filter. Without
+   * it every path is compared as under no clean filter.
+   */
+  readonly cleanFilter?: (path: string) => string | null;
+  /** §7 item 1: the settings and the index file's time for the up-to-date rule. */
+  readonly indexCheck?: IndexCheckOptions;
   /** Test seam: the clock of the time-stamp rule. */
   readonly now?: () => number;
   readonly concurrency?: number;
@@ -470,6 +457,15 @@ async function mapLimit<T, R>(
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
+}
+
+/** The prefix of a kept Git LFS digest in the hash cache: `lfs:<sha256>:<size>:<blob hash>`. */
+const LFS_TAG = 'lfs:';
+
+function parseLfsTag(value: string | undefined): { digest: LfsDigest; hash: string } | null {
+  if (!value?.startsWith(LFS_TAG)) return null;
+  const [sha256, size, hash] = value.slice(LFS_TAG.length).split(':');
+  return sha256 && size && hash ? { digest: { sha256, size: Number(size) }, hash } : null;
 }
 
 const isAbsent = (error: unknown) =>
@@ -542,26 +538,105 @@ export async function scanWorkingTree(input: ScanInput): Promise<ScanEntry[]> {
       };
     }
 
-    const { mode, symlinkLike } = workingMode(st, idx ?? base, input.settings);
-    const key = statKey(st);
-    let hash = input.reuse ? input.cache.get(path, key) : undefined;
-    let bytes: Buffer | null = null;
-    if (hash === undefined) {
-      // The stat data were read above, before the content (time-stamp rule, §8 item 3).
-      const info = async () => (await input.eolInfo()).get(path);
-      bytes = await readWorkingBytes(abs, st, symlinkLike, info, input.settings);
-      hash = hashBlob(bytes, input.format);
-      input.cache.keep(path, st, hash, startedAt);
-    }
-    const differs = !base || base.blob !== hash || base.mode !== mode;
-    // A reused hash (G-12) has no bytes: the callers that keep content never reuse.
-    if (!differs || !input.keepContent) bytes = null;
-    return {
-      path,
-      base: base ? { mode: base.mode, blob: base.blob } : null,
-      current: { mode, hash, bytes },
-      outsideSparse: false,
-      differs,
+    const file: WorkingStat = st;
+    const { mode, symlinkLike } = workingMode(file, idx ?? base, input.settings);
+    const baseSide = base ? { mode: base.mode, blob: base.blob } : null;
+    const info = async () => (await input.eolInfo()).get(path);
+    const plain = async (fallback?: CleanFilterCause, driver?: string): Promise<ScanEntry> => {
+      const key = statKey(file);
+      const cached = input.reuse ? input.cache.get(path, key) : undefined;
+      let hash = cached?.startsWith(LFS_TAG) ? undefined : cached;
+      let bytes: Buffer | null = null;
+      if (hash === undefined) {
+        // The stat data were read above, before the content (time-stamp rule, §8 item 3).
+        bytes = await readWorkingBytes(abs, file, symlinkLike, info, input.settings);
+        hash = hashBlob(bytes, input.format);
+        input.cache.keep(path, file, hash, startedAt);
+      }
+      const differs = !base || base.blob !== hash || base.mode !== mode;
+      // A reused hash (G-12) has no bytes: the callers that keep content never reuse.
+      if (!differs || !input.keepContent) bytes = null;
+      return {
+        path,
+        base: baseSide,
+        current: { mode, hash, bytes },
+        outsideSparse: false,
+        differs,
+        ...(fallback && driver && differs && base
+          ? { cleanFilter: { driver, cause: fallback } }
+          : {}),
+      };
     };
+    // A blob of the object database taken as the snapshot side (§7 items 2 and 7).
+    const fromBlob = (oid: string, blob: Buffer | null): ScanEntry => {
+      const differs = !base || base.blob !== oid || base.mode !== mode;
+      return {
+        path,
+        base: baseSide,
+        current: { mode, hash: oid, bytes: differs && input.keepContent ? blob : null },
+        outsideSparse: false,
+        differs,
+      };
+    };
+
+    // §7: git applies a filter to regular files only, never to a symbolic link.
+    const driver =
+      file.kind === 'file' && !symlinkLike ? (input.cleanFilter?.(path) ?? null) : null;
+    if (driver === null) return plain();
+
+    if (driver === LFS_DRIVER) {
+      // §7 item 7: the SHA-256 hash and size of the bytes as they are, no stat data, no index flag.
+      const key = statKey(file);
+      const cached = input.reuse ? parseLfsTag(input.cache.get(path, key)) : null;
+      let digest: LfsDigest;
+      let hash: string;
+      let bytes: Buffer | null = null;
+      if (cached) {
+        ({ digest, hash } = cached);
+      } else {
+        const raw = await readFile(abs);
+        digest = lfsDigest(raw);
+        bytes = await convertWorkingBytes(raw, false, info, input.settings);
+        hash = hashBlob(bytes, input.format);
+        input.cache.keep(
+          path,
+          file,
+          `${LFS_TAG}${digest.sha256}:${digest.size}:${hash}`,
+          startedAt,
+        );
+      }
+      if (base) {
+        if (base.blob === hash || matchesLfsPointer(digest, await input.readBlob(base.blob))) {
+          return fromBlob(base.blob, null);
+        }
+      }
+      if (idx && !idx.intentToAdd && idx.blob !== base?.blob) {
+        const indexBlob = await input.readBlob(idx.blob);
+        if (indexBlob !== null && matchesLfsPointer(digest, indexBlob)) {
+          return fromBlob(idx.blob, indexBlob);
+        }
+      }
+      // §7 item 3: the working-tree bytes.
+      const differs = !base || base.blob !== hash || base.mode !== mode;
+      return {
+        path,
+        base: baseSide,
+        current: { mode, hash, bytes: differs && input.keepContent ? bytes : null },
+        outsideSparse: false,
+        differs,
+        ...(differs && base ? { cleanFilter: { driver, cause: 'no-matching-lfs-pointer' } } : {}),
+      };
+    }
+
+    // §7 items 1 and 2: another filter, from the index blob while the entry is up to date.
+    if (!idx || idx.intentToAdd) {
+      return plain(tracked.has(path) && !idx ? 'not-up-to-date' : 'no-index-entry', driver);
+    }
+    if (!input.indexCheck || !indexEntryUpToDate(idx, file, input.indexCheck)) {
+      return plain('not-up-to-date', driver);
+    }
+    const indexBlob = await input.readBlob(idx.blob);
+    if (indexBlob === null) return plain('index-blob-missing', driver);
+    return fromBlob(idx.blob, indexBlob);
   });
 }
