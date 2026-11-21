@@ -10,7 +10,9 @@ import type {
 import { ReviewError } from '../errors/review-error.js';
 import { completeRecordBytes, exportContents, writeExport } from './export.js';
 import type { GitAccessPort } from '../git/port.js';
-import { validateConfigurationFile } from '../config/load.js';
+import { loadReviewConfiguration, validateConfigurationFile } from '../config/load.js';
+import type { EffectiveConfiguration } from '../config/effective.js';
+import { ModelGateway, type ModelGatewayDeps } from '../model/gateway.js';
 import { takeInChange } from '../intake/snapshot.js';
 import { SnapshotEventLoop, SnapshotLoops } from '../orchestrator/event-loop.js';
 import { JobScheduler } from '../orchestrator/jobs.js';
@@ -222,8 +224,12 @@ export interface CoreDeps {
   /** The working-tree root of the repository (record header). */
   readonly repositoryRoot: string;
   readonly now?: () => Date;
-  /** Model-free until the provider tasks; the gateway sets it then (C001-REQ-807). */
-  readonly providerStatus?: ProviderStatus;
+  /**
+   * The parts of the model gateway that later tasks provide: keys (C001-T-086), adapters
+   * (C001-T-087), the egress policy (C001-T-088) and output validation (C001-T-089). Without them
+   * every request runs in model-free mode (C001-T-085).
+   */
+  readonly model?: Omit<ModelGatewayDeps, 'configuration' | 'log'>;
 }
 
 /** The core: the API and the orchestrator parts that later tasks register their work with. */
@@ -233,15 +239,14 @@ export interface Core {
   readonly jobs: JobScheduler;
   /** The one writer of each snapshot. */
   readonly loops: SnapshotLoops;
+  /**
+   * The model gateway of a snapshot (C001-IF-010 §1), deciding per request from the effective
+   * configuration of the snapshot's base commit; the model tasks (C001-T-090) call it.
+   */
+  gateway(snapshotId: string): ModelGateway;
   /** Waits for the running events, then refuses new ones. */
   close(): Promise<void>;
 }
-
-const MODEL_FREE: ProviderStatus = {
-  mode: 'model-free',
-  providerName: null,
-  contentSentOffMachine: false,
-};
 
 /**
  * The documents of the first revision, written right after intake: identity only. The static
@@ -265,6 +270,43 @@ export function createCore(deps: CoreDeps): Core {
     (snapshotId) => new SnapshotEventLoop(snapshotId, revisionsOf(snapshotId)),
   );
   const jobs = new JobScheduler({ store, loops, log: ctx.log });
+
+  /**
+   * The effective configuration of a snapshot, read from its base commit (C001-REQ-426). The base
+   * commit of a snapshot never changes, so it is read once per process; the gateway still decides
+   * per request from it.
+   */
+  const configurations = new Map<string, Promise<EffectiveConfiguration>>();
+  function configurationOf(snapshotId: string): Promise<EffectiveConfiguration> {
+    let loaded = configurations.get(snapshotId);
+    if (!loaded) {
+      loaded = store
+        .readSnapshot(snapshotId)
+        .then((intake) =>
+          loadReviewConfiguration({ git, log: ctx.log }, intake.snapshot.baseCommit.hash),
+        );
+      loaded.catch(() => configurations.delete(snapshotId));
+      configurations.set(snapshotId, loaded);
+    }
+    return loaded;
+  }
+  const gateway = (snapshotId: string) =>
+    new ModelGateway({
+      ...deps.model,
+      configuration: () => configurationOf(snapshotId),
+      log: ctx.log,
+    });
+
+  /**
+   * The notice of a configuration that cannot be read (ERR-CFG-001, ERR-CFG-004): the review then
+   * runs in model-free mode (C001-REQ-819) and reports why (C001-TS-856).
+   */
+  async function modelFreeNotices(snapshotId: string): Promise<Notice[]> {
+    const decision = await gateway(snapshotId).decide();
+    return !decision.use && decision.cause === 'configuration-unreadable'
+      ? [...decision.notices]
+      : [];
+  }
 
   /** Intake's last step: the first revision, so that a result is only ever shown from a revision. */
   async function ensureFirstRevision(snapshotId: string): Promise<void> {
@@ -303,7 +345,7 @@ export function createCore(deps: CoreDeps): Core {
       snapshotId,
       revision: revision?.revision ?? 0,
       staticAnalysisComplete: Array.isArray(delta?.components) && delta.components.length > 0,
-      providerStatus: deps.providerStatus ?? MODEL_FREE,
+      providerStatus: await gateway(snapshotId).status(),
       movedOn: null, // checkMovedOn is C001-REQ-117's task
       sizeWarning: (intake.intakeSummary.sizeWarning ?? null) as SessionInfo['sizeWarning'],
       notices: intake.notices as SessionInfo['notices'],
@@ -324,7 +366,10 @@ export function createCore(deps: CoreDeps): Core {
           repositoryRoot: deps.repositoryRoot,
           ...(deps.now ? { now: deps.now } : {}),
         },
-        options.namedBase !== undefined ? { namedBase: options.namedBase } : {},
+        {
+          ...(options.namedBase !== undefined ? { namedBase: options.namedBase } : {}),
+          ...(options.namedFiles !== undefined ? { namedFiles: options.namedFiles } : {}),
+        },
       );
       const { snapshotId } = result;
       if (result.status === 'existing') {
@@ -336,7 +381,7 @@ export function createCore(deps: CoreDeps): Core {
           snapshotId,
           intakeSummary: intake.intakeSummary,
           reopened: true,
-          notices: intake.notices,
+          notices: [...intake.notices, ...(await modelFreeNotices(snapshotId))],
         };
       }
       const { intake } = result;
@@ -345,7 +390,7 @@ export function createCore(deps: CoreDeps): Core {
         snapshotId,
         intakeSummary: intake.intakeSummary,
         reopened: false,
-        notices: intake.notices,
+        notices: [...intake.notices, ...(await modelFreeNotices(snapshotId))],
       };
     },
     getSession,
@@ -415,7 +460,7 @@ export function createCore(deps: CoreDeps): Core {
     runEvidenceBundle: later('runEvidenceBundle'),
   };
 
-  return { api, jobs, loops, close: () => loops.closeAll() };
+  return { api, jobs, loops, gateway, close: () => loops.closeAll() };
 }
 
 /** The operations of C001-IF-003 bound to one repository. */

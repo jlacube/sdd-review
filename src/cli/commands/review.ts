@@ -94,7 +94,7 @@ export async function review(
   deps: ReviewDeps = {},
 ): Promise<number> {
   io.stderr.write('review: taking in the change\n');
-  const started = await api.startReview(startOptionsOf(command.intake));
+  const started = await api.startReview(startOptionsOf(command.intake, io.cwd));
   for (const notice of started.notices) io.stderr.write(`${noticeLine(notice)}\n`);
   if (io.signal.aborted) return exitOk;
 

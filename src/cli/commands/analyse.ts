@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import type { CoreApi, StartReviewOptions } from '../../core/api/index.js';
 import { ReviewError } from '../../core/api/index.js';
 import { noticeLine } from '../exit-codes.js';
@@ -7,23 +8,29 @@ import type { Command, GlobalOptions, IntakeOptions } from '../parser.js';
 
 type AnalyseCommand = Extract<Command, { name: 'analyse' }>;
 
-/** The named files of the intake options, by role (C001-IF-003 §3 `startReview`). */
-function namedFilesOf(intake: IntakeOptions): NonNullable<StartReviewOptions['namedFiles']> {
+/**
+ * The named files of the intake options, by role (C001-IF-003 §3 `startReview`, C001-REQ-112),
+ * each path resolved against the current directory of the command.
+ */
+function namedFilesOf(
+  intake: IntakeOptions,
+  cwd: string,
+): NonNullable<StartReviewOptions['namedFiles']> {
   return [
     ...(intake.prText !== undefined
       ? [{ role: 'pull-request-text' as const, path: intake.prText }]
       : []),
     ...intake.plans.map((path) => ({ role: 'agent-plan' as const, path })),
     ...intake.transcripts.map((path) => ({ role: 'agent-transcript' as const, path })),
-  ];
+  ].map((file) => ({ ...file, path: resolve(cwd, file.path) }));
 }
 
 /** The core's intake options from the command's (shared by `review` and `analyse`). */
-export function startOptionsOf(intake: IntakeOptions): StartReviewOptions {
+export function startOptionsOf(intake: IntakeOptions, cwd: string): StartReviewOptions {
   return {
     ...(intake.base !== undefined ? { namedBase: intake.base } : {}),
     ...(intake.sddChange !== undefined ? { sddChange: intake.sddChange } : {}),
-    namedFiles: namedFilesOf(intake),
+    namedFiles: namedFilesOf(intake, cwd),
     ...(intake.testCommand !== undefined ? { testCommand: intake.testCommand } : {}),
   };
 }
@@ -71,7 +78,7 @@ export async function analyse(
     if (io.signal.aborted) throw interrupted(command.out);
   };
   io.stderr.write('analyse: taking in the change\n');
-  const started = await api.startReview(startOptionsOf(command.intake));
+  const started = await api.startReview(startOptionsOf(command.intake, io.cwd));
   for (const notice of started.notices) io.stderr.write(`${noticeLine(notice)}\n`);
   check();
 

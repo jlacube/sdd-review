@@ -18,6 +18,12 @@ export interface CommitSpec {
   /** Renames [from, to] done with `git mv`. */
   readonly renames?: ReadonlyArray<readonly [string, string]>;
   readonly subject?: string;
+  /** The full message; its first line is the recorded subject. Default: `subject`. */
+  readonly message?: string;
+  /** The author (and committer); default the fixture identity. */
+  readonly author?: { readonly name: string; readonly email: string };
+  /** The author and committer date (ISO 8601); default a fixed date that increases per commit. */
+  readonly date?: string;
 }
 
 export interface BaseRepoSpec {
@@ -217,16 +223,46 @@ export class FixtureRepo {
       this.git('mv', from, to);
     }
     this.git('add', '-A');
-    const subject = spec.subject ?? `${label}: commit`;
+    const message = spec.message ?? spec.subject ?? `${label}: commit`;
+    const subject = message.split('\n', 1)[0]!;
     // A fixed, increasing date keeps hashes stable between runs of one fixture definition.
-    const when = new Date(Date.UTC(2026, 0, 1, 0, 0, this.tick++)).toISOString();
-    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', subject], {
+    const tick = new Date(Date.UTC(2026, 0, 1, 0, 0, this.tick++)).toISOString();
+    const when = spec.date ?? tick;
+    const who = spec.author
+      ? {
+          GIT_AUTHOR_NAME: spec.author.name,
+          GIT_AUTHOR_EMAIL: spec.author.email,
+          GIT_COMMITTER_NAME: spec.author.name,
+          GIT_COMMITTER_EMAIL: spec.author.email,
+        }
+      : {};
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', message], {
       cwd: this.dir,
-      env: this.env({ GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when }),
+      env: this.env({ GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when, ...who }),
     });
     const record = { label, hash: this.git('rev-parse', 'HEAD'), subject };
     this.labels.set(label, record);
     return record;
+  }
+
+  /** Merges `ref` into the current branch with a merge commit (no conflict expected) and records it. */
+  merge(label: string, ref: string, subject: string): LabelRecord {
+    if (this.labels.has(label)) throw new Error(`label ${label} is already recorded`);
+    const when = new Date(Date.UTC(2026, 0, 1, 0, 0, this.tick++)).toISOString();
+    execFileSync('git', ['merge', '-q', '--no-ff', '--no-edit', '-m', subject, ref], {
+      cwd: this.dir,
+      env: this.env({ GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const record = { label, hash: this.git('rev-parse', 'HEAD'), subject };
+    this.labels.set(label, record);
+    return record;
+  }
+
+  /** Forgets labels, so that a step that rebuilds commits can record them again. */
+  forget(...names: string[]): this {
+    for (const name of names) this.labels.delete(name);
+    return this;
   }
 
   /** The recorded commit of a label; steps assert on its hash and subject. */

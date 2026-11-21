@@ -10,10 +10,14 @@ import type { FileMode, GitAccessPort } from '../git/port.js';
 import type { ContextualLog } from '../log/log.js';
 import type { SnapshotStore } from '../store/snapshots.js';
 import { chooseBase } from './base.js';
-import { computeChange, type ChangeFile } from './change.js';
+import { computeChange, fail, type ChangeFile } from './change.js';
 import { cutHunks, identifyHunks } from './hunks.js';
+import { readChangeCommits } from './commits.js';
+import { attributeHunks } from './attribution.js';
 import type { SddIntentSources } from '../intent-sources/sdd-workspace.js';
 import { readIntakeIntentSources } from './intent-context.js';
+import { isReviewError } from '../errors/review-error.js';
+import { readNamedFiles, type NamedFileRequest } from '../intent-sources/named-files.js';
 
 /** JSON with object keys in code-unit order and no white space: one text per value. */
 export function canonicalJson(value: unknown): string {
@@ -83,6 +87,8 @@ export interface IntakeOptions {
    * C001-REQ-103 and C001-REQ-104 choose the base commit.
    */
   readonly namedBase?: string;
+  /** The pull-request text, plans and transcripts named at intake (C001-REQ-112, C001-T-030). */
+  readonly namedFiles?: readonly NamedFileRequest[];
 }
 
 export type IntakeResult =
@@ -127,6 +133,10 @@ export async function takeInChange(
   const { git, store, log } = deps;
   const chosen = await chooseBase(git, options.namedBase, log);
   const { base, head } = chosen;
+  // A named file that cannot be used stops intake before anything is written (C001-REQ-113).
+  const namedFiles = await readNamedFiles(options.namedFiles ?? []).catch((error: unknown) =>
+    isReviewError(error) ? fail(log, error) : Promise.reject(error),
+  );
   const files = await computeChange(git, base, log);
   const snapshotId = snapshotIdOf(base, head, files);
 
@@ -157,6 +167,8 @@ export async function takeInChange(
   const changedLines = changedFiles.reduce((sum, file) => sum + file.changedLines, 0);
   const baseCommit = await commitRef(git, base);
   const sources = await readIntakeIntentSources(git, base, files, log); // C001-T-029
+  const commits = await readChangeCommits(git, base, head); // C001-T-027
+  const attributed = await attributeHunks(git, { base, head, commits, files, hunks }, log);
   const createdAt = (deps.now?.() ?? new Date()).toISOString();
 
   const snapshot: Snapshot = {
@@ -176,7 +188,7 @@ export async function takeInChange(
     document: 'intake',
     formatVersion: 1,
     snapshot,
-    hunks,
+    hunks: attributed,
     intakeSummary: {
       baseCommit,
       baseChoice: chosen.baseChoice,
@@ -186,15 +198,15 @@ export async function takeInChange(
       // The intent context is read by C001-T-029 to C001-T-033.
       intentContext: {
         ...sources.summary,
-        commits: 0,
-        namedFiles: [],
+        commits: commits.length,
+        namedFiles: namedFiles.map(({ role, path }) => ({ role, path })),
       },
       sizeWarning: null,
     },
     intentContext: {
       ...sources.intentContext,
-      commits: [],
-      namedFiles: [],
+      commits,
+      namedFiles,
       planItems: [],
       recordedRuns: [],
     },

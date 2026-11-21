@@ -49,6 +49,11 @@ writeFileSync(
   `${out}/review-config-schema.ts`,
   `${banner}\n/* C001-IF-004 */\nexport const REVIEW_CONFIG_SCHEMA: object = ${readFileSync(`${dir}/review-config.schema.json`, 'utf8').trim()};\n`,
 );
+// Intake validates the neutral intent-and-architecture file against C001-IF-006 (C001-T-030).
+writeFileSync(
+  `${out}/workspace-schema.ts`,
+  `${banner}\n/* C001-IF-006 */\nexport const WORKSPACE_SCHEMA: object = ${readFileSync(`${dir}/workspace.schema.json`, 'utf8').trim()};\n`,
+);
 
 console.log(`generated ${schemas.length + 1} interface type files and the API contract in ${out}`);
 
