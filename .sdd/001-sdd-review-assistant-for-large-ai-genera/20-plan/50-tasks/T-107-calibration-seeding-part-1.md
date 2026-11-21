@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Calibration corpus — seed and label defects in changes 1 to 6
 milestone: C001-M-07
-status: in-progress
+status: done
 depends_on: [C001-T-106]
 implements: []
 satisfies_ac: [C001-AC-401.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TC-026]
 components: [C001-COMP-010]
 risk_refs: [C001-RISK-021]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 3ddcbbc, completed_at: 2026-11-21, notes: "56 seeded + 2 noticed defects in calib-cs-1..4, calib-py-1..2 (8-10 each, six kinds each) by appointed seeding agent; calibration --validate-corpus ok against git; CI green at 3ddcbbc; PR at M-01 merge" }
 ---
 # C001-T-107 — Calibration corpus: seed and label defects in changes 1 to 6
 
