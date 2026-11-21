@@ -4,6 +4,8 @@
 // one line per scenario: passed, failed or undefined.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { extractFeatures } from './extract-features.mjs';
 
 /** The scenario IDs of a file: one per line, blank lines and `#` comments ignored (CI list). */
@@ -50,14 +52,18 @@ export function statusOf(featuresJson) {
           ? 'undefined'
           : statuses.every((s) => s === 'passed')
             ? 'passed'
-            : 'failed';
+            : statuses.every((s) => s === 'passed' || s === 'skipped')
+              ? 'skipped'
+              : 'failed';
       out.push({ name: el.name, status });
     }
   }
   return out;
 }
 
-if (import.meta.url === new URL(`file:///${process.argv[1]?.replace(/\\/g, '/')}`).href) {
+// Main-module check by real path: the old URL comparison built `file:////home/...` on POSIX, so on
+// Linux and macOS the script ran no scenario and exited 0.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const opts = parseArgs(process.argv.slice(2));
   // Each run extracts into its own folder, so runs started at the same time do not delete or
   // overwrite each other's feature files and report.
