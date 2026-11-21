@@ -173,7 +173,7 @@ Then(
 );
 
 /** The provider status of the review's session, read through the core API (C001-IF-002). */
-async function providerMode(world: AcceptanceWorld): Promise<string> {
+export async function providerMode(world: AcceptanceWorld): Promise<string> {
   const opened = await openCore(world.repo!.dir, { env: world.cliEnv() });
   try {
     const reviews = await opened.core.api.listReviews();

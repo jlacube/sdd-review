@@ -15,6 +15,7 @@ import {
 import { lookupError } from '../errors/catalogue.js';
 import { fillMessage } from '../errors/review-error.js';
 import type { ContextualLog } from '../log/log.js';
+import type { KeyLookup } from './keys/key-source.js';
 import { reducedLabels, type ModelFreeCause, type ModelTask } from './labels.js';
 
 /**
@@ -33,8 +34,9 @@ import { reducedLabels, type ModelFreeCause, type ModelTask } from './labels.js'
  *   model-excluded paths and the cloud announcement. Without it nothing is sent.
  * - `adapters` (C001-T-087): one adapter per provider API (§4, §5). Without the adapter of the
  *   configured API nothing is sent.
- * - `keys` (C001-T-086): the key lookup of §7, run when a request is prepared, never cached and
- *   never logged (C001-CON-21). Without it no key is found.
+ * - `keys` (C001-T-086, `keys/key-source.ts`): the key lookup of §7, run when a request is
+ *   prepared, never cached and never logged (C001-CON-21). Without it no key is found. A required
+ *   key that is not found sends no request (ERR-MODEL-006).
  * - `validate` (C001-T-089): C001-IF-011 and the ID checks; batching, the provider timeout, the
  *   marker and the failure mapping of §7 are refined there.
  */
@@ -219,7 +221,11 @@ export interface ModelGatewayDeps {
   readonly configuration: () => Promise<EffectiveConfiguration> | EffectiveConfiguration;
   readonly egress?: EgressPolicy;
   readonly adapters?: Partial<Record<EffectiveProvider['api'], ProviderAdapter>>;
-  readonly keys?: (provider: EffectiveProvider) => Promise<string | null>;
+  /**
+   * The key lookup of §7 for one request. A bare string or null is a key found or not found for
+   * a provider whose key is optional.
+   */
+  readonly keys?: (provider: EffectiveProvider) => Promise<KeyLookup | string | null>;
   readonly validate?: <T extends ModelTask>(
     task: T,
     output: unknown,
@@ -236,8 +242,17 @@ export const MODEL_FREE_STATUS: ProviderStatus = {
   contentSentOffMachine: false,
 };
 
+/** A placeholder that holds placeholders: a choice of wording, filled whole from `location`. */
+const NESTED_PLACEHOLDER = /<[^<>]*<[^>]*>[^<>]*(?:<[^>]*>[^<>]*)*>/;
+
 function notice(code: string, params: Readonly<Record<string, unknown>>): Notice {
-  return { code, message: fillMessage(lookupError(code).message, params) };
+  let template = lookupError(code).message;
+  // ERR-MODEL-006: `<environment variable "<keyEnv>" or credential-store entry "<service>/<account>">`
+  // names the sources the lookup tried (KeyLookup.location).
+  if (typeof params.location === 'string') {
+    template = template.replace(NESTED_PLACEHOLDER, () => params.location as string);
+  }
+  return { code, message: fillMessage(template, params) };
 }
 
 /** The configuration loader's notice of an unreadable configuration (ERR-CFG-001, ERR-CFG-004). */
@@ -343,7 +358,19 @@ export class ModelGateway {
     if (!adapter) return modelFree(task, 'gateway-incomplete', [], items);
     const inputs = { provider: provider.name, api: provider.api, task };
     try {
-      const key = (await this.deps.keys?.(provider)) ?? null;
+      // Read at each request preparation, held only for this request (§7, C001-CON-21).
+      const found = await this.deps.keys?.(provider);
+      const lookup: KeyLookup | null = typeof found === 'object' && found !== null ? found : null;
+      const key: string | null = lookup ? lookup.key : typeof found === 'string' ? found : null;
+      if (key === null && lookup?.required) {
+        // A required key that none of the lookups finds: no request is sent (ERR-MODEL-006).
+        const failure: ProviderFailure = {
+          code: 'ERR-MODEL-006',
+          params: { location: lookup.location },
+          cause: lookup.cause,
+        };
+        return this.failed(task, provider, failure, items);
+      }
       const answer = await adapter.send({
         provider,
         task,

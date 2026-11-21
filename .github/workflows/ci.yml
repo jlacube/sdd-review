@@ -34,6 +34,21 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
+      # C001-TC-851 (C001-T-086, C001-ADR-008 §4): the real credential store of each runner; a
+      # missing store fails here instead of skipping. Linux: gnome-keyring unlocked in a D-Bus session.
+      - name: Install gnome-keyring and secret-tool (C001-ADR-008 §4)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring libsecret-tools dbus
+      - name: Credential-store integration test (C001-TC-851)
+        shell: bash
+        env:
+          SDD_REQUIRE_CREDENTIAL_STORE: '1'
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            dbus-run-session -- bash -c 'printf sdd-review-ci | gnome-keyring-daemon --unlock --components=secrets --daemonize >/dev/null && npm test -- test/integration/model/keys'
+          else
+            npm test -- test/integration/model/keys
+          fi
       - run: npm run bench -- harness-selftest
       - run: npm run bench -- validate-set
       - run: npm run bench -- calibration --check-overlap
