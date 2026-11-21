@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Calibration corpus — seed and label defects in changes 7 to 12
 milestone: C001-M-07
-status: todo
+status: done
 depends_on: [C001-T-107]
 implements: []
 satisfies_ac: [C001-AC-401.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TC-026]
 components: [C001-COMP-010]
 risk_refs: [C001-RISK-021]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 9d17a41, completed_at: 2026-11-21, notes: "58 seeded + 1 noticed defects in calib-py-3,-4 and calib-ts-1..4 (9-10 each, six kinds each); corpus complete: validate-corpus 12 seeded, 0 errors; CI green at 9d17a41; calibrator of T-099 must be a separate agent; PR at M-01 merge" }
 ---
 # C001-T-108 — Calibration corpus: seed and label defects in changes 7 to 12
 
