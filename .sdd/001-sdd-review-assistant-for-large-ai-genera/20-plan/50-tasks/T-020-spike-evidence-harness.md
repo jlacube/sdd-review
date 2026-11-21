@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Spike — coverage and mutation harness for the workspace measurements
 milestone: C001-M-01
-status: in-progress
+status: blocked
 depends_on: [C001-T-016, C001-T-019, C001-T-017, C001-T-013]
 implements: [C001-NFR-018]
 satisfies_ac: [C001-AC-506.1, C001-AC-514.1, C001-AC-512.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-516, C001-TS-539, C001-TS-532]
 components: [C001-COMP-011, C001-COMP-014]
 risk_refs: [C001-RISK-001, C001-RISK-016]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: null, completed_at: null, notes: "blocked: Harness built at ca0ca16 (CI green, dry-run ok, smoke on tiny repos); done-when needs real runs on the benchmark changes, which are the T-021 measurements waiting for the owner's idle-machine go-ahead; D-023 open" }
 ---
 # C001-T-020 — Spike: coverage and mutation harness for the workspace measurements
 
