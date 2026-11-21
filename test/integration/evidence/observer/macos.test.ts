@@ -273,8 +273,13 @@ describe.skipIf(process.platform !== 'darwin' || process.env.SDD_RUN_MACOS_OBSER
       renameSync(scope.root, `${scope.root}-moved`);
       renameSync(`${scope.root}-moved`, scope.root);
       const result = await observer.endRun(run);
-      expect(result.changed).toEqual([]);
-      expect(result.incomplete).toEqual([
+      await new Promise((r) => setTimeout(r, 1500));
+      const late = await observer.beginRun();
+      const lateResult = await observer.endRun(late);
+      const g = globalThis as unknown as { __fsev?: string[] };
+      const dbg = `late=${JSON.stringify(lateResult)} events:\n${(g.__fsev ?? []).join('\n')}`;
+      expect(result.changed, dbg).toEqual([]);
+      expect(result.incomplete, dbg).toEqual([
         {
           cause: 'observation-interrupted',
           name: 'observation interrupted',
