@@ -152,7 +152,7 @@ describe('scenario selection', () => {
         feature('b', ['passed', 'failed']),
         feature('c', ['undefined']),
       ]),
-    ).toEqual([
+    ).toMatchObject([
       { name: 'a', status: 'passed' },
       { name: 'b', status: 'failed' },
       { name: 'c', status: 'undefined' },

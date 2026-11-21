@@ -55,10 +55,33 @@ export function statusOf(featuresJson) {
             : statuses.every((s) => s === 'passed' || s === 'skipped')
               ? 'skipped'
               : 'failed';
-      out.push({ name: el.name, status });
+      const bad = (el.steps ?? []).find((s) =>
+        ['failed', 'undefined', 'pending', 'ambiguous'].includes(s.result?.status ?? 'undefined'),
+      );
+      out.push({
+        name: el.name,
+        status,
+        step: bad ? `${(bad.keyword ?? '').trim()} ${bad.name ?? ''}`.trim() : undefined,
+        error: bad?.result?.error_message,
+      });
     }
   }
   return out;
+}
+
+/** A GitHub Actions error annotation for a scenario that did not pass (shown without log access). */
+export function annotationOf(s) {
+  const escape = (text) =>
+    String(text).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  const detail = [
+    s.step ?? '',
+    ...String(s.error ?? '')
+      .split('\n')
+      .slice(0, 6),
+  ]
+    .filter((line) => line.trim().length > 0)
+    .join('\n');
+  return `::error title=${escape(`${s.status}: ${s.name}`).replace(/[:,]/g, ' ')}::${escape(detail)}`;
 }
 
 // Main-module check by real path: the old URL comparison built `file:////home/...` on POSIX, so on
@@ -97,7 +120,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const r = spawnSync(process.execPath, args, { stdio: 'inherit', env });
   if (existsSync(report)) {
     const json = JSON.parse(readFileSync(report, 'utf8'));
-    for (const s of statusOf(json)) console.log(`${s.status.toUpperCase().padEnd(10)} ${s.name}`);
+    for (const s of statusOf(json)) {
+      console.log(`${s.status.toUpperCase().padEnd(10)} ${s.name}`);
+      if (process.env.GITHUB_ACTIONS && s.status !== 'passed' && s.status !== 'skipped') {
+        console.log(annotationOf(s));
+      }
+    }
   }
   rmSync(runDir, { recursive: true, force: true });
   process.exit(r.status ?? 1);

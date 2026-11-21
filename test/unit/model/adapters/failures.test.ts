@@ -30,7 +30,7 @@ import { INPUTS, OUTPUTS, leaks, provider, request } from './support.js';
 // failures, HTTP statuses, the provider timeout from connection to last byte (§3 item 5), no retry
 // (§3 item 4), and no key or answer body of a failed request in any failure (C001-CON-21).
 
-const KEY = 'sk-secret-key-0123456789';
+const KEY = 'test-provider-key-0123456789';
 let stub: StubLlm;
 const cleanups: Array<() => void | Promise<void>> = [];
 
