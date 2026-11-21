@@ -3,23 +3,11 @@ import { join } from 'node:path';
 import type { IntakeDocument } from '../../generated/analysis-results.js';
 import { ReviewError } from '../errors/review-error.js';
 import { ensurePrivateDir, type StoreLayout } from './root.js';
-import { errnoCode, fsOf, guarded, writeFileAtomic, type StoreContext } from './fsutil.js';
-import { withFileLock } from './lock.js';
+import { fsOf, guarded, writeFileAtomic, type StoreContext } from './fsutil.js';
 import { RecordStore } from './record.js';
+import { ReviewsIndex, type ReviewIndexEntry } from './reviews-index.js';
 
-/** One line of `reviews.json` (architecture §4.1): snapshot ID, base, HEAD, created, last opened. */
-export interface ReviewIndexEntry {
-  readonly snapshotId: string;
-  readonly baseCommit: string;
-  readonly headCommit: string;
-  readonly createdAt: string;
-  readonly lastOpenedAt: string;
-}
-
-interface ReviewsIndexFile {
-  readonly formatVersion: 1;
-  readonly reviews: readonly ReviewIndexEntry[];
-}
+export type { ReviewIndexEntry } from './reviews-index.js';
 
 /** `review.json`: sample seed and job states for resume (architecture §4.1). */
 export interface ReviewStateDocument {
@@ -36,10 +24,15 @@ const json = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\
  * review record and the repository's `reviews.json` index.
  */
 export class SnapshotStore {
+  /** The repository's `reviews.json`. */
+  readonly index: ReviewsIndex;
+
   constructor(
     private readonly ctx: StoreContext,
     readonly layout: StoreLayout,
-  ) {}
+  ) {
+    this.index = new ReviewsIndex(ctx, layout);
+  }
 
   snapshotDir(snapshotId: string): string {
     return this.layout.snapshotDir(snapshotId);
@@ -84,20 +77,11 @@ export class SnapshotStore {
           headCommit: snapshot.headCommit,
           createdAt: snapshot.createdAt,
         });
-        await this.updateIndex((reviews) => {
-          const at = (this.ctx.now?.() ?? new Date()).toISOString();
-          const others = reviews.filter((r) => r.snapshotId !== id);
-          const previous = reviews.find((r) => r.snapshotId === id);
-          return [
-            ...others,
-            {
-              snapshotId: id,
-              baseCommit: snapshot.baseCommit.hash,
-              headCommit: snapshot.headCommit,
-              createdAt: previous?.createdAt ?? snapshot.createdAt,
-              lastOpenedAt: previous?.lastOpenedAt ?? at,
-            },
-          ];
+        await this.index.add({
+          snapshotId: id,
+          baseCommit: snapshot.baseCommit.hash,
+          headCommit: snapshot.headCommit,
+          createdAt: snapshot.createdAt,
         });
         return dir;
       },
@@ -153,62 +137,48 @@ export class SnapshotStore {
     return writeFileAtomic(this.ctx, join(dir, 'review.json'), json(state));
   }
 
-  /** ERR-STORE-004 when the snapshot has no folder in this repository's store. */
-  requireSnapshot(snapshotId: string): string {
-    const dir = this.snapshotDir(snapshotId);
-    if (!fsOf(this.ctx).existsSync(join(dir, 'snapshot.json'))) {
-      const error = new ReviewError('ERR-STORE-004', {
-        operation: 'open-snapshot',
-        inputs: { snapshotId },
-        params: { value: snapshotId },
-      });
-      try {
-        this.ctx.log.recordError(error, 'open-snapshot');
-      } catch {
-        /* the error itself is what matters */
-      }
-      throw error;
-    }
+  /**
+   * ERR-STORE-004 unless the snapshot is a review of this repository: listed in `reviews.json`
+   * (written last, so a snapshot whose creation never finished is not one) and with its folder.
+   */
+  requireReview(snapshotId: string): string {
+    const dir = this.requireSnapshot(snapshotId);
+    if (!this.index.find(snapshotId)) throw this.unknown(snapshotId);
     return dir;
   }
 
-  async listReviews(): Promise<ReviewIndexEntry[]> {
-    return [...this.readIndex().reviews];
+  /** ERR-STORE-004 when the snapshot has no folder in this repository's store. */
+  requireSnapshot(snapshotId: string): string {
+    const dir = this.snapshotDir(snapshotId);
+    if (!fsOf(this.ctx).existsSync(join(dir, 'snapshot.json'))) throw this.unknown(snapshotId);
+    return dir;
   }
 
-  /** Sets the last-opened time of a review (reopen, C001-REQ-918). */
+  /** ERR-STORE-004, logged. */
+  private unknown(snapshotId: string): ReviewError {
+    const error = new ReviewError('ERR-STORE-004', {
+      operation: 'open-snapshot',
+      inputs: { snapshotId },
+      params: { value: snapshotId },
+    });
+    try {
+      this.ctx.log.recordError(error, 'open-snapshot');
+    } catch {
+      /* the error itself is what matters */
+    }
+    return error;
+  }
+
+  /** Every review of the repository, earlier snapshots included (C001-REQ-118). */
+  async listReviews(): Promise<ReviewIndexEntry[]> {
+    return this.index.list();
+  }
+
+  /** Sets the last-opened time of a review (reopen, C001-REQ-119). */
   async markOpened(snapshotId: string): Promise<void> {
     this.requireSnapshot(snapshotId);
-    const at = (this.ctx.now?.() ?? new Date()).toISOString();
     await guarded(this.ctx, { operation: 'update-reviews-index', inputs: { snapshotId } }, () =>
-      this.updateIndex((reviews) =>
-        reviews.map((r) => (r.snapshotId === snapshotId ? { ...r, lastOpenedAt: at } : r)),
-      ),
+      this.index.markOpened(snapshotId),
     );
-  }
-
-  private readIndex(): ReviewsIndexFile {
-    try {
-      return JSON.parse(
-        fsOf(this.ctx).readFileSync(this.layout.reviewsIndexFile, 'utf8'),
-      ) as ReviewsIndexFile;
-    } catch (error) {
-      if (errnoCode(error) === 'ENOENT') return { formatVersion: 1, reviews: [] };
-      throw error;
-    }
-  }
-
-  private async updateIndex(
-    change: (reviews: readonly ReviewIndexEntry[]) => readonly ReviewIndexEntry[],
-  ) {
-    ensurePrivateDir(this.ctx, this.layout.repositoryDir);
-    const file = this.layout.reviewsIndexFile;
-    await withFileLock(this.ctx, `${file}.lock`, async () => {
-      const next: ReviewsIndexFile = {
-        formatVersion: 1,
-        reviews: change(this.readIndex().reviews),
-      };
-      await writeFileAtomic(this.ctx, file, json(next));
-    });
   }
 }
