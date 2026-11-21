@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Gateway output validation, model-output marking and failure fallback
 milestone: C001-M-06
-status: in-progress
+status: done
 depends_on: [C001-T-088]
 implements: [C001-REQ-810, C001-REQ-811, C001-REQ-816, C001-REQ-817, C001-REQ-818, C001-NFR-002]
 satisfies_ac: [C001-AC-810.1, C001-AC-811.1, C001-AC-816.1, C001-AC-817.1, C001-AC-818.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-828, C001-TS-829, C001-TS-830, C001-TS-831, C001-TS-841, C
 components: [C001-COMP-015]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: e6785cc, completed_at: 2026-11-21, notes: "Validation vs IF-011 and batch IDs, marker, maxRequestBytes batching, per-cause failure fallback with merged notices, async acceptance CLI steps; 1,816 tests, 158 CI scenarios; CI green on 4 runners at cbd2ebd; TS-828/830/831/846/847/853 pass, rest await T-090; D-032; PR at M-02 merge" }
 ---
 # C001-T-089 — Gateway output validation, model-output marking and failure fallback
 
