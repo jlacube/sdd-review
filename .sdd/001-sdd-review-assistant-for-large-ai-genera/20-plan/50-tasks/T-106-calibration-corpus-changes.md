@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Calibration corpus — twelve agent changes with test command and environment
 milestone: C001-M-07
-status: todo
+status: done
 depends_on: [C001-T-013]
 implements: []
 satisfies_ac: [C001-AC-401.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TC-026]
 components: [C001-COMP-010]
 risk_refs: [C001-RISK-021]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 1df30eb, completed_at: 2026-11-21, notes: "12 calibration changes (4 per ecosystem, 2,383-8,611 lines, 15-23% existing-file share) from older release tags; corpus.json, environments, bundles; calibration --check-overlap ok vs benchmark set, in CI; green on 4 runners at 1df30eb; PR at M-01 merge" }
 ---
 # C001-T-106 — Calibration corpus: twelve agent changes with test command and environment
 

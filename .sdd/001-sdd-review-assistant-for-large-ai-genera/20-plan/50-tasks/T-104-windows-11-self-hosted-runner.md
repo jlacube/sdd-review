@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Windows 11 self-hosted runner, nightly and closing-commit triggers
 milestone: C001-M-01
-status: todo
+status: in-progress
 depends_on: [C001-T-001, C001-T-002]
 implements: [C001-NFR-016]
 satisfies_ac: [C001-AC-901.1]
