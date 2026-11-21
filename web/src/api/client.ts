@@ -6,6 +6,7 @@ import type { components } from '../../../src/generated/openapi';
  */
 export type SessionInfo = components['schemas']['SessionInfo'];
 export type IntakeSummary = components['schemas']['IntakeSummary'];
+export type MovedOnNotice = components['schemas']['MovedOnNotice'];
 
 export const API_BASE = '/api/v1';
 export const TOKEN_HEADER = 'X-Review-Token';
@@ -41,12 +42,14 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 export interface ApiClient {
   getSession(): Promise<SessionInfo>;
   getIntakeSummary(): Promise<IntakeSummary>;
+  /** Compares the working tree and HEAD with the snapshot (C001-REQ-117); null when nothing moved. */
+  checkMovedOn(): Promise<MovedOnNotice | null>;
 }
 
 export function createApiClient(token: string, fetchFn: FetchLike = fetch): ApiClient {
-  async function get<T>(path: string): Promise<T> {
+  async function get<T>(path: string, method: 'GET' | 'POST' = 'GET'): Promise<T> {
     const response = await fetchFn(`${API_BASE}${path}`, {
-      method: 'GET',
+      method,
       headers: { [TOKEN_HEADER]: token, Accept: 'application/json' },
       credentials: 'omit',
       cache: 'no-store',
@@ -68,6 +71,7 @@ export function createApiClient(token: string, fetchFn: FetchLike = fetch): ApiC
   return {
     getSession: () => get<SessionInfo>('/session'),
     getIntakeSummary: () => get<IntakeSummary>('/intake-summary'),
+    checkMovedOn: () => get<MovedOnNotice | null>('/checks/moved-on', 'POST'),
   };
 }
 

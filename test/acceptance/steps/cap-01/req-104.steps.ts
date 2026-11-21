@@ -28,16 +28,38 @@ const noUpstream = (repo: FixtureRepo) => {
   );
 };
 
+/**
+ * HEAD on a local branch that a later clause of the same situation creates (C001-TS-131: "HEAD on
+ * "main" and the local branch "main" at C2"): the branch is checked out when that clause creates it.
+ */
+const pendingHead = new WeakMap<FixtureRepo, string>();
+
 /** Each clause: its pattern (anchored at the start of what is left) and what it does. */
 const CLAUSES: readonly Clause[] = [
   [
     new RegExp(`^HEAD (?:is )?on ${NAME}(?: at ${LABEL})?`),
     (repo, m) => {
+      if (!m[2] && repo.git('branch', '--list', m[1]!) === '') {
+        pendingHead.set(repo, m[1]!);
+        return;
+      }
       assert.equal(repo.git('symbolic-ref', 'HEAD'), `refs/heads/${m[1]}`);
       if (m[2]) assert.equal(repo.git('rev-parse', 'HEAD'), repo.label(m[2]).hash);
     },
   ],
-  [/^(?:which has )?no upstream branch/, (repo) => noUpstream(repo)],
+  [/^(?:(?:which has )?no|without an) upstream branch/, (repo) => noUpstream(repo)],
+  [
+    /^with no remote(?![s"])/,
+    (repo) => assert.equal(repo.git('remote'), '', 'the fixture has a remote'),
+  ],
+  [
+    new RegExp(`^an uncommitted edit of ${NAME}`),
+    (repo, m) =>
+      assert.ok(
+        repo.git('status', '--porcelain', '--', m[1]!).length > 0,
+        `"${m[1]}" has no uncommitted edit`,
+      ),
+  ],
   [new RegExp(`^a detached HEAD at ${LABEL}`), (repo, m) => S.detach(repo, m[1]!)],
   [
     /^no remote(?![s"])/,
@@ -78,7 +100,14 @@ const CLAUSES: readonly Clause[] = [
   ],
   [
     new RegExp(`^the local branch ${NAME} at ${LABEL}`),
-    (repo, m) => S.localBranch(repo, m[1]!, m[2]!),
+    (repo, m) => {
+      S.localBranch(repo, m[1]!, m[2]!);
+      if (pendingHead.get(repo) === m[1]) {
+        // The uncommitted edits stay: the branch is created at a commit with the same tree.
+        repo.git('checkout', '-q', m[1]!);
+        pendingHead.delete(repo);
+      }
+    },
   ],
   // The second branch of "the local branch "main" at M1 and "master" at M0".
   [new RegExp(`^${NAME} at ${LABEL}`), (repo, m) => S.localBranch(repo, m[1]!, m[2]!)],
@@ -99,6 +128,8 @@ function arrange(repo: FixtureRepo, text: string): void {
     apply(repo, m!);
     rest = rest.slice(m![0].length).replace(/^(?:, and |, | and )/, '');
   }
+  const pending = pendingHead.get(repo);
+  assert.equal(pending, undefined, `HEAD on "${pending}": no clause creates that branch`);
 }
 
 Given(

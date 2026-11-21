@@ -13,8 +13,8 @@ import {
 import type { AcceptanceWorld } from '../../support/world.js';
 
 // C001-TC-128: C001-TS-174 to C001-TS-187 (C001-REQ-128) on `fx-lfs` (C001-T-028). C001-TS-188
-// resumes a review and expects the moved-on notice: its steps come with the moved-on check
-// (C001-T-033); the G-12 side of it is covered by test/integration/git/clean-filter.test.ts.
+// resumes a review and expects the moved-on notice: its steps are in req-117.steps.ts (C001-T-033);
+// the G-12 side of it is covered by test/integration/git/clean-filter.test.ts.
 
 Given(
   /^after checkout the agent wrote ([\d,]+) new bytes into "([^"]+)" and staged them with `git add`, so that the index records a new pointer file whose "oid" line names the SHA-256 hash of these bytes and whose last line is "size (\d+)"$/,

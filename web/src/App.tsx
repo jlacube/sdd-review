@@ -5,9 +5,12 @@ import {
   startSessionPolling,
   type ApiClient,
   type IntakeSummary,
+  type MovedOnNotice as MovedOn,
   type SessionInfo,
 } from './api/client';
+import { MovedOnNotice } from './components/MovedOnNotice';
 import { ChangeList } from './views/ChangeList';
+import { IntakeSummary as IntakeSummaryView } from './views/IntakeSummary';
 
 /** The text shown for a failed call: the code of the error catalogue when the server sent one. */
 export function errorText(error: unknown): string {
@@ -20,6 +23,7 @@ export function App(props: { token: string | null; client?: ApiClient }) {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [summary, setSummary] = useState<IntakeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [movedOn, setMovedOn] = useState<MovedOn | null>(null);
 
   useEffect(() => {
     if (token === null && !props.client) return;
@@ -28,6 +32,11 @@ export function App(props: { token: string | null; client?: ApiClient }) {
     client
       .getIntakeSummary()
       .then((s) => alive && setSummary(s))
+      .catch((e: unknown) => alive && setError(errorText(e)));
+    // Opening the page resumes the review: the moved-on check runs once (C001-REQ-117).
+    client
+      .checkMovedOn()
+      .then((m) => alive && setMovedOn(m))
       .catch((e: unknown) => alive && setError(errorText(e)));
     const stop = startSessionPolling(
       client,
@@ -64,7 +73,9 @@ export function App(props: { token: string | null; client?: ApiClient }) {
       ) : (
         <p>Loading the review.</p>
       )}
+      <MovedOnNotice notice={session?.movedOn ?? movedOn} />
       {session && summary ? <ChangeList snapshotId={session.snapshotId} summary={summary} /> : null}
+      {summary ? <IntakeSummaryView summary={summary} /> : null}
     </main>
   );
 }

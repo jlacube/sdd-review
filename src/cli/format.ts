@@ -23,21 +23,68 @@ function chosenText(summary: IntakeSummary, namedValue: string | undefined): str
   }
 }
 
-/** The intake summary as text (C001-IF-001 Output); the lines grow with the intake tasks. */
-export function intakeSummaryText(summary: IntakeSummary, namedValue: string | undefined): string {
+const ROLE_TEXT: Readonly<Record<string, string>> = {
+  'pull-request-text': 'pull-request text',
+  'agent-plan': 'agent plan',
+  'agent-transcript': 'agent transcript',
+};
+
+/** The intent context found (C001-IF-001 Output): SDD changes with spec items, commits, named files. */
+function intentContextText(context: IntakeSummary['intentContext']): string {
+  const changes =
+    context.sddChanges.length === 0
+      ? 'no open SDD change'
+      : context.sddChanges
+          .map(
+            (c) =>
+              `SDD change ${c.id} (${c.specItems} spec items${context.sddChanges.length > 1 && c.selected ? ', selected' : ''})`,
+          )
+          .join(', ');
+  const named =
+    context.namedFiles.length === 0
+      ? 'no named file'
+      : context.namedFiles.map((f) => `${ROLE_TEXT[f.role] ?? f.role} ${f.path}`).join(', ');
+  const architecture =
+    context.documentedArchitecture === 'none'
+      ? 'no documented architecture'
+      : `documented architecture: ${context.documentedArchitecture}`;
+  return `${changes}; ${context.commits} commits; ${named}; ${architecture}`;
+}
+
+/** The test command that will run on the snapshot and where it comes from (C001-REQ-114). */
+function testCommandText(summary: IntakeSummary): string {
+  const test = summary.testCommand;
+  if (!test) return 'none';
+  return test.origin === 'developer'
+    ? `${test.command} (given with --test-command)`
+    : `${test.command} (from the review configuration of base commit ${summary.baseCommit.hash})`;
+}
+
+/** The warning line whenever the base commit is HEAD itself (C001-REQ-114, C001-IF-001 Output). */
+export const HEAD_BASE_WARNING =
+  'only uncommitted edits are reviewed, name another base with --base';
+
+/**
+ * The intake summary as text (C001-IF-001 Output). `headCommit` is the HEAD commit of the snapshot:
+ * whenever the base commit is HEAD itself, whichever rule chose it, the warning follows on the line
+ * after the rule.
+ */
+export function intakeSummaryText(
+  summary: IntakeSummary,
+  namedValue: string | undefined,
+  headCommit?: string,
+): string {
   const lines = [
     `Base commit: ${summary.baseCommit.hash} ${summary.baseCommit.subject}`.trimEnd(),
     `Chosen: ${chosenText(summary, namedValue)}`,
   ];
-  // The warning whenever the base commit is HEAD itself (C001-REQ-114). The `head` case always is;
-  // the other cases that land on HEAD need the HEAD commit, which C001-T-033 brings to the summary.
-  if (summary.baseChoice === 'head') {
-    lines.push('only uncommitted edits are reviewed, name another base with --base');
+  if (summary.baseChoice === 'head' || summary.baseCommit.hash === headCommit) {
+    lines.push(HEAD_BASE_WARNING);
   }
   lines.push(
     `Changed files: ${summary.changedFiles}; changed lines: ${summary.changedLines}`,
-    `Intent context: ${summary.intentContext.sddChanges.length} SDD changes, ${summary.intentContext.commits} commits, ${summary.intentContext.namedFiles.length} named files, documented architecture: ${summary.intentContext.documentedArchitecture}`,
-    `Test command: ${summary.testCommand ? `${summary.testCommand.command} (${summary.testCommand.origin})` : 'none'}`,
+    `Intent context: ${intentContextText(summary.intentContext)}`,
+    `Test command: ${testCommandText(summary)}`,
   );
   if (summary.sizeWarning)
     lines.push(`${summary.sizeWarning.code}: ${summary.sizeWarning.message}`);

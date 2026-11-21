@@ -14,8 +14,8 @@ import {
 import type { AcceptanceWorld } from '../../support/world.js';
 
 // C001-TC-127: C001-TS-181 to C001-TS-184 (C001-REQ-127) on `fx-crypt` (C001-T-028).
-// C001-TS-177 resumes a review and expects the moved-on notice: its steps come with the moved-on
-// check (C001-T-033); the G-12 side of it is covered by test/integration/git/clean-filter.test.ts.
+// C001-TS-177 resumes a review and expects the moved-on notice: its steps are in req-117.steps.ts
+// (C001-T-033); the G-12 side of it is covered by test/integration/git/clean-filter.test.ts.
 
 const logLines = new WeakMap<AcceptanceWorld, number>();
 
