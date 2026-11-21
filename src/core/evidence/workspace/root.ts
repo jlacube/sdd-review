@@ -158,7 +158,8 @@ export function resolveEvidenceRoot(options: ResolveRootOptions): string {
   const candidates = evidenceRootCandidates({
     platform,
     env: options.env ?? process.env,
-    home: options.home ?? homedir(),
+    home:
+      options.home ?? ((platform !== 'win32' && (options.env ?? process.env).HOME) || homedir()),
     tmpdir: options.tmpdir ?? osTmpdir(),
   });
   const refusals: string[] = [];

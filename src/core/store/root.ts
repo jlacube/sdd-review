@@ -13,7 +13,10 @@ import { fsOf, type StoreContext } from './fsutil.js';
 export function storeRoot(
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
-  home: string = homedir(),
+  // The home folder comes from the environment given (HOME on macOS and Linux), so a caller that
+  // passes an environment gets the same store as a process started with it; os.homedir() reads
+  // only the current process's own HOME.
+  home: string = (platform !== 'win32' && env.HOME) || homedir(),
 ): string {
   if (platform === 'win32') {
     const local = env.LOCALAPPDATA;

@@ -27,6 +27,15 @@ describe('store root (C001-ADR-005 item 1)', () => {
     );
   });
 
+  it('takes the home folder from the HOME of the environment given (macOS and Linux)', () => {
+    expect(storeRoot({ HOME: '/tmp/h' }, 'darwin')).toBe(
+      join('/tmp/h', 'Library', 'Application Support', 'sdd-review'),
+    );
+    expect(storeRoot({ HOME: '/tmp/h' }, 'linux')).toBe(
+      join('/tmp/h', '.local', 'share', 'sdd-review'),
+    );
+  });
+
   it('uses XDG_DATA_HOME on Linux, ~/.local/share when unset or empty', () => {
     expect(storeRoot({ XDG_DATA_HOME: '/x' }, 'linux', '/h')).toBe(join('/x', 'sdd-review'));
     expect(storeRoot({}, 'linux', '/h')).toBe(join('/h', '.local', 'share', 'sdd-review'));
