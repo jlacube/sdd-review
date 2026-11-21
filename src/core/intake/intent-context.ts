@@ -71,29 +71,46 @@ export interface IntakeIntentSources {
   readonly notices: Notice[];
 }
 
+/** The stops of the intent source reader that end intake (C001-REQ-124, C001-REQ-304, C001-REQ-326). */
+const INTAKE_STOPS = new Set(['ERR-SDD-001', 'ERR-SDD-002', 'ERR-SDD-003']);
+
+/** Logs a stop of the reader and rethrows it; any other failure passes unchanged. */
+const stopIntake =
+  (log: ContextualLog | undefined) =>
+  (error: unknown): never => {
+    if (isReviewError(error) && INTAKE_STOPS.has(error.code)) fail(log, error);
+    throw error;
+  };
+
 /**
  * Reads the SDD workspace — the `.sdd/` workspace and the neutral file — of the snapshot and of the
- * base commit (C001-REQ-111, C001-REQ-207). A neutral file of the snapshot that does not conform to
- * C001-IF-006 stops intake with ERR-SDD-003 (C001-REQ-124).
+ * base commit (C001-REQ-111, C001-REQ-207) and selects the SDD change of the review (C001-IF-007
+ * §6). A neutral file of the snapshot that does not conform to C001-IF-006 stops intake with
+ * ERR-SDD-003 (C001-REQ-124); several open SDD changes and none named stop it with ERR-SDD-001
+ * (C001-REQ-304); a named value that is not an open SDD change stops it with ERR-SDD-002
+ * (C001-REQ-326).
  */
 export async function readIntakeIntentSources(
   git: GitAccessPort,
   base: string,
   files: readonly ChangeFile[],
   log?: ContextualLog,
+  sddChange?: string,
 ): Promise<IntakeIntentSources> {
   const baseTree = await baseSourceTree(git, base);
   const snapshot = snapshotSourceTree(git, base, baseTree, files);
   const sink = new NoticeCollector(log);
   const neutral = {
-    snapshot: await readNeutralFile(snapshot, true).catch((error: unknown) =>
-      isReviewError(error) && error.code === 'ERR-SDD-003'
-        ? fail(log, error)
-        : Promise.reject(error),
-    ),
+    snapshot: await readNeutralFile(snapshot, true).catch(stopIntake(log)),
     base: await readNeutralFile(baseTree, false),
   };
-  const sdd = await readSddIntentSources({ snapshot, base: baseTree, sink, neutral });
+  const sdd = await readSddIntentSources({
+    snapshot,
+    base: baseTree,
+    sink,
+    neutral,
+    ...(sddChange !== undefined ? { sddChange } : {}),
+  }).catch(stopIntake(log));
   const documented = sdd.architecture.documented;
   return {
     sdd,

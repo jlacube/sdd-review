@@ -217,8 +217,8 @@ describe('readNeutralFile and the intent context', () => {
       snapshot,
       base,
       sink,
-      // Two open changes: the selection rules of §6 are C001-T-031's; choose the neutral one here.
-      select: (changes) => changes.find((c) => c.origin === 'neutral-file' && c.open) ?? null,
+      // Two open changes: name the neutral one by its prefixed ID (§5 item 3, §6 item 1).
+      sddChange: 'neutral:FEAT-9',
       neutral: {
         snapshot: await readNeutralFile(snapshot, true),
         base: await readNeutralFile(base, false),

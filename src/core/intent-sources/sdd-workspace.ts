@@ -21,6 +21,7 @@ import {
   textHash,
 } from './text.js';
 import type { NeutralReading } from './neutral-file.js';
+import { selectSddChange } from './select-change.js';
 import { type LinesOnBothSides, type LinesRead, type SourceTree } from './tree.js';
 
 /**
@@ -460,15 +461,6 @@ export function toSddChange(change: WorkspaceChange): SddChange {
   };
 }
 
-/**
- * The selection used until the rules of C001-IF-007 §6 are in place (C001-T-031): the only open
- * SDD change, or none.
- */
-export function soleOpenChange(changes: readonly WorkspaceChange[]): WorkspaceChange | null {
-  const open = changes.filter((c) => c.open);
-  return open.length === 1 ? open[0]! : null;
-}
-
 /** What the reader gives intake from the SDD workspace of the snapshot and the base commit. */
 export interface SddIntentSources {
   /** The snapshot holds an SDD workspace: a `.sdd/` workspace or a neutral file. */
@@ -496,8 +488,11 @@ export interface ReadSddOptions {
   readonly base: SourceTree;
   /** Notices of the snapshot side. */
   readonly sink: NoticeSink;
-  /** Chooses the SDD change (§6); the only open one when not given. */
-  readonly select?: (changes: readonly WorkspaceChange[]) => WorkspaceChange | null;
+  /**
+   * The value of `--sdd-change` (C001-IF-007 §6, `select-change.ts`); without it, the only open
+   * SDD change is selected.
+   */
+  readonly sddChange?: string;
   /** The neutral file of each side, read and validated by `readNeutralFile` (§5). */
   readonly neutral?: {
     readonly snapshot: NeutralReading | null;
@@ -578,7 +573,8 @@ export async function readSddIntentSources(options: ReadSddOptions): Promise<Sdd
     }
   }
 
-  const selected = (options.select ?? soleOpenChange)(changes);
+  // §6: both stops (ERR-SDD-001, ERR-SDD-002) throw here, before the architecture is read.
+  const selected = selectSddChange(changes, options.sddChange);
   const sddFolder = (change: WorkspaceChange | null) =>
     change?.origin === 'sdd-folder' ? change.folder : null;
   const baseSelected = selected ? baseOf(selected) : null;

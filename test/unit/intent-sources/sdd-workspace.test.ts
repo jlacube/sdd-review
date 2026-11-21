@@ -456,15 +456,19 @@ describe('readSddIntentSources: intent context and lines read on both sides', ()
     expect(sink.notices).toEqual([]);
   });
 
-  it('selects no change and reads no architecture when several changes are open', async () => {
+  it('stops with ERR-SDD-001 when several changes are open and none is named (C001-T-031)', async () => {
     const files = wellFormed();
     files['.sdd/043-promo/change.md'] = change('CHG-043');
-    const result = await readSddIntentSources({
-      snapshot: treeOf(files),
-      base: treeOf(files),
-      sink: new NoticeCollector(),
-    });
-    expect(result.selected).toBeNull();
+    const read = (sddChange?: string) =>
+      readSddIntentSources({
+        snapshot: treeOf(files),
+        base: treeOf(files),
+        sink: new NoticeCollector(),
+        ...(sddChange !== undefined ? { sddChange } : {}),
+      });
+    await expect(read()).rejects.toMatchObject({ code: 'ERR-SDD-001' });
+    const result = await read('043-promo');
+    expect(result.selected?.id).toBe('CHG-043');
     expect(result.sddChanges.map((c) => c.id)).toEqual(['CHG-042', 'CHG-043']);
     expect(result.architecture.documented).toBeNull();
   });
