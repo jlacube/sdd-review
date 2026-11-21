@@ -11,8 +11,8 @@ import { lookupAttribute, parseAttributeFile, type AttributeFile } from '../../g
  * git's built-in checkout conversion gives. No filter, `ident` or encoding conversion runs.
  * Symbolic links are written as links; on Windows, when the process cannot create links, as a
  * regular file holding the target, as a checkout with `core.symlinks=false` does. Submodule paths
- * are empty directories here (C001-T-067 fills them through G-16); links that lead into the
- * working tree are retargeted by C001-T-016.
+ * are empty directories here (C001-T-067 fills them through G-16); link targets that lead into
+ * the working tree or the git directory are handled by `WriteSettings.linkTarget` (links.ts).
  */
 
 // ---------------------------------------------------------------------------------------------
@@ -306,7 +306,22 @@ export interface WriteSettings {
   readonly symlinks: boolean;
   /** The directories of the snapshot, to give a Windows link its directory type. */
   readonly directories: ReadonlySet<string>;
+  /**
+   * Maps the target of a symbolic link of the snapshot (C001-ADR-006 §4: a target under the
+   * working-tree root gets its equivalent under the workspace root; one in the git directory
+   * throws). Without it the target is written as the blob gives it.
+   */
+  readonly linkTarget?: LinkTargetMapper;
 }
+
+/**
+ * The target a snapshot link at `path` gets for the blob text `target`, with the snapshot path it
+ * leads to (null when none), which gives a Windows link its directory type.
+ */
+export type LinkTargetMapper = (
+  path: string,
+  target: string,
+) => { readonly target: string; readonly leadsTo: string | null };
 
 /** The directories that the paths of `entries` need. */
 export function directoriesOf(entries: Iterable<{ path: string; mode: FileMode }>): Set<string> {
@@ -325,10 +340,17 @@ export async function materialise(entry: WorkspaceEntry, s: WriteSettings): Prom
   if (entry.mode === 'submodule') return { kind: 'dir' };
   const bytes = await entry.read();
   if (entry.mode === 'symlink') {
-    const target = bytes.toString('utf8');
-    if (!s.symlinks) return { kind: 'file', bytes, executable: false };
-    const resolved = posix.normalize(posix.join(posix.dirname(entry.path), target));
-    return { kind: 'symlink', target, directory: s.directories.has(resolved) };
+    const original = bytes.toString('utf8');
+    const mapped = s.linkTarget?.(entry.path, original) ?? {
+      target: original,
+      leadsTo: posix.normalize(posix.join(posix.dirname(entry.path), original)),
+    };
+    if (!s.symlinks) {
+      const text = mapped.target === original ? bytes : Buffer.from(mapped.target, 'utf8');
+      return { kind: 'file', bytes: text, executable: false };
+    }
+    const directory = mapped.leadsTo !== null && s.directories.has(mapped.leadsTo);
+    return { kind: 'symlink', target: mapped.target, directory };
   }
   return {
     kind: 'file',
@@ -439,6 +461,7 @@ export async function fillWorkspace(
     attributes: options.attributes,
     symlinks,
     directories: directoriesOf(entries),
+    linkTarget: options.linkTarget,
   };
   const concurrency = options.concurrency ?? 16;
   const budget = options.memoryBudgetBytes ?? 512 * 1024 * 1024;

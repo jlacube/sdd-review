@@ -162,7 +162,12 @@ export interface Prepared {
 /** Takes the change in through intake and the store, then prepares a workspace of the snapshot. */
 export async function prepareFromRepo(
   repo: FixtureRepo,
-  options: { symlinks?: boolean; freeSpace?: (dir: string) => Promise<bigint> } = {},
+  options: {
+    symlinks?: boolean;
+    freeSpace?: (dir: string) => Promise<bigint>;
+    /** Pass the repository and the ignore rules: links retargeted, ignored paths made available. */
+    withRepository?: boolean;
+  } = {},
 ): Promise<Prepared> {
   const scratch = tempDir('sddr-it-');
   const git = new GitAdapter({ baseEnv: repo.env() });
@@ -214,6 +219,7 @@ export async function prepareFromRepo(
       log,
       symlinks: options.symlinks,
       freeSpace: options.freeSpace,
+      ...(options.withRepository ? { repository: location, ignore } : {}),
     });
     await git.close();
     return {

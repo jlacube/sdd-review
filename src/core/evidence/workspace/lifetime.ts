@@ -4,6 +4,7 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
   rmdir,
@@ -11,8 +12,10 @@ import {
   statfs,
   writeFile,
 } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
+import type { RepositoryLocation } from '../../git/port.js';
 import type { ContextualLog } from '../../log/log.js';
+import { makeAvailable, planAvailable, type AvailableResult } from './available-paths.js';
 import {
   AttributeSet,
   directoriesOf,
@@ -22,10 +25,13 @@ import {
   UnsafeEntryPath,
   type CheckoutSettings,
   type FillResult,
+  type LinkTargetMapper,
   type WorkspaceEntry,
 } from './fill.js';
+import type { IgnoreRules } from './ignore.js';
 import { WorkspaceIndex, type Rewriter } from './index.js';
-import { failPreparation } from './root.js';
+import { decideSnapshotLink, LinkIntoGitDirectory, type SnapshotLinkRules } from './links.js';
+import { failPreparation, realPathOfPossiblyMissing } from './root.js';
 
 /**
  * Lifetime of evidence workspaces (C001-ADR-006 §1 "Layout", "Lifetime", "Disk space";
@@ -480,6 +486,16 @@ export interface PrepareOptions {
   readonly log?: ContextualLog;
   /** The command the workspace is prepared for, named by ERR-EVID-002. */
   readonly command?: string;
+  /**
+   * The developer's repository. With it, a symbolic link of the snapshot whose target leads under
+   * the working-tree root gets the equivalent target under the workspace root, and one whose
+   * target leads into the git directory fails the preparation (C001-ADR-006 §4); with `ignore`
+   * too, the ignored paths of C001-ADR-006 §3 are made available from the working tree.
+   */
+  readonly repository?: Pick<RepositoryLocation, 'workTreeRoot' | 'gitDir' | 'commonGitDir'>;
+  /** The snapshot's ignore rules: only paths they exclude are made available. */
+  readonly ignore?: IgnoreRules;
+  readonly platform?: NodeJS.Platform;
   /** Test seams. */
   readonly freeSpace?: (dir: string) => Promise<bigint>;
   readonly symlinks?: boolean;
@@ -490,6 +506,8 @@ export interface PreparedWorkspace {
   readonly handle: WorkspaceHandle;
   readonly index: WorkspaceIndex;
   readonly fill: FillResult;
+  /** The ignored paths made available (null without `repository` and `ignore`). */
+  readonly available: AvailableResult | null;
   /** Writes one snapshot path again, as the fill did (the reset of C001-IF-013 §2 item 3). */
   readonly rewrite: Rewriter;
 }
@@ -497,14 +515,38 @@ export interface PreparedWorkspace {
 function causeOf(error: unknown): string {
   if (error instanceof MissingContent)
     return `the snapshot content of ${error.path} is not available`;
-  if (error instanceof UnsafeEntryPath) return error.message;
+  if (error instanceof UnsafeEntryPath || error instanceof LinkIntoGitDirectory) {
+    return error.message;
+  }
   return (error as Error).message ?? String(error);
+}
+
+/** The target mapping of snapshot links for the workspace at `root` (C001-ADR-006 §4). */
+function snapshotLinkMapper(root: string, rules: SnapshotLinkRules): LinkTargetMapper {
+  return (path, target) => {
+    const d = decideSnapshotLink(path, target, root, rules);
+    if (d.action === 'git-directory') throw new LinkIntoGitDirectory(path, target, d.resolved);
+    if (d.action === 'point') {
+      if (d.relative === undefined) return { target: d.absolute, leadsTo: null };
+      // Written relative to the link, so that no file of the workspace names its root (a link
+      // written as a file on Windows holds this text) and a mutation copy needs no rewrite.
+      const target = posix.relative(posix.dirname(path), d.relative) || '.';
+      return { target, leadsTo: d.relative };
+    }
+    const text = rules.platform === 'win32' ? target.split('\\').join('/') : target;
+    const absolute = posix.isAbsolute(text) || /^[A-Za-z]:/.test(text);
+    return {
+      target: d.target,
+      leadsTo: absolute ? null : posix.normalize(posix.join(posix.dirname(path), text)),
+    };
+  };
 }
 
 /**
  * Prepares a run workspace of a snapshot: claims a number, checks disk space against the expected
- * size before writing, fills it, records the index and sets it free. Any failure removes what was
- * written and is ERR-EVID-002 with its cause.
+ * size (snapshot files and the directories made available) before writing, fills it, makes the
+ * ignored paths of C001-ADR-006 §3 available, records the index and sets it free. Any failure
+ * removes what was written and is ERR-EVID-002 with its cause.
  */
 export async function prepareWorkspace(options: PrepareOptions): Promise<PreparedWorkspace> {
   const keys = workspaceKeys(options.repositoryKey, options.snapshotId);
@@ -522,20 +564,63 @@ export async function prepareWorkspace(options: PrepareOptions): Promise<Prepare
   }
   options.registry?.track(handle);
   let tooLittle: string | null = null;
+  const platform = options.platform ?? process.platform;
   try {
+    const root = await realpath(handle.root);
+    const real = (p: string) => (p ? realPathOfPossiblyMissing(p, platform) : '');
+    const repository = options.repository
+      ? {
+          workTreeRoot: real(options.repository.workTreeRoot),
+          forbidden: [
+            real(options.repository.gitDir),
+            real(options.repository.commonGitDir),
+          ].filter((p) => p !== ''),
+        }
+      : null;
+    const linkTarget: LinkTargetMapper | undefined = repository
+      ? snapshotLinkMapper(root, { platform, ...repository, realPath: real })
+      : undefined;
+    const availablePlan =
+      repository && repository.workTreeRoot && options.ignore
+        ? await planAvailable({
+            workTreeRoot: repository.workTreeRoot,
+            entries: options.entries,
+            ignore: options.ignore,
+            platform,
+            concurrency: options.concurrency,
+          })
+        : null;
+    const extraBytes = availablePlan?.plan?.totalBytes ?? 0;
     const fill = await fillWorkspace(handle.root, options.entries, {
       checkout: options.checkout,
       attributes: options.attributes,
       symlinks: options.symlinks,
       concurrency: options.concurrency,
+      linkTarget,
       beforeWrite: async (total) => {
+        // The expected size counts the snapshot files and the directories made available.
         const free = await (options.freeSpace ?? freeSpaceOf)(handle.root);
-        if (!hasRoomFor(total, free)) {
-          tooLittle = `not enough disk space for the evidence workspace: ${total} bytes and 20 % margin needed, ${free} bytes free`;
+        if (!hasRoomFor(total + extraBytes, free)) {
+          tooLittle = `not enough disk space for the evidence workspace: ${total + extraBytes} bytes and 20 % margin needed, ${free} bytes free`;
           throw new Error(tooLittle);
         }
       },
     });
+    const available =
+      availablePlan && repository
+        ? await makeAvailable(availablePlan, root, {
+            rules: {
+              platform,
+              forbidden: repository.forbidden,
+              redirects: [{ root: repository.workTreeRoot, label: 'working-tree' }],
+              realPath: real,
+              destinationRoot: root,
+            },
+            platform,
+            symlinks: !fill.symlinksAsFiles,
+            concurrency: options.concurrency,
+          })
+        : null;
     const directories = directoriesOf(options.entries);
     const index = await WorkspaceIndex.build(handle.root, fill.written, directories);
     await setState(handle, 'free');
@@ -545,13 +630,14 @@ export async function prepareWorkspace(options: PrepareOptions): Promise<Prepare
       attributes: options.attributes,
       symlinks: !fill.symlinksAsFiles,
       directories,
+      linkTarget,
     };
     const rewrite: Rewriter = async (path) => {
       const entry = byPath.get(path);
       if (!entry) throw new Error(`${path} is not a path of the snapshot`);
       return materialise(entry, settings);
     };
-    return { handle, index, fill, rewrite };
+    return { handle, index, fill, available, rewrite };
   } catch (error) {
     if (options.registry) await options.registry.release(handle);
     else await removeWorkspace(handle);
