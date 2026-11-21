@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Provider keys — environment variables and per-OS credential-store readers
 milestone: C001-M-06
-status: in-progress
+status: done
 depends_on: [C001-T-085]
 implements: [C001-REQ-809, C001-REQ-820]
 satisfies_ac: [C001-AC-809.1, C001-AC-820.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-825, C001-TS-826, C001-TS-827, C001-TS-858, C001-TS-861, C
 components: [C001-COMP-015, C001-COMP-006]
 risk_refs: [C001-RISK-018, C001-RISK-002]
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 6e20b35, completed_at: 2026-11-21, notes: "Keys from env + Windows/macOS/Linux stores (built-in D-Bus client, no unlock); 145 model unit tests, store integration on all OS in CI; TS-827, TS-860 pass, others await T-087..T-090; combined tree verified (1,496 tests, 93 CI scenarios); CI green on 4 runners at e3d4fa0; shared wiring in fc1a355; PR at M-02 merge" }
 ---
 # C001-T-086 — Provider keys: environment variables and per-OS credential-store readers
 

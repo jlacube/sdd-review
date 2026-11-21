@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Selecting the SDD change
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-029]
 implements: [C001-REQ-302, C001-REQ-303, C001-REQ-304, C001-REQ-326]
 satisfies_ac: [C001-AC-302.1, C001-AC-303.1, C001-AC-304.1, C001-AC-326.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-303, C001-TS-304, C001-TS-305, C001-TS-306, C001-TS-355]
 components: [C001-COMP-005, C001-COMP-001]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: a8fe28d, completed_at: 2026-11-21, notes: "SDD change selection, refusals stop reopen; TS-306/353/355 pass, TS-303..305/354 await T-044; D-028, D-029; combined tree verified (1,496 tests, 93 CI scenarios); CI green on 4 runners at e3d4fa0; shared wiring in fc1a355; PR at M-02 merge" }
 ---
 # C001-T-031 — Selecting the SDD change
 
