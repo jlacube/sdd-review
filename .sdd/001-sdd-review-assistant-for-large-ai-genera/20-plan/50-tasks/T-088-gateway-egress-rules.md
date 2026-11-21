@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Gateway egress rules — locality, cloud opt-in, excluded paths and announcement
 milestone: C001-M-06
-status: todo
+status: in-progress
 depends_on: [C001-T-086, C001-T-087]
 implements: [C001-REQ-806, C001-REQ-808, C001-REQ-814, C001-REQ-815, C001-NFR-011, C001-NFR-012]
 satisfies_ac: [C001-AC-806.1, C001-AC-808.1, C001-AC-814.1, C001-AC-815.1]

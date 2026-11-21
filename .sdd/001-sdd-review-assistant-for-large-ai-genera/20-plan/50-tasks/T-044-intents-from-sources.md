@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intent mapper — intents from requirements, commits and plan items
 milestone: C001-M-03
-status: todo
+status: in-progress
 depends_on: [C001-T-031, C001-T-032, C001-T-027]
 implements: [C001-REQ-302, C001-REQ-305, C001-REQ-313, C001-REQ-314]
 satisfies_ac: [C001-AC-302.1, C001-AC-305.1, C001-AC-313.1, C001-AC-314.1]
