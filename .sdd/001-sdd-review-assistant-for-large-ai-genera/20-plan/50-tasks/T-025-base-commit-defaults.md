@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Default base commit and refusals of unusable bases
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-008]
 implements: [C001-REQ-103, C001-REQ-104, C001-REQ-105, C001-REQ-106]
 satisfies_ac: [C001-AC-103.1, C001-AC-104.1, C001-AC-105.1, C001-AC-106.1]

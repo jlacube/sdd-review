@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Configuration loader — base-commit configuration, floor and effective policy
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-006, C001-T-003]
 implements: [C001-REQ-426, C001-REQ-425, C001-REQ-820, C001-REQ-819]
 satisfies_ac: [C001-AC-426.1, C001-AC-425.1, C001-AC-820.1, C001-AC-819.1]

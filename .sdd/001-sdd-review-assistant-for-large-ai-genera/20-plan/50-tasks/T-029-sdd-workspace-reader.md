@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Intent source reader — `.sdd/` workspace, spec items and documented architecture
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-008]
 implements: [C001-REQ-111, C001-REQ-123, C001-REQ-207, C001-REQ-223]
 satisfies_ac: [C001-AC-111.1, C001-AC-123.1, C001-AC-207.1, C001-AC-223.1]
