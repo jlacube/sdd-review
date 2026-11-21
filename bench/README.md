@@ -89,6 +89,7 @@ npm run bench -- validate-set          # structure of benchmark-set.json (draft 
 npm run bench -- count-lines <dir>     # lines of the tracked files of a repository
 npm run bench -- measure <name> -- <command ...>   # run, time, sample, write bench/results
 npm run bench -- spike-parse <bench-id|all> [--runs 5]   # C001-T-014 parse spike, spikes/parse/RESULTS.md
+npm run bench -- spike-evidence --dry-run               # C001-T-020 workspace harness, spikes/evidence/RESULTS.md
 npm run bench -- spike-ui [<bench-id>|largest|all] [--browser chrome,edge,firefox]   # C001-T-023 UI spike, spikes/ui/RESULTS.md
 ```
 

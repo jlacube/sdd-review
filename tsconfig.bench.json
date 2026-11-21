@@ -11,6 +11,7 @@
   "include": [
     "bench/**/*.ts",
     "spikes/parse/**/*.ts",
+    "spikes/evidence/**/*.ts",
     "scripts/study/**/*.ts",
     "test/fixtures/study/**/*.ts",
     "spikes/ui/*.ts"

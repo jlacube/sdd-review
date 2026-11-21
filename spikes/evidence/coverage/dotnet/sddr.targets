@@ -1,0 +1,42 @@
+<!--
+  Spike C001-T-020 (spike-grade, never shipped): MSBuild targets of the .NET per-test coverage
+  prototype (C001-ADR-007 §2, C#/.NET row). Imported into every project of the test command's
+  build through the environment variable CustomAfterMicrosoftCommonTargets; MSBuild reads the other
+  SDDR_* environment variables as properties. C001-T-059 replaces it.
+
+  - After the build of a test project (IsTestProject), AltCover instruments its output directory
+    in place, limited to the assemblies of the snapshot's projects (SDDR_ALTCOVER_ASSEMBLIES, an
+    inclusion filter) and to the changed source files (SDDR_ALTCOVER_FILES), with call-context
+    tracking on the test attributes of xUnit, NUnit and MSTest. The OpenCover report with tracked
+    methods goes to SDDR_AUX_DIR. The save option (runner mode) is needed: in classic mode
+    AltCover 9.0.189 wrote visit counts but no tracked-method references. The output directory is
+    written next to the report, and the harness runs the collect step of altcover runner on it
+    after the test command.
+  - The VSTest TRX logger writes the test outcomes to SDDR_AUX_DIR (VSTestLogger), joined with the
+    tracked methods by fully qualified name.
+  Not prototyped: chaining to a CustomAfterMicrosoftCommonTargets value already set; the .NET
+  startup hook load monitor (DOTNET_STARTUP_HOOKS).
+-->
+<Project>
+  <PropertyGroup Condition="'$(SDDR_AUX_DIR)' != ''">
+    <VSTestLogger>trx%3BLogFileName=$(SDDR_AUX_DIR)\trx\$(MSBuildProjectName)-$(TargetFramework).trx</VSTestLogger>
+  </PropertyGroup>
+
+  <Target
+    Name="SddrAltCoverInstrument"
+    AfterTargets="Build"
+    Condition="'$(SDDR_ALTCOVER)' != '' and '$(IsTestProject)' == 'true'">
+    <PropertyGroup>
+      <_SddrReport>$(SDDR_AUX_DIR)\altcover\$(MSBuildProjectName)-$(TargetFramework).xml</_SddrReport>
+      <_SddrOut>$(TargetDir.TrimEnd('\').TrimEnd('/'))</_SddrOut>
+    </PropertyGroup>
+    <MakeDir Directories="$(SDDR_AUX_DIR)\altcover" />
+    <WriteLinesToFile
+      File="$(SDDR_AUX_DIR)\altcover\$(MSBuildProjectName)-$(TargetFramework).dir"
+      Lines="$(_SddrOut)"
+      Overwrite="true" />
+    <Exec
+      Command="&quot;$(SDDR_ALTCOVER)&quot; --inplace --save --linecover -i &quot;$(_SddrOut)&quot; -o &quot;$(SDDR_AUX_DIR)\altcover\saved-$(MSBuildProjectName)-$(TargetFramework)&quot; -r &quot;$(_SddrReport)&quot; &quot;--assemblyFilter=?$(SDDR_ALTCOVER_ASSEMBLIES)&quot; &quot;--fileFilter=?$(SDDR_ALTCOVER_FILES)&quot; --callContext=[Fact] --callContext=[Theory] --callContext=[Test] --callContext=[TestCase] --callContext=[TestMethod] --callContext=[DataTestMethod]"
+      StandardOutputImportance="low" />
+  </Target>
+</Project>

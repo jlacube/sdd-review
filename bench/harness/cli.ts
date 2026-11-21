@@ -13,6 +13,13 @@ import {
   writeSpikeReport,
 } from '../../spikes/parse/runner.js';
 import {
+  dryRun as spikeEvidenceDryRun,
+  parseSpikeEvidenceArgs,
+  runBuildW6,
+  runSpikeEvidence,
+  SPIKE_EVIDENCE_USAGE,
+} from '../../spikes/evidence/runner.js';
+import {
   outcomeLine,
   parseSpikeUiArgs,
   runUiSpike,
@@ -38,6 +45,7 @@ suites:
   count-lines <dir>            count the lines of the files a git repository tracks
   measure <name> -- <cmd...>   run a command, write bench/results/<name>-<time>.json and .md
 ${SPIKE_USAGE}
+${SPIKE_EVIDENCE_USAGE}
 ${SPIKE_UI_USAGE}
 `;
 
@@ -183,6 +191,37 @@ ${USAGE}`);
         }
       }
       return allPass ? 0 : 1;
+    }
+    case 'spike-evidence': {
+      let parsed;
+      try {
+        parsed = parseSpikeEvidenceArgs(rest);
+      } catch (error) {
+        console.error(`spike-evidence: ${(error as Error).message}
+
+${USAGE}`);
+        return 2;
+      }
+      if (parsed.mode === 'dry-run') {
+        const { lines, problems } = spikeEvidenceDryRun(repoRoot, benchRoot);
+        for (const l of lines) console.log(l);
+        console.log(
+          `spike-evidence --dry-run: ok (${problems} target(s) not ready; nothing was run)`,
+        );
+        return 0;
+      }
+      if (parsed.mode === 'build-w6') {
+        const r = runBuildW6(parsed, benchRoot);
+        console.log(JSON.stringify(r, null, 2));
+        return 0;
+      }
+      const { report, jsonPath, mdPath } = await runSpikeEvidence(parsed, repoRoot, benchRoot);
+      console.log(
+        `${report.target} ${report.label}: ${formatDuration(report.wallClockMs)}` +
+          `${report.validForMeasurement ? '' : ' (smoke run, not a measurement)'}; ${jsonPath}, ${mdPath}`,
+      );
+      for (const n of report.notes) console.log(`note: ${n}`);
+      return 0;
     }
     default:
       console.error(USAGE);
