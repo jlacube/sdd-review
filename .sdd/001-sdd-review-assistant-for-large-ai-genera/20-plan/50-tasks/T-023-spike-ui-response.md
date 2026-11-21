@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Spike — hunk list and file context response time
 milestone: C001-M-01
-status: todo
+status: blocked
 depends_on: [C001-T-012, C001-T-013]
 implements: []
 satisfies_ac: [C001-AC-909.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-920, C001-TC-005]
 components: [C001-COMP-019]
 risk_refs: [C001-RISK-010]
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: null, completed_at: null, notes: "blocked: Harness built at c03fbf9 (CI green); measurement waits for the owner's go-ahead to keep the reference machine idle (npm run bench -- spike-ui)" }
 ---
 # C001-T-023 — Spike: hunk list and file context response time
 
