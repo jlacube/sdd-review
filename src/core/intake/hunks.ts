@@ -97,9 +97,9 @@ export function cutHunks(path: string, base: Buffer | null, current: Buffer | nu
 }
 
 /**
- * The hunk records of a snapshot for one file. Attribution to commits, test hunks and move partners
- * are filled by later tasks (C001-T-027, C001-T-047 and the test-hunk rule): `commits` is empty,
- * `uncommitted` and `isTestHunk` are false until then.
+ * The hunk records of a snapshot for one file. Attribution to commits is filled by `attribution.ts`
+ * (C001-T-027); test hunks and move partners by later tasks (C001-T-047 and the test-hunk rule):
+ * `commits` is empty, `uncommitted` and `isTestHunk` are false until then.
  */
 export function identifyHunks(snapshotId: string, cut: readonly CutHunk[]): Hunk[] {
   return cut.map((hunk) => ({

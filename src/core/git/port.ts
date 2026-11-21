@@ -57,10 +57,24 @@ export interface ChangedFile {
   readonly currentContent: Buffer | null;
 }
 
-/** G-09: the commit that added or deleted a line, or `null` for "uncommitted". */
+/**
+ * G-09: the commit that added or deleted a line, or `null` for "uncommitted"; `added` in snapshot
+ * order, `deleted` in base order.
+ */
 export interface LineAttribution {
   readonly added: ReadonlyArray<string | null>;
   readonly deleted: ReadonlyArray<string | null>;
+}
+
+/**
+ * G-09: the snapshot's two sides of the file (C001-IF-012 G-07), so that the lines attributed are
+ * those of the snapshot's hunks even when the working tree moves on during intake. `basePath` is
+ * the previous path of a renamed file (the rename may be uncommitted), else the path.
+ */
+export interface AttributionSides {
+  readonly basePath: string;
+  readonly baseContent: Buffer | null;
+  readonly currentContent: Buffer | null;
 }
 
 /** G-10. */
@@ -138,8 +152,17 @@ export interface GitAccessPort {
   changeAgainst(base: string): Promise<readonly ChangedFile[]>;
   /** G-08. */
   readBlob(commit: string, path: string): Promise<Buffer | null>;
-  /** G-09. */
-  attributeLines(base: string, head: string, path: string): Promise<LineAttribution>;
+  /**
+   * G-09: one entry per added and per deleted line of the histogram diff of the base side and the
+   * snapshot side (C001-ADR-009 §1), in that diff's order. Without `sides`, the base side is the
+   * base commit's file and the snapshot side the working-tree file.
+   */
+  attributeLines(
+    base: string,
+    head: string,
+    path: string,
+    sides?: AttributionSides,
+  ): Promise<LineAttribution>;
   /** G-10. */
   userIdentity(): Promise<UserIdentity>;
   /** G-11. */

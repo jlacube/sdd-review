@@ -3,8 +3,10 @@ import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { ReviewError } from '../errors/review-error.js';
 import type { ContextualLog } from '../log/log.js';
 import { lookupAttribute, parseAttributeFile, type AttributeFile } from './attributes.js';
-import { matchLines, splitLines } from './line-diff.js';
+import { attributeHistory, type HistoryCommit } from './line-attribution.js';
+import { splitLines } from './line-diff.js';
 import type {
+  AttributionSides,
   ChangedFile,
   CommitInfo,
   DefaultBranch,
@@ -99,6 +101,13 @@ function configView(values: Map<string, string[]>): ConfigView {
   };
 }
 
+/** G-09: the commits of a range, oldest first, and the paths each single-parent commit changed. */
+interface RangeHistory {
+  readonly commits: ReadonlyArray<{ readonly hash: string; readonly parents: readonly string[] }>;
+  readonly inRange: ReadonlySet<string>;
+  readonly changed: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
 const last = (values: readonly string[] | undefined) => values?.[values.length - 1];
 
 /** One repository read by the adapter: the repository of G-01 or a submodule repository (G-16). */
@@ -179,6 +188,7 @@ export class GitAdapter implements GitAccessPort {
   private readonly submodules = new Map<string, { repo: Repo; commit: string }>();
   private readonly hashCache = new HashCache();
   private attributeFiles = new Map<string, Promise<AttributeFile[]>>();
+  private readonly ranges = new Map<string, Promise<RangeHistory>>();
 
   constructor(private readonly options: AdapterOptions = {}) {
     const env = { ...(options.baseEnv ?? process.env) };
@@ -615,94 +625,157 @@ export class GitAdapter implements GitAccessPort {
     );
   }
 
-  /** G-09. */
-  attributeLines(base: string, head: string, path: string): Promise<LineAttribution> {
+  /** The commits of a range with their parents and, for single-parent commits, the paths changed. */
+  private rangeHistory(repo: Repo, base: string, head: string): Promise<RangeHistory> {
+    const key = `${base}..${head}`;
+    let known = this.ranges.get(key);
+    if (!known) {
+      known = (async () => {
+        const list = await repo.run('rev-list', ['--topo-order', '--reverse', '--parents', key]);
+        const commits = list.stdout
+          .toString('utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            const [hash, ...parents] = line.trim().split(' ');
+            return { hash: hash!, parents };
+          });
+        const changed = new Map<string, Set<string>>();
+        if (commits.some((c) => c.parents.length === 1)) {
+          const log = await repo.run('log', [
+            '--no-merges',
+            '--no-renames',
+            '--no-color',
+            '--no-show-signature',
+            '-z',
+            '--name-only',
+            '--format=%x01%H',
+            key,
+            '--',
+          ]);
+          for (const chunk of log.stdout.toString('utf8').split('\x01').slice(1)) {
+            const [hash, ...files] = chunk.split('\0');
+            if (!hash) continue;
+            changed.set(
+              hash.trim(),
+              new Set(files.map((f) => f.replace(/^\n+/, '')).filter(Boolean)),
+            );
+          }
+        }
+        return { commits, inRange: new Set(commits.map((c) => c.hash)), changed };
+      })();
+      known.catch(() => this.ranges.delete(key));
+      this.ranges.set(key, known);
+    }
+    return known;
+  }
+
+  /** The renames of `commit` against `parent`: new path → old path. */
+  private async renamesOf(
+    repo: Repo,
+    parent: string,
+    commit: string,
+  ): Promise<Map<string, string>> {
+    const r = await repo.run('diff-tree', [
+      '-r',
+      '-z',
+      '-M',
+      '--no-commit-id',
+      '--name-status',
+      parent,
+      commit,
+      '--',
+    ]);
+    const tokens = r.stdout.toString('utf8').split('\0');
+    const renames = new Map<string, string>();
+    for (let k = 0; k < tokens.length;) {
+      const status = tokens[k++] ?? '';
+      if (status === '') continue;
+      if (status.startsWith('R') || status.startsWith('C')) {
+        const from = tokens[k++]!;
+        const to = tokens[k++]!;
+        if (status.startsWith('R')) renames.set(to, from);
+      } else k++;
+    }
+    return renames;
+  }
+
+  /** G-09: the versions of the file along the range, then `attributeHistory`. */
+  attributeLines(
+    base: string,
+    head: string,
+    path: string,
+    sides?: AttributionSides,
+  ): Promise<LineAttribution> {
     return this.guard('attribute-lines', { base, head, path }, async () => {
       const repo = this.repo();
       const baseHash = await this.commitId(repo, base);
       const headHash = await this.commitId(repo, head);
-      const log = await repo.run('log', [
-        '--follow',
-        '-M',
-        '--no-color',
-        '--no-show-signature',
-        '-z',
-        '--name-status',
-        '--format=%x01%H',
-        `${baseHash}..${headHash}`,
-        '--',
-        `:(literal)${path}`,
-      ]);
-      // `--follow` does not combine with `--reverse`: the list is reversed here.
-      const chain: Array<{ hash: string; status: string; path: string; from: string | null }> = [];
-      for (const chunk of log.stdout.toString('utf8').split('\x01').slice(1)) {
-        const [hash, ...rest] = chunk.split('\0');
-        const tokens = rest.map((t) => t.replace(/^\n+/, '')).filter(Boolean);
-        const status = tokens[0] ?? '';
-        if (!hash || !status) continue;
-        const renamed = status.startsWith('R') || status.startsWith('C');
-        chain.push({
-          hash,
-          status: status[0]!,
-          path: renamed ? tokens[2]! : tokens[1]!,
-          from: renamed ? tokens[1]! : null,
-        });
-      }
-      chain.reverse();
+      const range = await this.rangeHistory(repo, baseHash, headHash);
+      const exists = async (commit: string, file: string) =>
+        (await repo.blobAt(commit, file)) !== null;
 
-      let basePath: string | null = path;
-      if (chain.length > 0) {
-        const first = chain[0]!;
-        basePath = first.status === 'A' ? null : (first.from ?? first.path);
+      // The file's path at each commit, from HEAD back through renames (newest first).
+      let headPath = path;
+      if (sides && sides.basePath !== path && !(await exists(headHash, path))) {
+        if (await exists(headHash, sides.basePath)) headPath = sides.basePath;
       }
-      const baseBytes = basePath ? await repo.blobAt(baseHash, basePath) : null;
-
-      const versions: Array<{ by: string | null; bytes: Buffer }> = [];
-      for (const step of chain) {
-        const bytes = step.status === 'D' ? null : await repo.blobAt(step.hash, step.path);
-        versions.push({ by: step.hash, bytes: bytes ?? Buffer.alloc(0) });
+      const names = new Map<string, string>([[headHash, headPath]]);
+      for (let k = range.commits.length - 1; k >= 0; k--) {
+        const { hash, parents } = range.commits[k]!;
+        const name = names.get(hash) ?? headPath;
+        for (const parent of parents) {
+          if (names.has(parent)) continue;
+          let parentName = name;
+          const changed = parents.length === 1 ? range.changed.get(hash) : undefined;
+          if (!(changed && !changed.has(name)) && !(await exists(parent, name))) {
+            parentName = (await this.renamesOf(repo, parent, hash)).get(name) ?? name;
+          }
+          names.set(parent, parentName);
+        }
       }
-      versions.push({
-        by: null,
-        bytes: (await this.workingContent(repo, path)) ?? Buffer.alloc(0),
-      });
 
-      if ((baseBytes && looksBinary(baseBytes)) || versions.some((v) => looksBinary(v.bytes))) {
+      const linesAt = async (commit: string, file: string): Promise<string[]> => {
+        const bytes = await repo.blobAt(commit, file);
+        return bytes && !looksBinary(bytes) ? splitLines(bytes) : [];
+      };
+      const commits: HistoryCommit[] = [];
+      const boundary = new Map<string, string[]>();
+      for (const { hash, parents } of range.commits) {
+        const name = names.get(hash) ?? headPath;
+        const changed = parents.length === 1 ? range.changed.get(hash) : undefined;
+        const unchanged =
+          changed !== undefined && !changed.has(name) && names.get(parents[0]!) === name;
+        commits.push({ hash, parents, lines: unchanged ? null : await linesAt(hash, name) });
+        for (const parent of parents) {
+          if (!range.inRange.has(parent) && !boundary.has(parent)) {
+            boundary.set(parent, await linesAt(parent, names.get(parent) ?? name));
+          }
+        }
+      }
+      if (!range.inRange.has(headHash) && !boundary.has(headHash)) {
+        boundary.set(headHash, await linesAt(headHash, headPath));
+      }
+
+      let baseBytes: Buffer | null;
+      let currentBytes: Buffer | null;
+      if (sides) {
+        baseBytes = sides.baseContent;
+        currentBytes = sides.currentContent;
+      } else {
+        baseBytes = await repo.blobAt(baseHash, names.get(baseHash) ?? path);
+        currentBytes = await this.workingContent(repo, path);
+      }
+      if ((baseBytes && looksBinary(baseBytes)) || (currentBytes && looksBinary(currentBytes))) {
         return { added: [], deleted: [] };
       }
-
-      const baseLines = baseBytes ? splitLines(baseBytes) : [];
-      interface Line {
-        readonly text: string;
-        readonly baseIndex: number;
-        readonly by: string | null;
-      }
-      let current: Line[] = baseLines.map((text, baseIndex) => ({ text, baseIndex, by: null }));
-      const deletedBy = new Map<number, string | null>();
-      for (const version of versions) {
-        const next = splitLines(version.bytes);
-        const matched = matchLines(
-          current.map((l) => l.text),
-          next,
-        );
-        const kept = new Set<number>();
-        const updated: Line[] = next.map((text, j) => {
-          const from = matched[j]!;
-          if (from >= 0) {
-            kept.add(from);
-            return current[from]!;
-          }
-          return { text, baseIndex: -1, by: version.by };
-        });
-        current.forEach((line, i) => {
-          if (!kept.has(i) && line.baseIndex >= 0) deletedBy.set(line.baseIndex, version.by);
-        });
-        current = updated;
-      }
-      return {
-        added: current.filter((l) => l.baseIndex < 0).map((l) => l.by),
-        deleted: [...deletedBy.entries()].sort((a, b) => a[0] - b[0]).map(([, by]) => by),
-      };
+      return attributeHistory({
+        baseLines: baseBytes ? splitLines(baseBytes) : [],
+        commits,
+        boundary,
+        head: headHash,
+        currentLines: currentBytes ? splitLines(currentBytes) : [],
+      });
     });
   }
 

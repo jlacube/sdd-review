@@ -1,10 +1,9 @@
 /**
- * Line matching used by G-09 (line attribution) and by the rename detection of G-07. A plain
- * Myers O(ND) comparison on interned lines, with the common prefix and suffix cut off first and a
- * bound on the edit distance: beyond it the lines count as all replaced (no match), which only
- * makes attribution coarser, never wrong about which lines exist.
- *
- * This is not the histogram diff that fixes the hunks of a snapshot (C001-ADR-009, C001-T-008).
+ * Line splitting, and the Myers O(ND) comparison that the histogram diff falls back to in regions
+ * without rare lines (C001-ADR-009 §1, `src/core/intake/diff/histogram.ts`). The common prefix and
+ * suffix are cut off first and the edit distance is bounded: beyond the bound the lines count as all
+ * replaced (no match). Line attribution (G-09) compares versions with the histogram diff itself
+ * (`line-attribution.ts`, C001-T-027), so that its lines are those of the snapshot's hunks.
  */
 
 export const MAX_EDIT_DISTANCE = 2000;
