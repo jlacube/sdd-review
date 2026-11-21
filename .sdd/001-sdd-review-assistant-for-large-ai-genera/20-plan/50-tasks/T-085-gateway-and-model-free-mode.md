@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Model gateway — model use decision, model-free mode and reduced labels
 milestone: C001-M-06
-status: in-progress
+status: done
 depends_on: [C001-T-035, C001-T-009]
 implements: [C001-REQ-801, C001-REQ-802, C001-REQ-803, C001-REQ-804, C001-REQ-819]
 satisfies_ac: [C001-AC-801.1, C001-AC-802.1, C001-AC-803.1, C001-AC-804.1, C001-AC-819.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-801, C001-TS-802, C001-TS-803, C001-TS-804, C001-TS-805, C
 components: [C001-COMP-015]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 97aedc1, completed_at: 2026-11-21, notes: "Gateway: per-request use decision, model-free mode, reduced labels, network lint rule; 67 unit tests; TS-803, TS-856 pass, others await T-087..T-090/T-095/T-097; fail-safe until egress+adapter; combined tree verified (1,373 tests, 80 CI scenarios); CI green on 4 runners at a17e785; shared wiring in 9467acb; PR at M-02 merge" }
 ---
 # C001-T-085 — Model gateway: model use decision, model-free mode and reduced labels
 

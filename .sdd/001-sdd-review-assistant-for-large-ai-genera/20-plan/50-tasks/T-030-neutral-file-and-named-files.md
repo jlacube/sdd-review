@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Neutral intent-and-architecture file and named files
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-029]
 implements: [C001-REQ-112, C001-REQ-113, C001-REQ-124]
 satisfies_ac: [C001-AC-112.1, C001-AC-113.1, C001-AC-124.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-128, C001-TS-129, C001-TS-155]
 components: [C001-COMP-005, C001-COMP-001]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: f419c8a, completed_at: 2026-11-21, notes: "Neutral file + named files; TS-125/127/128/129/154/155 pass; D-027 (TS-256 nopaths row); combined tree verified (1,373 tests, 80 CI scenarios); CI green on 4 runners at a17e785; shared wiring in 9467acb; PR at M-02 merge" }
 ---
 # C001-T-030 — Neutral intent-and-architecture file and named files
 

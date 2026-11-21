@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Selecting the SDD change
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-029]
 implements: [C001-REQ-302, C001-REQ-303, C001-REQ-304, C001-REQ-326]
 satisfies_ac: [C001-AC-302.1, C001-AC-303.1, C001-AC-304.1, C001-AC-326.1]

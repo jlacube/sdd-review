@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Provider keys — environment variables and per-OS credential-store readers
 milestone: C001-M-06
-status: todo
+status: in-progress
 depends_on: [C001-T-085]
 implements: [C001-REQ-809, C001-REQ-820]
 satisfies_ac: [C001-AC-809.1, C001-AC-820.1]

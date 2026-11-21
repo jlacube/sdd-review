@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Empty change, binary files and the supported-size warning
 milestone: C001-M-02
-status: todo
+status: in-progress
 depends_on: [C001-T-008, C001-T-012]
 implements: [C001-REQ-107, C001-REQ-108, C001-REQ-121, C001-REQ-122]
 satisfies_ac: [C001-AC-107.1, C001-AC-108.1, C001-AC-121.1, C001-AC-122.1]

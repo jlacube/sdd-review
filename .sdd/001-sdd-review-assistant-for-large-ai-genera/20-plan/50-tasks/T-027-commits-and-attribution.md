@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Commits of the change and hunk attribution
 milestone: C001-M-02
-status: in-progress
+status: done
 depends_on: [C001-T-008]
 implements: [C001-REQ-109, C001-REQ-110]
 satisfies_ac: [C001-AC-109.1, C001-AC-110.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-118, C001-TS-119, C001-TS-120, C001-TS-121, C001-TS-122, C
 components: [C001-COMP-004, C001-COMP-003]
 risk_refs: []
 estimate: M
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 9bf5be1, completed_at: 2026-11-21, notes: "Commits + hunk attribution on the histogram diff (merges, renames, uncommitted); 16 unit tests; TS-108, TS-118..123 pass; combined tree verified (1,373 tests, 80 CI scenarios); CI green on 4 runners at a17e785; shared wiring in 9467acb; PR at M-02 merge" }
 ---
 # C001-T-027 — Commits of the change and hunk attribution
 
