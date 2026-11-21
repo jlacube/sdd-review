@@ -6,6 +6,12 @@ import { formatBytes, formatDuration, writeReport } from './report.js';
 import { runCommand } from './run.js';
 import { runSelftest } from './selftest.js';
 import { validateSetFile } from './set.js';
+import {
+  parseSpikeArgs,
+  runParseSpike,
+  SPIKE_USAGE,
+  writeSpikeReport,
+} from '../../spikes/parse/runner.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, '..', '..');
@@ -21,6 +27,7 @@ suites:
                                benchmark set or the G-8 pool (study/g8/pool.json once it exists)
   count-lines <dir>            count the lines of the files a git repository tracks
   measure <name> -- <cmd...>   run a command, write bench/results/<name>-<time>.json and .md
+${SPIKE_USAGE}
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -89,6 +96,37 @@ async function main(argv: string[]): Promise<number> {
           `${formatBytes(report.memory.peakResidentBytes)}, exit ${report.command?.exitCode}; ${jsonPath}`,
       );
       return report.command?.exitCode === 0 ? 0 : 1;
+    }
+    case 'spike-parse': {
+      let parsed;
+      try {
+        parsed = parseSpikeArgs(
+          rest,
+          path.join(repoRoot, 'bench', 'set', 'benchmark-set.json'),
+          benchRoot,
+        );
+      } catch (error) {
+        console.error(`spike-parse: ${(error as Error).message}
+
+${USAGE}`);
+        return 2;
+      }
+      let allPass = true;
+      for (const target of parsed.targets) {
+        const report = await runParseSpike(target, parsed.options);
+        const { jsonPath, mdPath } = writeSpikeReport(
+          report,
+          path.join(repoRoot, 'bench', 'results'),
+        );
+        const v = report.verdict;
+        console.log(
+          `${target.id}: ${report.result.toUpperCase()}, max ${formatDuration(v.maxWallClockMs)} ` +
+            `(margin ${v.timeMarginPct} %), peak ${formatBytes(v.maxPeakResidentBytes)} ` +
+            `(margin ${v.memoryMarginPct} %); ${jsonPath}, ${mdPath}`,
+        );
+        allPass &&= report.result === 'pass';
+      }
+      return allPass ? 0 : 1;
     }
     default:
       console.error(USAGE);

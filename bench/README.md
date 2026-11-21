@@ -88,6 +88,7 @@ npm run bench -- harness-selftest      # harness on a small fixture: wall-clock 
 npm run bench -- validate-set          # structure of benchmark-set.json (draft or frozen)
 npm run bench -- count-lines <dir>     # lines of the tracked files of a repository
 npm run bench -- measure <name> -- <command ...>   # run, time, sample, write bench/results
+npm run bench -- spike-parse <bench-id|all> [--runs 5]   # C001-T-014 parse spike, spikes/parse/RESULTS.md
 ```
 
 - `harness/run.ts`: `runCommand` (spawns a command; its tree is measured) and `runFunction`

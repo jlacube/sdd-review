@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["bench/**/*.ts"]
+  "include": ["bench/**/*.ts", "spikes/parse/**/*.ts"]
 }
