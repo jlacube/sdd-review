@@ -5,7 +5,7 @@ change: "CHG-001"
 phase: 20-plan
 title: Benchmark set, reference environment and measurement harness
 milestone: C001-M-01
-status: todo
+status: done
 depends_on: [C001-T-001, C001-T-002]
 implements: [C001-NFR-001, C001-NFR-005, C001-NFR-018]
 satisfies_ac: [C001-AC-102.1, C001-AC-505.1]
@@ -13,7 +13,7 @@ verified_by: [C001-TS-105, C001-TS-512]
 components: [C001-COMP-002, C001-COMP-011]
 risk_refs: []
 estimate: L
-report: { commit: null, completed_at: null, notes: null }
+report: { commit: 4a30704, completed_at: 2026-11-21, notes: "Set frozen 2026-11-21 at 4a30704: bench-ts 9884/264 (SDD CHG-042), bench-py 9117/273, bench-cs 9822/255, 15-18% existing-file share; refs class-validator, faker, FluentValidation, fd; harness selftest + validate-set green on 4 CI runners; reference machine = owner PC; PR at M-01 merge" }
 ---
 # C001-T-013 — Benchmark set, reference environment and measurement harness
 
