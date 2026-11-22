@@ -355,6 +355,8 @@ export class MemorySampler {
     let peak = { t: 0, bytes: 0, count: 0 };
     for (const sample of s) if (sample.bytes >= peak.bytes) peak = sample;
     let maxGap = 0;
+    let peakCount = 0;
+    for (const sample of s) if (sample.count > peakCount) peakCount = sample.count;
     for (let i = 1; i < s.length; i++) maxGap = Math.max(maxGap, s[i].t - s[i - 1].t);
     const meanGap = s.length > 1 ? (s[s.length - 1].t - s[0].t) / (s.length - 1) : 0;
     const step = Math.max(1, Math.ceil(s.length / this.maxSeriesPoints));
@@ -365,7 +367,8 @@ export class MemorySampler {
       intervalMs: this.intervalMs,
       sampleCount: s.length,
       peakResidentBytes: peak.bytes,
-      peakProcessCount: Math.max(0, ...s.map((x) => x.count)),
+      // A loop, not Math.max(...): a multi-hour run has too many samples for a spread argument list.
+      peakProcessCount: peakCount,
       peakAtMs: Math.round(peak.t),
       meanGapMs: Math.round(meanGap * 10) / 10,
       maxGapMs: Math.round(maxGap),

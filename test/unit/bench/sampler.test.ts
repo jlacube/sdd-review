@@ -102,6 +102,22 @@ describe('MemorySampler on the real operating system', () => {
     expect(stats.series.length).toBeGreaterThan(0);
   }, 90_000);
 
+  it('summarises a multi-hour run (more samples than a spread argument list takes)', () => {
+    const sampler = new MemorySampler({ rootPids: [] });
+    const samples = Array.from({ length: 300_000 }, (_, i) => ({
+      t: i * 100,
+      bytes: i % 977,
+      count: i % 13,
+    }));
+    (sampler as unknown as { samples: typeof samples }).samples = samples;
+    const stats = (
+      sampler as unknown as { stats: () => Awaited<ReturnType<MemorySampler['stop']>> }
+    ).stats();
+    expect(stats.sampleCount).toBe(300_000);
+    expect(stats.peakProcessCount).toBe(12);
+    expect(stats.peakResidentBytes).toBe(976);
+  });
+
   it('leaves out the processes outside the root tree', async () => {
     const sampler = new MemorySampler({ rootPids: [] });
     await sampler.start();

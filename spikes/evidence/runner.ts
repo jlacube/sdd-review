@@ -375,7 +375,7 @@ function mutationSummary(m: MutationReport): Record<string, unknown> {
   return Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'results'));
 }
 
-const maxOf = (xs: number[]) => (xs.length > 0 ? Math.max(...xs) : null);
+const maxOf = (xs: number[]) => (xs.length > 0 ? xs.reduce((a, b) => Math.max(a, b)) : null);
 
 function bundleSummary(records: readonly BundleCommandRecord[]): Record<string, unknown> {
   const states = [...new Set(records.map((r) => r.state))];
