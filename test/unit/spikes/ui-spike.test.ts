@@ -336,3 +336,50 @@ describe('C001-T-023 report', () => {
     expect(md).toContain('version 142.0, headed');
   });
 });
+
+describe('C001-T-023 settle check of a virtualised list', () => {
+  /** A scroll container stand-in: rows of 20 px from `firstRow`, an area of `height` px at y 100. */
+  function list(opts: {
+    count: number;
+    rendered: number;
+    firstRow?: number;
+    height: number;
+    scrollTop?: number;
+  }) {
+    const top = 100;
+    const scrollTop = opts.scrollTop ?? 0;
+    const first = opts.firstRow ?? 0;
+    const rows = Array.from({ length: opts.rendered }, (_, i) => ({
+      getBoundingClientRect: () => ({
+        top: top - scrollTop + (first + i) * 20,
+        bottom: top - scrollTop + (first + i + 1) * 20,
+      }),
+    }));
+    return {
+      querySelectorAll: () => rows,
+      getBoundingClientRect: () => ({ top }),
+      clientTop: 0,
+      scrollTop,
+      clientHeight: opts.height,
+      // A browser never reports a scrollHeight below clientHeight.
+      scrollHeight: Math.max(opts.height, opts.count * 20),
+      dataset: { count: String(opts.count) },
+    } as unknown as HTMLElement;
+  }
+
+  it('settles on a list shorter than its area once every row is rendered', async () => {
+    const { covered } = await import('../../../spikes/ui/app/timing.js');
+    expect(covered(list({ count: 12, rendered: 12, height: 800 }))).toBe(true);
+    expect(covered(list({ count: 0, rendered: 0, height: 800 }))).toBe(true);
+  });
+
+  it('settles on a long list only when the rendered rows span the visible area', async () => {
+    const { covered } = await import('../../../spikes/ui/app/timing.js');
+    expect(
+      covered(list({ count: 1000, rendered: 56, firstRow: 92, height: 800, scrollTop: 2000 })),
+    ).toBe(true);
+    expect(
+      covered(list({ count: 1000, rendered: 20, firstRow: 100, height: 800, scrollTop: 2000 })),
+    ).toBe(false);
+  });
+});

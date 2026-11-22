@@ -100,6 +100,9 @@ export function covered(container: HTMLElement | null): boolean {
   const contentBottom = top - container.scrollTop + container.scrollHeight;
   const bottom = Math.min(top + container.clientHeight, contentBottom);
   if (rows.length === 0) return container.dataset.count === '0';
+  // Every row rendered: the list covers what it can. scrollHeight is never below clientHeight, so
+  // without this a list shorter than its area never settled (5 s timeouts on short files).
+  if (rows.length >= Number(container.dataset.count)) return true;
   let minTop = Infinity;
   let maxBottom = -Infinity;
   for (const row of rows) {
